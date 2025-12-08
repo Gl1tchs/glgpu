@@ -28,7 +28,7 @@ set(SPIRV_REFLECT_FILES
 # ------------------------------------------------------------------------------
 # Target: glgpu
 # ------------------------------------------------------------------------------
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_SOURCE_DIR}/include/*.h" "${CMAKE_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/*.h" "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
 
 add_library(glgpu ${SOURCE_FILES} ${SPIRV_REFLECT_FILES})
 
@@ -49,7 +49,7 @@ target_link_libraries(glgpu
     ${Vulkan_LIBRARIES}
 )
 
-target_precompile_headers(glgpu PUBLIC ${CMAKE_SOURCE_DIR}/include/pch.h)
+target_precompile_headers(glgpu PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/pch.h)
 
 # ------------------------------------------------------------------------------
 # Target: testbed
