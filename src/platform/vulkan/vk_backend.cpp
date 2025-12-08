@@ -72,26 +72,22 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	if (!headless_mode) {
 #if defined(_WIN32)
 		// TODO! needs to be tested
-		VkWin32SurfaceCreateInfoKHR createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		VkWin32SurfaceCreateInfoKHR create_info = {};
+		create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 		// If user didn't provide HINSTANCE, we can get it for the current process
-		createInfo.hinstance = p_info.native_connection_handle
+		create_info.hinstance = p_info.native_connection_handle
 				? (HINSTANCE)p_info.native_connection_handle
 				: GetModuleHandle(nullptr);
-		createInfo.hwnd = (HWND)p_info.native_window_handle;
+		create_info.hwnd = (HWND)p_info.native_window_handle;
 
-		if (vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-			GL_ASSERT(false, "Failed to create Win32 Surface");
-		}
+		VK_CHECK(vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, &surface));
 #elif defined(__linux__)
-		VkXlibSurfaceCreateInfoKHR createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-		createInfo.dpy = (Display*)p_info.native_connection_handle;
-		createInfo.window = (Window)p_info.native_window_handle;
+		VkXlibSurfaceCreateInfoKHR create_info = {};
+		create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+		create_info.dpy = (Display*)p_info.native_connection_handle;
+		create_info.window = (Window)p_info.native_window_handle;
 
-		if (vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-			GL_ASSERT(false, "Failed to create X11 Surface");
-		}
+		VK_CHECK(vkCreateXlibSurfaceKHR(instance, &create_info, nullptr, &surface));
 #endif
 	} else {
 		surface = VK_NULL_HANDLE;
@@ -103,7 +99,7 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 					.set_required_features_13({
 							.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
 							.synchronization2 = true,
-							.dynamicRendering = true,
+							.dynamicRendering = !headless_mode, // only require in non-headless mode
 					})
 					.set_required_features_12({
 							.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -113,20 +109,28 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 					.set_required_features({
 							.sampleRateShading = true,
 							.depthBounds = true,
-					})
-					.add_required_extensions({
-							"VK_KHR_dynamic_rendering",
 					});
 
 	if (surface != VK_NULL_HANDLE) {
 		vkb_device_selector.set_surface(surface);
-		vkb_device_selector.add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		vkb_device_selector.add_required_extensions({
+				"VK_KHR_swapchain",
+				"VK_KHR_dynamic_rendering",
+		});
 	}
 
-	vkb::PhysicalDevice vkb_physical_device = vkb_device_selector.select().value();
+	const auto physical_device_res = vkb_device_selector.select();
+	if (!physical_device_res.has_value()) {
+		for (const auto& err : physical_device_res.detailed_failure_reasons()) {
+			GL_LOG_ERROR("[VULKAN] {}", err);
+		}
+		GL_ASSERT(false);
+	}
+
+	vkb::PhysicalDevice vkb_physical_device = physical_device_res.value();
 
 	// create the final vulkan device
-	vkb::DeviceBuilder vkb_device_builder{ vkb_physical_device };
+	vkb::DeviceBuilder vkb_device_builder(vkb_physical_device);
 	vkb::Device vkb_device = vkb_device_builder.build().value();
 
 	physical_device = vkb_device.physical_device;

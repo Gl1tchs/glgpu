@@ -6,10 +6,16 @@ project(glgpu)
 # ------------------------------------------------------------------------------
 option(GL_BUILD_TESTBED "Build sanbbox application" ON)
 option(GL_WITH_VULKAN "Enable vulkan backend" ON)
+option(GL_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (GL_ENABLE_POSITION_INDEPENDENT_CODE)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    set(VK_BOOTSTRAP_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
+endif()
 
 # ------------------------------------------------------------------------------
 # Dependencies
