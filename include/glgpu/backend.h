@@ -10,7 +10,7 @@ enum class RenderAPI {
 	VULKAN,
 };
 
-enum RenderBackendFeatureBits : uint32_t {
+enum RenderBackendRequiredFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
 	// BACKEND_FEATURE_COMPUTE_QUEUE
@@ -19,7 +19,7 @@ typedef uint32_t RenderBackendFeatureFlags;
 
 struct RenderBackendCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
-	RenderBackendFeatureFlags features = RENDER_BACKEND_FEATURE_NONE;
+	RenderBackendFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
 
 	// Windows HINSTANCE can be retrieved using winapi, but X11 display should be given here
 	void* native_connection_handle = nullptr;
@@ -35,6 +35,7 @@ enum class SwapchainAcquireError {
 enum class SurfaceCreateError {
 	NONE,
 	INVALID_COMPOSITOR,
+	SWAPCHAIN_NOT_SUPPORTED,
 };
 
 /**
@@ -48,13 +49,15 @@ public:
 
 	// Device
 
+	virtual void device_wait() = 0;
+
 	/**
 	 * @param p_connection_handle HINSTANCE for windows | Display for X11 etc.
 	 * @param p_window_handle HWND for windows | Window for X11 etc.
 	 */
 	virtual SurfaceCreateError attach_surface(void* p_connection_handle, void* p_window_handle) = 0;
 
-	virtual void device_wait() = 0;
+	virtual bool is_swapchain_supported() = 0;
 
 	virtual CommandQueue queue_get(QueueType p_type) = 0;
 

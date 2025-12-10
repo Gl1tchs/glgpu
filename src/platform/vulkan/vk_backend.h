@@ -22,9 +22,11 @@ public:
 
 	// Device
 
+	void device_wait() override;
+
 	SurfaceCreateError attach_surface(void* p_connection_handle, void* p_window_handle) override;
 
-	void device_wait() override;
+	bool is_swapchain_supported() override;
 
 	uint32_t get_max_msaa_samples() const override;
 
@@ -356,7 +358,7 @@ private:
 
 	QueueFamilyIndices _find_queue_families(VkPhysicalDevice p_device, bool p_needs_surface);
 
-	bool _check_device_extension_support(VkPhysicalDevice p_device, bool p_needs_swapchain);
+	bool _check_device_extension_support(VkPhysicalDevice p_device, const std::vector<const char*>& p_extensions);
 
 	bool _create_surface_platform_specific(void* p_connection, void* p_window);
 
@@ -393,6 +395,7 @@ private:
 	VkPhysicalDevice physical_device;
 	VkPhysicalDeviceProperties physical_device_properties;
 	VkPhysicalDeviceFeatures physical_device_features;
+	bool swapchain_supported;
 
 	VkDebugUtilsMessengerEXT debug_messenger;
 
