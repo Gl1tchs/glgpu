@@ -1,9 +1,10 @@
 #include "platform/vulkan/vk_backend.h"
 
 #include "glgpu/assert.h"
+#include "glgpu/backend.h"
+#include "glgpu/os.h"
 #include "platform/vulkan/vk_common.h"
 
-#include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -20,7 +21,14 @@
 
 namespace gl {
 
-inline static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
+const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+
+const std::vector<const char*> DEVICE_EXTENSIONS_REQUIRED = {
+	VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+	// Add other core extensions here if not promoted to core in 1.3
+};
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 		VkDebugUtilsMessageTypeFlagsEXT message_type,
 		const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
@@ -45,161 +53,253 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 		return;
 	}
 
-	s_initialized = true;
-
-	vkb::InstanceBuilder vkb_builder;
-	const auto vkb_instance_result = vkb_builder
-											 .set_app_name("glitch")
 #ifdef GL_DEBUG_BUILD
-											 .enable_validation_layers()
-											 .set_debug_callback(_vk_debug_callback)
+	if (!_check_validation_layer_support()) {
+		GL_LOG_WARNING("[VULKAN] Validation layers requested but not available!");
+	}
 #endif
-											 .require_api_version(1, 3, 0)
-											 .set_headless(p_info.headless_mode)
-											 .build();
 
-	if (!vkb_instance_result.has_value()) {
-		GL_ASSERT(false, "Unable to create Vulkan instance of version 1.3.0!");
+	VkApplicationInfo app_info = {};
+	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	app_info.pApplicationName = "Glitch Application";
+	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.pEngineName = "Glitch Engine";
+	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.apiVersion = VK_API_VERSION_1_3;
+
+	VkInstanceCreateInfo instance_info = {};
+	instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	instance_info.pApplicationInfo = &app_info;
+
+	// Get Extensions
+	std::vector<const char*> extensions;
+	extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+#if defined(_WIN32)
+	extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined(__linux__)
+	extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif
+
+#ifdef GL_DEBUG_BUILD
+	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
+
+	instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+	instance_info.ppEnabledExtensionNames = extensions.data();
+
+	// Validation Layers
+	VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {};
+#ifdef GL_DEBUG_BUILD
+	instance_info.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+	instance_info.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+
+	debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	debug_create_info.pfnUserCallback = _vk_debug_callback;
+
+	instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
+#else
+	instance_info.enabledLayerCount = 0;
+	instance_info.pNext = nullptr;
+#endif
+
+	if (vkCreateInstance(&instance_info, nullptr, &instance) != VK_SUCCESS) {
+		GL_ASSERT(false, "Failed to create Vulkan Instance");
 		return;
 	}
 
-	vkb::Instance vkb_instance = vkb_instance_result.value();
-
-	instance = vkb_instance.instance;
-	debug_messenger = vkb_instance.debug_messenger;
-
-	headless_mode = p_info.headless_mode;
-	if (!headless_mode) {
-#if defined(_WIN32)
-		// TODO! needs to be tested
-		VkWin32SurfaceCreateInfoKHR createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-		// If user didn't provide HINSTANCE, we can get it for the current process
-		createInfo.hinstance = p_info.native_connection_handle
-				? (HINSTANCE)p_info.native_connection_handle
-				: GetModuleHandle(nullptr);
-		createInfo.hwnd = (HWND)p_info.native_window_handle;
-
-		if (vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-			GL_ASSERT(false, "Failed to create Win32 Surface");
-		}
-#elif defined(__linux__)
-		VkXlibSurfaceCreateInfoKHR createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-		createInfo.dpy = (Display*)p_info.native_connection_handle;
-		createInfo.window = (Window)p_info.native_window_handle;
-
-		if (vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface) != VK_SUCCESS) {
-			GL_ASSERT(false, "Failed to create X11 Surface");
-		}
+#ifdef GL_DEBUG_BUILD
+	if (_create_debug_utils_messenger_ext(
+				instance, &debug_create_info, nullptr, &debug_messenger) != VK_SUCCESS) {
+		GL_LOG_WARNING("[VULKAN] Failed to set up debug messenger!");
+	}
 #endif
-	} else {
-		surface = VK_NULL_HANDLE;
-	}
 
-	vkb::PhysicalDeviceSelector vkb_device_selector =
-			vkb::PhysicalDeviceSelector(vkb_instance)
-					.set_minimum_version(1, 3)
-					.set_required_features_13({
-							.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-							.synchronization2 = true,
-							.dynamicRendering = true,
-					})
-					.set_required_features_12({
-							.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-							.descriptorIndexing = true,
-							.bufferDeviceAddress = true,
-					})
-					.set_required_features({
-							.sampleRateShading = true,
-							.depthBounds = true,
-					})
-					.add_required_extensions({
-							"VK_KHR_dynamic_rendering",
-					});
+	s_initialized = true;
 
-	if (surface != VK_NULL_HANDLE) {
-		vkb_device_selector.set_surface(surface);
-		vkb_device_selector.add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	}
-
-	vkb::PhysicalDevice vkb_physical_device = vkb_device_selector.select().value();
-
-	// create the final vulkan device
-	vkb::DeviceBuilder vkb_device_builder{ vkb_physical_device };
-	vkb::Device vkb_device = vkb_device_builder.build().value();
-
-	physical_device = vkb_device.physical_device;
-
-	physical_device_properties = vkb_device.physical_device.properties;
-	physical_device_features = vkb_device.physical_device.features;
-
-	device = vkb_device.device;
-
-	graphics_queue.queue = vkb_device.get_queue(vkb::QueueType::graphics).value();
-	graphics_queue.queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
-
-	// Only try to find a present queue if a surface is defined
-	if (surface != VK_NULL_HANDLE) {
-		if (auto vkb_queue = vkb_device.get_queue(vkb::QueueType::present)) {
-			present_queue.queue = vkb_queue.value();
-			present_queue.queue_family =
-					vkb_device.get_queue_index(vkb::QueueType::present).value();
-		} else {
-			present_queue.queue = graphics_queue.queue;
-			present_queue.queue_family = graphics_queue.queue_family;
+	// Create surface if requested
+	bool swapchain_support_required = (p_info.features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT);
+	if (swapchain_support_required) {
+		if (!p_info.native_window_handle) {
+			GL_LOG_ERROR("[VULKAN] Swapchain requested but no window handle provided.");
+			return;
 		}
+
+		if (!_create_surface_platform_specific(
+					p_info.native_connection_handle, p_info.native_window_handle)) {
+			GL_ASSERT(false, "Failed to create Window Surface");
+			return;
+		}
+	}
+
+	// Pick GPU
+	uint32_t device_count = 0;
+	vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
+	if (device_count == 0) {
+		GL_ASSERT(false, "Failed to find GPUs with Vulkan support!");
+		return;
+	}
+	std::vector<VkPhysicalDevice> devices(device_count);
+	vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
+
+	VkPhysicalDevice selected_device = VK_NULL_HANDLE;
+	QueueFamilyIndices selected_indices;
+
+	for (const auto& dev : devices) {
+		QueueFamilyIndices indices = _find_queue_families(dev, swapchain_support_required);
+		bool extensions_supported =
+				_check_device_extension_support(dev, swapchain_support_required);
+
+		bool swapchain_adequate = false;
+		if (swapchain_support_required && extensions_supported) {
+			// Check surface formats and present modes
+			// TODO: implement the check
+			swapchain_adequate = true;
+		} else if (!swapchain_support_required) {
+			swapchain_adequate = true;
+		}
+
+		VkPhysicalDeviceFeatures2 supported_features_2 = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2
+		};
+
+		VkPhysicalDeviceVulkan12Features supported_12 = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
+		};
+
+		VkPhysicalDeviceVulkan13Features supported_13 = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
+		};
+
+		supported_features_2.pNext = &supported_12;
+		supported_12.pNext = &supported_13;
+		vkGetPhysicalDeviceFeatures2(dev, &supported_features_2);
+
+		if (indices.is_complete(swapchain_support_required) && extensions_supported &&
+				swapchain_adequate && supported_13.dynamicRendering &&
+				supported_13.synchronization2 && supported_12.bufferDeviceAddress) {
+			selected_device = dev;
+			selected_indices = indices;
+			break; // Found a suitable device
+		}
+	}
+
+	if (selected_device == VK_NULL_HANDLE) {
+		GL_ASSERT(false, "Failed to find a suitable GPU!");
+		return;
+	}
+
+	physical_device = selected_device;
+	vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
+	vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
+
+	// Create the logical device
+	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+	std::set<uint32_t> unique_queue_families = { selected_indices.graphics_family.value(),
+		selected_indices.transfer_family.value() };
+	if (swapchain_support_required) {
+		unique_queue_families.insert(selected_indices.present_family.value());
+	}
+
+	float queue_priority = 1.0f;
+	for (uint32_t queue_family : unique_queue_families) {
+		VkDeviceQueueCreateInfo queue_create_info = {};
+		queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queue_create_info.queueFamilyIndex = queue_family;
+		queue_create_info.queueCount = 1;
+		queue_create_info.pQueuePriorities = &queue_priority;
+		queue_create_infos.push_back(queue_create_info);
+	}
+
+	// Prepare Features Chain
+	VkPhysicalDeviceVulkan13Features features_13 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+		.synchronization2 = VK_TRUE,
+		.dynamicRendering = VK_TRUE,
+	};
+
+	VkPhysicalDeviceVulkan12Features features_12 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = &features_13,
+		.descriptorIndexing = VK_TRUE,
+		.bufferDeviceAddress = VK_TRUE,
+	};
+
+	VkPhysicalDeviceFeatures2 device_features2 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &features_12,
+        .features = {
+            .sampleRateShading = VK_TRUE,
+            .samplerAnisotropy = VK_TRUE,
+        },
+    };
+
+	VkDeviceCreateInfo device_create_info = {};
+	device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+	device_create_info.pQueueCreateInfos = queue_create_infos.data();
+	device_create_info.pNext = &device_features2;
+
+	std::vector<const char*> enabled_extensions = DEVICE_EXTENSIONS_REQUIRED;
+	if (swapchain_support_required) {
+		enabled_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	}
+	device_create_info.enabledExtensionCount = static_cast<uint32_t>(enabled_extensions.size());
+	device_create_info.ppEnabledExtensionNames = enabled_extensions.data();
+
+	if (vkCreateDevice(physical_device, &device_create_info, nullptr, &device) != VK_SUCCESS) {
+		GL_ASSERT(false, "Failed to create logical device!");
+		return;
+	}
+
+	// Retrieve Queues
+	vkGetDeviceQueue(device, selected_indices.graphics_family.value(), 0, &graphics_queue.queue);
+	graphics_queue.queue_family = selected_indices.graphics_family.value();
+
+	vkGetDeviceQueue(device, selected_indices.transfer_family.value(), 0, &transfer_queue.queue);
+	transfer_queue.queue_family = selected_indices.transfer_family.value();
+
+	vkGetDeviceQueue(device, selected_indices.compute_family.value(), 0, &compute_queue.queue);
+	compute_queue.queue_family = selected_indices.compute_family.value();
+
+	if (swapchain_support_required) {
+		vkGetDeviceQueue(device, selected_indices.present_family.value(), 0, &present_queue.queue);
+		present_queue.queue_family = selected_indices.present_family.value();
 	} else {
+		// Fallback or unused
 		present_queue.queue = graphics_queue.queue;
 		present_queue.queue_family = graphics_queue.queue_family;
 	}
 
-	if (auto vkb_queue = vkb_device.get_queue(vkb::QueueType::transfer)) {
-		transfer_queue.queue = vkb_queue.value();
-		transfer_queue.queue_family = vkb_device.get_queue_index(vkb::QueueType::transfer).value();
-	} else {
-		transfer_queue.queue = graphics_queue.queue;
-		transfer_queue.queue_family = graphics_queue.queue_family;
-	}
-
+	// Cleanup
 	deletion_queue.push_function([this]() {
-		// destroy the window surface if exists
 		if (surface != VK_NULL_HANDLE) {
 			vkDestroySurfaceKHR(instance, surface, nullptr);
 		}
-
 		vkDestroyDevice(device, nullptr);
-
-		vkb::destroy_debug_utils_messenger(instance, debug_messenger, nullptr);
+#ifdef GL_DEBUG_BUILD
+		_destroy_debug_utils_messenger_ext(instance, debug_messenger, nullptr);
+#endif
 		vkDestroyInstance(instance, nullptr);
 	});
 
+	// VMA Setup
 	VmaAllocatorCreateInfo allocator_info = {};
 	allocator_info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-	allocator_info.physicalDevice = vkb_physical_device;
+	allocator_info.physicalDevice = physical_device;
 	allocator_info.device = device;
 	allocator_info.instance = instance;
-
+	allocator_info.vulkanApiVersion = VK_API_VERSION_1_3;
 	vmaCreateAllocator(&allocator_info, &allocator);
 
-	deletion_queue.push_function([this]() {
-		while (small_allocs_pools.size()) {
-			std::unordered_map<uint32_t, VmaPool>::iterator e = small_allocs_pools.begin();
-			vmaDestroyPool(allocator, e->second);
-			small_allocs_pools.erase(e);
-		}
-		vmaDestroyAllocator(allocator);
-	});
+	deletion_queue.push_function([this]() { vmaDestroyAllocator(allocator); });
 
-#ifndef GL_DIST_BUILD
-	// inform user about the chosen device
-	GL_LOG_INFO("[VULKAN] Vulkan Initialized:");
-	GL_LOG_INFO("[VULKAN] Device: {}", physical_device_properties.deviceName);
-	GL_LOG_INFO("[VULKAN] API: {}.{}.{}", VK_VERSION_MAJOR(physical_device_properties.apiVersion),
-			VK_VERSION_MINOR(physical_device_properties.apiVersion),
-			VK_VERSION_PATCH(physical_device_properties.apiVersion));
-#endif
-
+	// Init commands
 	imm_transfer.fence = fence_create();
 	imm_transfer.command_pool = command_pool_create((CommandQueue)&transfer_queue);
 	imm_transfer.command_buffer = command_pool_allocate(imm_transfer.command_pool);
@@ -216,18 +316,33 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 		command_pool_free(imm_graphics.command_pool);
 	});
 
-	deletion_queue.push_function([this]() {
-		for (const auto& pools : descriptor_set_pools) {
-			for (const auto& pool : pools.second) {
-				vkDestroyDescriptorPool(device, pool.first, nullptr);
-			}
-		}
-	});
+#ifndef GL_DIST_BUILD
+	GL_LOG_INFO("[VULKAN] Vulkan Initialized:");
+	GL_LOG_INFO("[VULKAN] Device: {}", physical_device_properties.deviceName);
+	GL_LOG_INFO("[VULKAN] API: {}.{}.{}", VK_VERSION_MAJOR(physical_device_properties.apiVersion),
+			VK_VERSION_MINOR(physical_device_properties.apiVersion),
+			VK_VERSION_PATCH(physical_device_properties.apiVersion));
+#endif
 }
 
 VulkanRenderBackend::~VulkanRenderBackend() {
 	deletion_queue.flush();
 	s_initialized = false;
+}
+
+SurfaceCreateError VulkanRenderBackend::attach_surface(
+		void* p_connection_handle, void* p_window_handle) {
+	if (surface != VK_NULL_HANDLE) {
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+	}
+
+	if (_create_surface_platform_specific(p_connection_handle, p_window_handle)) {
+		// TODO: changing surface after device creation might be invalid if the device
+		// queue doesn't support the new surface
+		return SurfaceCreateError::NONE;
+	}
+
+	return SurfaceCreateError::INVALID_COMPOSITOR;
 }
 
 void VulkanRenderBackend::device_wait() { vkDeviceWaitIdle(device); }
@@ -252,6 +367,133 @@ uint32_t VulkanRenderBackend::get_max_msaa_samples() const {
 	}
 
 	return 1;
+}
+
+bool VulkanRenderBackend::_check_validation_layer_support() {
+	uint32_t layer_count;
+	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+
+	std::vector<VkLayerProperties> available_layers(layer_count);
+	vkEnumerateInstanceLayerProperties(&layer_count, available_layers.data());
+
+	for (const char* layer_name : VALIDATION_LAYERS) {
+		bool layer_found = false;
+		for (const auto& layer_properties : available_layers) {
+			if (strcmp(layer_name, layer_properties.layerName) == 0) {
+				layer_found = true;
+				break;
+			}
+		}
+		if (!layer_found) {
+			return false;
+		}
+	}
+	return true;
+}
+
+VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_families(
+		VkPhysicalDevice p_device, bool p_needs_surface) {
+	QueueFamilyIndices indices;
+	uint32_t queue_family_count = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(p_device, &queue_family_count, nullptr);
+	std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(p_device, &queue_family_count, queue_families.data());
+
+	int i = 0;
+	for (const auto& queue_family : queue_families) {
+		if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			indices.graphics_family = i;
+		}
+
+		if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+			// Prefer a distinct transfer queue if possible, but for now just taking first found
+			if (!indices.transfer_family.has_value()) {
+				indices.transfer_family = i;
+			}
+		}
+
+		if (queue_family.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			indices.compute_family = i;
+		}
+
+		if (p_needs_surface && surface != VK_NULL_HANDLE) {
+			VkBool32 present_support = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(p_device, i, surface, &present_support);
+			if (present_support) {
+				indices.present_family = i;
+			}
+		}
+
+		if (indices.is_complete(p_needs_surface)) {
+			break;
+		}
+
+		i++;
+	}
+	return indices;
+}
+
+bool VulkanRenderBackend::_check_device_extension_support(
+		VkPhysicalDevice p_device, bool p_needs_swapchain) {
+	uint32_t extension_count;
+	vkEnumerateDeviceExtensionProperties(p_device, nullptr, &extension_count, nullptr);
+	std::vector<VkExtensionProperties> available_extensions(extension_count);
+	vkEnumerateDeviceExtensionProperties(
+			p_device, nullptr, &extension_count, available_extensions.data());
+
+	std::set<std::string> required_extensions(
+			DEVICE_EXTENSIONS_REQUIRED.begin(), DEVICE_EXTENSIONS_REQUIRED.end());
+	if (p_needs_swapchain) {
+		required_extensions.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	}
+
+	for (const auto& extension : available_extensions) {
+		required_extensions.erase(extension.extensionName);
+	}
+
+	return required_extensions.empty();
+}
+
+bool VulkanRenderBackend::_create_surface_platform_specific(void* p_connection, void* p_window) {
+#if defined(_WIN32)
+	VkWin32SurfaceCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	createInfo.hinstance = p_connection ? (HINSTANCE)p_connection : GetModuleHandle(nullptr);
+	createInfo.hwnd = (HWND)p_window;
+	return vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS;
+#elif defined(__linux__)
+	// TODO: wayland support
+	VkXlibSurfaceCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+	createInfo.dpy = (Display*)p_connection;
+	createInfo.window = (Window)p_window;
+	return vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS;
+#else
+	return false;
+#endif
+}
+
+VkResult VulkanRenderBackend::_create_debug_utils_messenger_ext(VkInstance p_instance,
+		const VkDebugUtilsMessengerCreateInfoEXT* p_info, const VkAllocationCallbacks* p_allocator,
+		VkDebugUtilsMessengerEXT* p_debug_messenger) {
+	PFN_vkCreateDebugUtilsMessengerEXT func =
+			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+					p_instance, "vkCreateDebugUtilsMessengerEXT");
+	if (func) {
+		return func(p_instance, p_info, p_allocator, p_debug_messenger);
+	} else {
+		return VK_ERROR_EXTENSION_NOT_PRESENT;
+	}
+}
+
+void VulkanRenderBackend::_destroy_debug_utils_messenger_ext(VkInstance p_instance,
+		VkDebugUtilsMessengerEXT p_debug_messenger, const VkAllocationCallbacks* p_allocator) {
+	PFN_vkDestroyDebugUtilsMessengerEXT func =
+			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+					p_instance, "vkDestroyDebugUtilsMessengerEXT");
+	if (func) {
+		func(p_instance, p_debug_messenger, p_allocator);
+	}
 }
 
 } //namespace gl

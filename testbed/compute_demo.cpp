@@ -18,14 +18,13 @@ std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 }
 
 int main(void) {
-	RenderBackendCreateInfo info{
-		.headless_mode = true, // No window needed
+	RenderBackendCreateInfo info = {
+		.features = gl::RENDER_BACKEND_FEATURE_NONE,
 	};
 
 	auto backend = RenderBackend::create(info);
 	GL_LOG_INFO("Headless backend initialized.");
 
-	// --- 2. Create Buffers ---
 	// We will process 1024 floats
 	const uint32_t element_count = 1024;
 	const uint64_t buffer_size = element_count * sizeof(float);

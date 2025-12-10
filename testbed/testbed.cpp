@@ -27,7 +27,7 @@ int main(void) {
 	}
 
 	RenderBackendCreateInfo info{
-		.headless_mode = false,
+		.features = RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT,
 	};
 
 	SDL_SysWMinfo wm_info;

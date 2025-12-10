@@ -18,8 +18,6 @@ find_package(Vulkan REQUIRED)
 
 set(VENDOR_DIR ${CMAKE_CURRENT_LIST_DIR}/external)
 
-add_subdirectory(${VENDOR_DIR}/vk-bootstrap)
-
 set(SPIRV_REFLECT_FILES
     "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.h"
     "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp"
@@ -38,14 +36,12 @@ target_include_directories(glgpu
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${VENDOR_DIR}/SPIRV-Reflect
-    ${VENDOR_DIR}/vk-bootstrap/src
     ${VENDOR_DIR}/vma
     ${Vulkan_INCLUDE_DIRS}
 )
 
 target_link_libraries(glgpu
     PRIVATE
-    vk-bootstrap::vk-bootstrap
     ${Vulkan_LIBRARIES}
 )
 

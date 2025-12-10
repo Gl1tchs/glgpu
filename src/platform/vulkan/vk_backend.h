@@ -9,6 +9,7 @@
 
 namespace gl {
 
+// Sanity checks
 static_assert(sizeof(ImageSubresourceLayers) == sizeof(VkImageSubresourceLayers));
 static_assert(sizeof(ImageResolve) == sizeof(VkImageResolve));
 static_assert(sizeof(BufferCopyRegion) == sizeof(VkBufferCopy));
@@ -20,6 +21,8 @@ public:
 	virtual ~VulkanRenderBackend();
 
 	// Device
+
+	SurfaceCreateError attach_surface(void* p_connection_handle, void* p_window_handle) override;
 
 	void device_wait() override;
 
@@ -332,6 +335,40 @@ public:
 			uint32_t p_level_count = GL_REMAINING_MIP_LEVELS) override;
 
 private:
+	// Vulkan helpers
+
+	bool _check_validation_layer_support();
+
+	struct QueueFamilyIndices {
+		std::optional<uint32_t> graphics_family;
+		std::optional<uint32_t> present_family;
+		std::optional<uint32_t> transfer_family;
+		std::optional<uint32_t> compute_family;
+
+		bool is_complete(bool swapchain_enabled) {
+			bool basic = graphics_family.has_value() && transfer_family.has_value();
+			if (swapchain_enabled) {
+				return basic && present_family.has_value();
+			}
+			return basic;
+		}
+	};
+
+	QueueFamilyIndices _find_queue_families(VkPhysicalDevice p_device, bool p_needs_surface);
+
+	bool _check_device_extension_support(VkPhysicalDevice p_device, bool p_needs_swapchain);
+
+	bool _create_surface_platform_specific(void* p_connection, void* p_window);
+
+	static VkResult _create_debug_utils_messenger_ext(VkInstance p_instance,
+			const VkDebugUtilsMessengerCreateInfoEXT* p_info,
+			const VkAllocationCallbacks* p_allocator, VkDebugUtilsMessengerEXT* p_debug_messenger);
+
+	static void _destroy_debug_utils_messenger_ext(VkInstance p_instance,
+			VkDebugUtilsMessengerEXT p_debug_messenger, const VkAllocationCallbacks* p_allocator);
+
+	// API Helpers
+
 	Image _image_create(VkFormat p_format, VkExtent3D p_size, VkImageUsageFlags p_usage,
 			bool p_mipmapped, VkSampleCountFlagBits p_samples);
 
@@ -357,14 +394,14 @@ private:
 	VkPhysicalDeviceProperties physical_device_properties;
 	VkPhysicalDeviceFeatures physical_device_features;
 
-	VkSurfaceKHR surface;
-	bool headless_mode = false;
-
 	VkDebugUtilsMessengerEXT debug_messenger;
 
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+
 	VulkanQueue graphics_queue;
-	VulkanQueue present_queue;
 	VulkanQueue transfer_queue;
+	VulkanQueue present_queue;
+	VulkanQueue compute_queue;
 
 	static const uint32_t SMALL_ALLOCATION_MAX_SIZE = 4096;
 
