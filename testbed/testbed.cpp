@@ -30,25 +30,31 @@ int main(void) {
 		.required_features = RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT,
 	};
 
+	auto backend = RenderBackend::create(info);
+
+	void* window_handle = nullptr;
+	void* connection_handle = nullptr;
+
 	SDL_SysWMinfo wm_info;
 	SDL_VERSION(&wm_info.version);
 	if (SDL_GetWindowWMInfo(window, &wm_info)) {
 		if (wm_info.subsystem == SDL_SYSWM_X11) {
 #ifdef __linux
-			info.native_connection_handle = wm_info.info.x11.display;
-			info.native_window_handle = (void*)wm_info.info.x11.window;
+			connection_handle = wm_info.info.x11.display;
+			window_handle = (void*)wm_info.info.x11.window;
 #endif
 		} else if (wm_info.subsystem == SDL_SYSWM_WINDOWS) {
 #ifdef _WIN32
-			info.native_window_handle = (void*)wm_info.info.win.window;
-			info.native_connection_handle = (void*)wm_info.info.win.hinstance; // Usually
+			window_handle = (void*)wm_info.info.win.window;
+			connection_handle = (void*)wm_info.info.win.hinstance; // Usually
 #endif
 		} else {
 			GL_ASSERT(false, "Only X11 and windows is supported.");
 		}
 	}
 
-	auto backend = RenderBackend::create(info);
+	GL_ASSERT(backend->attach_surface(connection_handle, window_handle) ==
+			gl::SurfaceCreateError::NONE);
 
 	CommandQueue graphics_queue = backend->queue_get(QueueType::GRAPHICS);
 	CommandQueue present_queue = backend->queue_get(QueueType::PRESENT);

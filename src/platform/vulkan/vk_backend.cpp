@@ -124,12 +124,9 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	// Create surface if requested
 	bool swapchain_support_required =
 			(p_info.required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT);
-	if (swapchain_support_required) {
-		if (!p_info.native_window_handle) {
-			GL_LOG_ERROR("[VULKAN] Swapchain requested but no window handle provided.");
-			return;
-		}
 
+	// Try to create a surface
+	if (swapchain_support_required && p_info.native_window_handle) {
 		if (!_create_surface_platform_specific(
 					p_info.native_connection_handle, p_info.native_window_handle)) {
 			GL_ASSERT(false, "Failed to create Window Surface");
@@ -150,10 +147,16 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	VkPhysicalDevice selected_device = VK_NULL_HANDLE;
 	QueueFamilyIndices selected_indices;
 
+	std::vector<const char*> required_extensions(
+			DEVICE_EXTENSIONS_REQUIRED.begin(), DEVICE_EXTENSIONS_REQUIRED.end());
+	if (swapchain_support_required) {
+		required_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	}
+
 	for (const auto& dev : devices) {
 		QueueFamilyIndices indices = _find_queue_families(dev, p_info.required_features);
 		bool extensions_supported =
-				_check_device_extension_support(dev, swapchain_support_required);
+				_check_device_extension_support(dev, DEVICE_EXTENSIONS_REQUIRED);
 
 		bool swapchain_adequate = false;
 		if (swapchain_support_required && extensions_supported) {
@@ -197,9 +200,13 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 		return;
 	}
 
+	// Bookkeep
 	physical_device = selected_device;
 	vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
 	vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
+
+	swapchain_supported =
+			_check_device_extension_support(physical_device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 
 	// Create the logical device
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
@@ -249,7 +256,8 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	device_create_info.pNext = &device_features2;
 
 	std::vector<const char*> enabled_extensions = DEVICE_EXTENSIONS_REQUIRED;
-	if (swapchain_support_required) {
+	// enable swapchain extension if required or available
+	if (swapchain_support_required || swapchain_supported) {
 		enabled_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	}
 	device_create_info.enabledExtensionCount = static_cast<uint32_t>(enabled_extensions.size());
@@ -335,6 +343,10 @@ VulkanRenderBackend::~VulkanRenderBackend() {
 
 SurfaceCreateError VulkanRenderBackend::attach_surface(
 		void* p_connection_handle, void* p_window_handle) {
+	if (!is_swapchain_supported()) {
+		return SurfaceCreateError::SWAPCHAIN_NOT_SUPPORTED;
+	}
+
 	if (surface != VK_NULL_HANDLE) {
 		vkDestroySurfaceKHR(instance, surface, nullptr);
 	}
@@ -347,6 +359,8 @@ SurfaceCreateError VulkanRenderBackend::attach_surface(
 
 	return SurfaceCreateError::INVALID_COMPOSITOR;
 }
+
+bool VulkanRenderBackend::is_swapchain_supported() { return swapchain_supported; }
 
 void VulkanRenderBackend::device_wait() { vkDeviceWaitIdle(device); }
 
@@ -445,19 +459,14 @@ VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_familie
 }
 
 bool VulkanRenderBackend::_check_device_extension_support(
-		VkPhysicalDevice p_device, bool p_needs_swapchain) {
+		VkPhysicalDevice p_device, const std::vector<const char*>& p_extensions) {
 	uint32_t extension_count;
 	vkEnumerateDeviceExtensionProperties(p_device, nullptr, &extension_count, nullptr);
 	std::vector<VkExtensionProperties> available_extensions(extension_count);
 	vkEnumerateDeviceExtensionProperties(
 			p_device, nullptr, &extension_count, available_extensions.data());
 
-	std::set<std::string> required_extensions(
-			DEVICE_EXTENSIONS_REQUIRED.begin(), DEVICE_EXTENSIONS_REQUIRED.end());
-	if (p_needs_swapchain) {
-		required_extensions.insert(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-	}
-
+	std::set<std::string> required_extensions(p_extensions.begin(), p_extensions.end());
 	for (const auto& extension : available_extensions) {
 		required_extensions.erase(extension.extensionName);
 	}
@@ -466,6 +475,10 @@ bool VulkanRenderBackend::_check_device_extension_support(
 }
 
 bool VulkanRenderBackend::_create_surface_platform_specific(void* p_connection, void* p_window) {
+	if (!p_window) {
+		return false;
+	}
+
 #if defined(_WIN32)
 	VkWin32SurfaceCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -473,6 +486,10 @@ bool VulkanRenderBackend::_create_surface_platform_specific(void* p_connection, 
 	createInfo.hwnd = (HWND)p_window;
 	return vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS;
 #elif defined(__linux__)
+	if (!p_connection) {
+		return false;
+	}
+
 	// TODO: wayland support
 	VkXlibSurfaceCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
