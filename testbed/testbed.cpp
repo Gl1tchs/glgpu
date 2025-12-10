@@ -27,7 +27,7 @@ int main(void) {
 	}
 
 	RenderBackendCreateInfo info{
-		.features = RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT,
+		.required_features = RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT,
 	};
 
 	SDL_SysWMinfo wm_info;

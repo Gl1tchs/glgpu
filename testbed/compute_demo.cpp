@@ -19,7 +19,7 @@ std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 
 int main(void) {
 	RenderBackendCreateInfo info = {
-		.features = gl::RENDER_BACKEND_FEATURE_NONE,
+		.required_features = gl::RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
 	auto backend = RenderBackend::create(info);

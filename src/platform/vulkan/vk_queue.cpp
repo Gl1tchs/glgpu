@@ -14,6 +14,8 @@ CommandQueue VulkanRenderBackend::queue_get(QueueType p_type) {
 		case QueueType::TRANSFER:
 			queue = &transfer_queue;
 			break;
+		case QueueType::COMPUTE:
+			queue = &compute_queue;
 		default:
 			queue = &graphics_queue;
 			break;
@@ -22,9 +24,8 @@ CommandQueue VulkanRenderBackend::queue_get(QueueType p_type) {
 	return CommandQueue(queue);
 }
 
-void VulkanRenderBackend::queue_submit(CommandQueue p_queue,
-		CommandBuffer p_cmd, Fence p_fence, Semaphore p_wait_semaphore,
-		Semaphore p_signal_semaphore) {
+void VulkanRenderBackend::queue_submit(CommandQueue p_queue, CommandBuffer p_cmd, Fence p_fence,
+		Semaphore p_wait_semaphore, Semaphore p_signal_semaphore) {
 	VkCommandBufferSubmitInfo cmd_info = {};
 	cmd_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
 	cmd_info.pNext = nullptr;
@@ -34,17 +35,15 @@ void VulkanRenderBackend::queue_submit(CommandQueue p_queue,
 	VkSemaphoreSubmitInfo wait_semaphore_info = {};
 	wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
 	wait_semaphore_info.semaphore = (VkSemaphore)p_wait_semaphore;
-	wait_semaphore_info.stageMask =
-			VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO get as
-															 // parameter
+	wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO get as
+																					 // parameter
 	wait_semaphore_info.deviceIndex = 0;
 	wait_semaphore_info.value = 1;
 
 	VkSemaphoreSubmitInfo signal_semaphore_info = {};
 	signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
 	signal_semaphore_info.semaphore = (VkSemaphore)p_signal_semaphore;
-	signal_semaphore_info.stageMask =
-			VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT; // TODO get as parameter
+	signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT; // TODO get as parameter
 	signal_semaphore_info.deviceIndex = 0;
 	signal_semaphore_info.value = 1;
 
@@ -58,8 +57,7 @@ void VulkanRenderBackend::queue_submit(CommandQueue p_queue,
 	submit_info.waitSemaphoreInfoCount = p_wait_semaphore == nullptr ? 0 : 1;
 	submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
 
-	submit_info.signalSemaphoreInfoCount =
-			p_signal_semaphore == nullptr ? 0 : 1;
+	submit_info.signalSemaphoreInfoCount = p_signal_semaphore == nullptr ? 0 : 1;
 	submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
 
 	VulkanQueue* queue = (VulkanQueue*)p_queue;
@@ -70,8 +68,8 @@ void VulkanRenderBackend::queue_submit(CommandQueue p_queue,
 	VK_CHECK(vkQueueSubmit2(queue->queue, 1, &submit_info, (VkFence)p_fence));
 }
 
-bool VulkanRenderBackend::queue_present(CommandQueue p_queue,
-		Swapchain p_swapchain, Semaphore p_wait_semaphore) {
+bool VulkanRenderBackend::queue_present(
+		CommandQueue p_queue, Swapchain p_swapchain, Semaphore p_wait_semaphore) {
 	VulkanSwapchain* swapchain = (VulkanSwapchain*)p_swapchain;
 	VulkanQueue* queue = (VulkanQueue*)p_queue;
 

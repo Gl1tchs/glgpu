@@ -243,6 +243,7 @@ enum class QueueType {
 	GRAPHICS,
 	PRESENT,
 	TRANSFER,
+	COMPUTE,
 };
 
 enum class IndexType : uint32_t {

@@ -13,13 +13,13 @@ enum class RenderAPI {
 enum RenderBackendFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
-	// BACKEND_FEATURE_COMPUTE_QUEUE
+	RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x2,
 };
 typedef uint32_t RenderBackendFeatureFlags;
 
 struct RenderBackendCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
-	RenderBackendFeatureFlags features = RENDER_BACKEND_FEATURE_NONE;
+	RenderBackendFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
 
 	// Windows HINSTANCE can be retrieved using winapi, but X11 display should be given here
 	void* native_connection_handle = nullptr;

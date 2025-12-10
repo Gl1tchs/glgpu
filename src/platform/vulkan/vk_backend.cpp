@@ -2,7 +2,6 @@
 
 #include "glgpu/assert.h"
 #include "glgpu/backend.h"
-#include "glgpu/os.h"
 #include "platform/vulkan/vk_common.h"
 
 #include <vulkan/vulkan.h>
@@ -123,7 +122,8 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	s_initialized = true;
 
 	// Create surface if requested
-	bool swapchain_support_required = (p_info.features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT);
+	bool swapchain_support_required =
+			(p_info.required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT);
 	if (swapchain_support_required) {
 		if (!p_info.native_window_handle) {
 			GL_LOG_ERROR("[VULKAN] Swapchain requested but no window handle provided.");
@@ -151,7 +151,7 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	QueueFamilyIndices selected_indices;
 
 	for (const auto& dev : devices) {
-		QueueFamilyIndices indices = _find_queue_families(dev, swapchain_support_required);
+		QueueFamilyIndices indices = _find_queue_families(dev, p_info.required_features);
 		bool extensions_supported =
 				_check_device_extension_support(dev, swapchain_support_required);
 
@@ -180,8 +180,11 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 		supported_12.pNext = &supported_13;
 		vkGetPhysicalDeviceFeatures2(dev, &supported_features_2);
 
-		if (indices.is_complete(swapchain_support_required) && extensions_supported &&
-				swapchain_adequate && supported_13.dynamicRendering &&
+		const bool distinct_compute_queue_required =
+				p_info.required_features & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
+
+		if (indices.is_complete(swapchain_support_required, distinct_compute_queue_required) &&
+				extensions_supported && swapchain_adequate && supported_13.dynamicRendering &&
 				supported_13.synchronization2 && supported_12.bufferDeviceAddress) {
 			selected_device = dev;
 			selected_indices = indices;
@@ -392,7 +395,10 @@ bool VulkanRenderBackend::_check_validation_layer_support() {
 }
 
 VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_families(
-		VkPhysicalDevice p_device, bool p_needs_surface) {
+		VkPhysicalDevice p_device, RenderBackendFeatureFlags p_flags) {
+	const bool needs_surface = p_flags & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT;
+	const bool distinct_compute_queue = p_flags & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
+
 	QueueFamilyIndices indices;
 	uint32_t queue_family_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(p_device, &queue_family_count, nullptr);
@@ -413,10 +419,15 @@ VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_familie
 		}
 
 		if (queue_family.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-			indices.compute_family = i;
+			// Select a distinct queue if required
+			if (!distinct_compute_queue ||
+					(distinct_compute_queue &&
+							!(queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT))) {
+				indices.compute_family = i;
+			}
 		}
 
-		if (p_needs_surface && surface != VK_NULL_HANDLE) {
+		if (needs_surface && surface != VK_NULL_HANDLE) {
 			VkBool32 present_support = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(p_device, i, surface, &present_support);
 			if (present_support) {
@@ -424,7 +435,7 @@ VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_familie
 			}
 		}
 
-		if (indices.is_complete(p_needs_surface)) {
+		if (indices.is_complete(needs_surface, distinct_compute_queue)) {
 			break;
 		}
 

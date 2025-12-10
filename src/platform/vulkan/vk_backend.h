@@ -345,16 +345,15 @@ private:
 		std::optional<uint32_t> transfer_family;
 		std::optional<uint32_t> compute_family;
 
-		bool is_complete(bool swapchain_enabled) {
-			bool basic = graphics_family.has_value() && transfer_family.has_value();
-			if (swapchain_enabled) {
-				return basic && present_family.has_value();
-			}
-			return basic;
+		bool is_complete(bool p_swapchain_enabled, bool p_distinct_compute_queue) {
+			const bool basic = graphics_family.has_value() && transfer_family.has_value();
+			return basic && (p_swapchain_enabled ? present_family.has_value() : true) &&
+					(p_distinct_compute_queue ? compute_family.has_value() : true);
 		}
 	};
 
-	QueueFamilyIndices _find_queue_families(VkPhysicalDevice p_device, bool p_needs_surface);
+	QueueFamilyIndices _find_queue_families(
+			VkPhysicalDevice p_device, RenderBackendFeatureFlags p_flags);
 
 	bool _check_device_extension_support(VkPhysicalDevice p_device, bool p_needs_swapchain);
 
