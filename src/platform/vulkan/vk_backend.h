@@ -347,17 +347,31 @@ private:
 		std::optional<uint32_t> transfer_family;
 		std::optional<uint32_t> compute_family;
 
-		bool is_complete(bool p_swapchain_enabled, bool p_distinct_compute_queue) {
+		bool is_complete(bool p_surface_support, bool p_distinct_compute_queue) const {
 			const bool basic = graphics_family.has_value() && transfer_family.has_value();
-			return basic && (p_swapchain_enabled ? present_family.has_value() : true) &&
+			return basic && (p_surface_support ? present_family.has_value() : true) &&
 					(p_distinct_compute_queue ? compute_family.has_value() : true);
 		}
 	};
 
-	QueueFamilyIndices _find_queue_families(
-			VkPhysicalDevice p_device, RenderBackendFeatureFlags p_flags);
+	static uint32_t _rate_device_suitability(VkPhysicalDevice p_physical_device,
+			const std::vector<const char*>& p_required_extensions,
+			RenderBackendFeatureFlags p_required_features, VkSurfaceKHR p_surface = VK_NULL_HANDLE);
 
-	bool _check_device_extension_support(VkPhysicalDevice p_device, const std::vector<const char*>& p_extensions);
+	static QueueFamilyIndices _find_queue_families(VkPhysicalDevice p_device,
+			RenderBackendFeatureFlags p_flags, VkSurfaceKHR p_surface = VK_NULL_HANDLE);
+
+	static bool _check_device_extension_support(
+			VkPhysicalDevice p_device, const std::vector<const char*>& p_extensions);
+
+	struct SurfaceCapabilities {
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> present_modes;
+	};
+
+	static std::optional<SurfaceCapabilities> _check_surface_capabilities(
+			VkPhysicalDevice p_physical_device, VkSurfaceKHR p_surface);
 
 	bool _create_surface_platform_specific(void* p_connection, void* p_window);
 

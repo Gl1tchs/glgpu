@@ -17,6 +17,23 @@ if (GL_ENABLE_POSITION_INDEPENDENT_CODE)
     set(VK_BOOTSTRAP_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
 endif()
 
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/debug)
+    add_compile_definitions(GL_DEBUG_BUILD)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/release)
+    add_compile_definitions(GL_RELEASE_BUILD)
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/relwithdebinfo)
+    add_compile_definitions(GL_DEBUG_BUILD)
+    add_compile_definitions(GL_RELEASE_BUILD)
+elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/dist)
+    add_compile_definitions(GL_RELEASE_BUILD)
+    add_compile_definitions(GL_DIST_BUILD)
+endif()
+
 # ------------------------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------------------------
@@ -25,7 +42,6 @@ find_package(Vulkan REQUIRED)
 set(VENDOR_DIR ${CMAKE_CURRENT_LIST_DIR}/external)
 
 set(SPIRV_REFLECT_FILES
-    "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.h"
     "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp"
 )
 

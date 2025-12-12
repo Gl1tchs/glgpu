@@ -20,11 +20,12 @@
 
 namespace gl {
 
-const std::vector<const char*> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+const std::vector<const char*> VALIDATION_LAYERS = {
+	"VK_LAYER_KHRONOS_validation",
+};
 
 const std::vector<const char*> DEVICE_EXTENSIONS_REQUIRED = {
 	VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-	// Add other core extensions here if not promoted to core in 1.3
 };
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
@@ -121,12 +122,20 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 
 	s_initialized = true;
 
-	// Create surface if requested
-	bool swapchain_support_required =
-			(p_info.required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT);
+	const bool swapchain_support_required =
+			p_info.required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT;
+	const bool surface_support_required =
+			p_info.required_features & RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT;
+	const bool distinct_compute_queue_required =
+			(p_info.required_features & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT);
 
 	// Try to create a surface
-	if (swapchain_support_required && p_info.native_window_handle) {
+	if (surface_support_required && !p_info.native_window_handle) {
+		GL_ASSERT(false, "Surface support required but no window provided.");
+		return;
+	}
+
+	if ((swapchain_support_required || surface_support_required) && p_info.native_window_handle) {
 		if (!_create_surface_platform_specific(
 					p_info.native_connection_handle, p_info.native_window_handle)) {
 			GL_ASSERT(false, "Failed to create Window Surface");
@@ -144,76 +153,50 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	std::vector<VkPhysicalDevice> devices(device_count);
 	vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
 
-	VkPhysicalDevice selected_device = VK_NULL_HANDLE;
-	QueueFamilyIndices selected_indices;
-
 	std::vector<const char*> required_extensions(
 			DEVICE_EXTENSIONS_REQUIRED.begin(), DEVICE_EXTENSIONS_REQUIRED.end());
-	if (swapchain_support_required) {
+
+	// Add swapchain extension if requested
+	if (swapchain_support_required || surface_support_required) {
 		required_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	}
 
+	std::multimap<int, std::pair<VkPhysicalDevice, QueueFamilyIndices>> candidates;
 	for (const auto& dev : devices) {
-		QueueFamilyIndices indices = _find_queue_families(dev, p_info.required_features);
-		bool extensions_supported =
-				_check_device_extension_support(dev, DEVICE_EXTENSIONS_REQUIRED);
-
-		bool swapchain_adequate = false;
-		if (swapchain_support_required && extensions_supported) {
-			// Check surface formats and present modes
-			// TODO: implement the check
-			swapchain_adequate = true;
-		} else if (!swapchain_support_required) {
-			swapchain_adequate = true;
+		const QueueFamilyIndices indices =
+				_find_queue_families(dev, p_info.required_features, surface);
+		if (!indices.is_complete(surface_support_required, distinct_compute_queue_required)) {
+			continue;
 		}
 
-		VkPhysicalDeviceFeatures2 supported_features_2 = {
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2
-		};
-
-		VkPhysicalDeviceVulkan12Features supported_12 = {
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
-		};
-
-		VkPhysicalDeviceVulkan13Features supported_13 = {
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
-		};
-
-		supported_features_2.pNext = &supported_12;
-		supported_12.pNext = &supported_13;
-		vkGetPhysicalDeviceFeatures2(dev, &supported_features_2);
-
-		const bool distinct_compute_queue_required =
-				p_info.required_features & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
-
-		if (indices.is_complete(swapchain_support_required, distinct_compute_queue_required) &&
-				extensions_supported && swapchain_adequate && supported_13.dynamicRendering &&
-				supported_13.synchronization2 && supported_12.bufferDeviceAddress) {
-			selected_device = dev;
-			selected_indices = indices;
-			break; // Found a suitable device
-		}
+		const int score = _rate_device_suitability(
+				dev, required_extensions, p_info.required_features, surface);
+		candidates.insert(std::make_pair(score, std::make_pair(dev, indices)));
 	}
 
-	if (selected_device == VK_NULL_HANDLE) {
+	QueueFamilyIndices selected_indices;
+
+	// Select the device
+	if (candidates.rbegin()->first > 0) {
+		std::tie(physical_device, selected_indices) = candidates.rbegin()->second;
+
+		vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
+		vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
+
+		swapchain_supported = _check_device_extension_support(
+				physical_device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
+	} else {
 		GL_ASSERT(false, "Failed to find a suitable GPU!");
-		return;
 	}
-
-	// Bookkeep
-	physical_device = selected_device;
-	vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
-	vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
-
-	swapchain_supported =
-			_check_device_extension_support(physical_device, { VK_KHR_SWAPCHAIN_EXTENSION_NAME });
 
 	// Create the logical device
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-	std::set<uint32_t> unique_queue_families = { selected_indices.graphics_family.value(),
-		selected_indices.transfer_family.value() };
-	if (swapchain_support_required) {
-		unique_queue_families.insert(selected_indices.present_family.value());
+	std::set<uint32_t> unique_queue_families = {
+		*selected_indices.graphics_family,
+		*selected_indices.transfer_family,
+	};
+	if (selected_indices.present_family) {
+		unique_queue_families.insert(*selected_indices.present_family);
 	}
 
 	float queue_priority = 1.0f;
@@ -278,14 +261,8 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	vkGetDeviceQueue(device, selected_indices.compute_family.value(), 0, &compute_queue.queue);
 	compute_queue.queue_family = selected_indices.compute_family.value();
 
-	if (swapchain_support_required) {
-		vkGetDeviceQueue(device, selected_indices.present_family.value(), 0, &present_queue.queue);
-		present_queue.queue_family = selected_indices.present_family.value();
-	} else {
-		// Fallback or unused
-		present_queue.queue = graphics_queue.queue;
-		present_queue.queue_family = graphics_queue.queue_family;
-	}
+	vkGetDeviceQueue(device, selected_indices.present_family.value(), 0, &present_queue.queue);
+	present_queue.queue_family = selected_indices.present_family.value();
 
 	// Cleanup
 	deletion_queue.push_function([this]() {
@@ -408,9 +385,72 @@ bool VulkanRenderBackend::_check_validation_layer_support() {
 	return true;
 }
 
+uint32_t VulkanRenderBackend::_rate_device_suitability(VkPhysicalDevice p_physical_device,
+		const std::vector<const char*>& p_required_extensions,
+		RenderBackendFeatureFlags p_required_features, VkSurfaceKHR p_surface) {
+	if (!_check_device_extension_support(p_physical_device, p_required_extensions)) {
+		return 0;
+	}
+
+	bool swapchain_adequate = false;
+	if (p_required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT) {
+		if (p_surface) {
+			const SurfaceCapabilities capabilities =
+					_check_surface_capabilities(p_physical_device, p_surface).value();
+
+			const bool has_sufficient_formats = !capabilities.formats.empty();
+			const bool has_sufficient_present_modes = !capabilities.present_modes.empty();
+
+			swapchain_adequate = has_sufficient_present_modes && has_sufficient_formats;
+		} else {
+			swapchain_adequate = true;
+		}
+	} else {
+		swapchain_adequate = true;
+	}
+
+	if (!swapchain_adequate) {
+		return 0;
+	}
+
+	VkPhysicalDeviceVulkan13Features features_13 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+	};
+
+	VkPhysicalDeviceVulkan12Features features_12 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.pNext = &features_13,
+	};
+
+	VkPhysicalDeviceFeatures2 features = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		.pNext = &features_12,
+	};
+
+	vkGetPhysicalDeviceFeatures2(p_physical_device, &features);
+
+	if (!features_13.dynamicRendering || !features_13.synchronization2 ||
+			!features_12.bufferDeviceAddress || !features.features.geometryShader) {
+		return 0;
+	}
+
+	int score = 0;
+
+	VkPhysicalDeviceProperties properties = {};
+	vkGetPhysicalDeviceProperties(p_physical_device, &properties);
+
+	if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+		score += 1000;
+	}
+
+	score += properties.limits.maxImageDimension2D;
+
+	return score;
+}
+
 VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_families(
-		VkPhysicalDevice p_device, RenderBackendFeatureFlags p_flags) {
-	const bool needs_surface = p_flags & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT;
+		VkPhysicalDevice p_device, RenderBackendFeatureFlags p_flags, VkSurfaceKHR p_surface) {
+	const bool needs_surface = p_flags & RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT;
 	const bool distinct_compute_queue = p_flags & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
 
 	QueueFamilyIndices indices;
@@ -441,20 +481,20 @@ VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_familie
 			}
 		}
 
-		if (needs_surface && surface != VK_NULL_HANDLE) {
+		// Ensure surface support if any surface provided
+		// Fallback: If swapchain requested, p_required_extensions has to have
+		// VK_KHR_SWAPCHAIN_EXTENSION_NAME also swapchain support is already checked.
+		if (needs_surface && p_surface != VK_NULL_HANDLE) {
 			VkBool32 present_support = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(p_device, i, surface, &present_support);
+			vkGetPhysicalDeviceSurfaceSupportKHR(p_device, i, p_surface, &present_support);
 			if (present_support) {
 				indices.present_family = i;
 			}
 		}
 
-		if (indices.is_complete(needs_surface, distinct_compute_queue)) {
-			break;
-		}
-
 		i++;
 	}
+
 	return indices;
 }
 
@@ -474,28 +514,62 @@ bool VulkanRenderBackend::_check_device_extension_support(
 	return required_extensions.empty();
 }
 
+std::optional<VulkanRenderBackend::SurfaceCapabilities>
+VulkanRenderBackend::_check_surface_capabilities(
+		VkPhysicalDevice p_physical_device, VkSurfaceKHR p_surface) {
+	if (p_surface == VK_NULL_HANDLE) {
+		return std::nullopt;
+	}
+
+	SurfaceCapabilities capabilities;
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+			p_physical_device, p_surface, &capabilities.capabilities);
+
+	uint32_t format_count;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(p_physical_device, p_surface, &format_count, nullptr);
+
+	if (format_count != 0) {
+		capabilities.formats.resize(format_count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(
+				p_physical_device, p_surface, &format_count, capabilities.formats.data());
+	}
+
+	uint32_t present_mode_count;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(
+			p_physical_device, p_surface, &present_mode_count, nullptr);
+
+	if (present_mode_count != 0) {
+		capabilities.present_modes.resize(present_mode_count);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(p_physical_device, p_surface, &present_mode_count,
+				capabilities.present_modes.data());
+	}
+
+	return capabilities;
+}
+
 bool VulkanRenderBackend::_create_surface_platform_specific(void* p_connection, void* p_window) {
 	if (!p_window) {
 		return false;
 	}
 
 #if defined(_WIN32)
-	VkWin32SurfaceCreateInfoKHR createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	createInfo.hinstance = p_connection ? (HINSTANCE)p_connection : GetModuleHandle(nullptr);
-	createInfo.hwnd = (HWND)p_window;
-	return vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS;
+	VkWin32SurfaceCreateInfoKHR create_info = {};
+	create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	create_info.hinstance = p_connection ? (HINSTANCE)p_connection : GetModuleHandle(nullptr);
+	create_info.hwnd = (HWND)p_window;
+	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, &surface) == VK_SUCCESS;
 #elif defined(__linux__)
 	if (!p_connection) {
 		return false;
 	}
 
 	// TODO: wayland support
-	VkXlibSurfaceCreateInfoKHR createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-	createInfo.dpy = (Display*)p_connection;
-	createInfo.window = (Window)p_window;
-	return vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface) == VK_SUCCESS;
+	VkXlibSurfaceCreateInfoKHR create_info = {};
+	create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+	create_info.dpy = (Display*)p_connection;
+	create_info.window = (Window)p_window;
+	return vkCreateXlibSurfaceKHR(instance, &create_info, nullptr, &surface) == VK_SUCCESS;
 #else
 	return false;
 #endif

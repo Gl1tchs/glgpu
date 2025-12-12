@@ -13,12 +13,19 @@ enum class RenderAPI {
 enum RenderBackendRequiredFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
-	RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x2,
+	// Ensure window surface is supported
+	RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT = 0x2,
+	RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x4,
 };
 typedef uint32_t RenderBackendFeatureFlags;
 
 struct RenderBackendCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
+
+	// NOTE:
+	// If user wants to provide RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT
+	// `native_connection_handle` and `native_window_handle` must be set
+	// to make sure surface is created. Otherwise device would not be created.
 	RenderBackendFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
 
 	// Windows HINSTANCE can be retrieved using winapi, but X11 display should be given here
