@@ -20,7 +20,7 @@ void VulkanRenderBackend::fence_free(Fence p_fence) {
 }
 
 void VulkanRenderBackend::fence_wait(Fence p_fence) {
-	VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&p_fence, VK_TRUE, UINT64_MAX));
+ 	VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&p_fence, VK_TRUE, UINT64_MAX));
 }
 
 void VulkanRenderBackend::fence_reset(Fence p_fence) {

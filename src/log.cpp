@@ -2,14 +2,6 @@
 
 namespace gl {
 
-constexpr const char* LOG_LEVEL_TO_STR[] = {
-	[LOG_LEVEL_TRACE] = "TRACE",
-	[LOG_LEVEL_INFO] = "INFO",
-	[LOG_LEVEL_WARNING] = "WARNING",
-	[LOG_LEVEL_ERROR] = "ERROR",
-	[LOG_LEVEL_FATAL] = "FATAL",
-};
-
 constexpr const char* VERBOSITY_TO_COLOR[] = {
 	[LOG_LEVEL_TRACE] = "\x1B[1m", // None
 	[LOG_LEVEL_INFO] = "\x1B[32m", // Green
@@ -36,8 +28,7 @@ static std::string _get_timestamp() {
 
 void Logger::log(LogLevel p_level, const std::string& p_fmt) {
 	// Output to stdout
-	std::cout << VERBOSITY_TO_COLOR[p_level]
-			  << std::format("[{}] [{}] {}", _get_timestamp(), LOG_LEVEL_TO_STR[p_level], p_fmt)
+	std::cout << VERBOSITY_TO_COLOR[p_level] << std::format("[{}] {}", _get_timestamp(), p_fmt)
 			  << "\x1B[0m\n";
 }
 

@@ -215,7 +215,9 @@ void VulkanRenderBackend::swapchain_resize(
 	}
 
 	swapchain->initialized = true;
+#ifdef GL_DEBUG_BUILD
 	GL_LOG_TRACE("[VULKAN] Swapchain resized to {}x{}", extent.width, extent.height);
+#endif
 }
 
 size_t VulkanRenderBackend::swapchain_get_image_count(Swapchain p_swapchain) {
