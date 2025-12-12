@@ -198,6 +198,9 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	if (selected_indices.present_family) {
 		unique_queue_families.insert(*selected_indices.present_family);
 	}
+	if (selected_indices.compute_family) {
+		unique_queue_families.insert(*selected_indices.compute_family);
+	}
 
 	float queue_priority = 1.0f;
 	for (uint32_t queue_family : unique_queue_families) {
@@ -258,11 +261,21 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	vkGetDeviceQueue(device, selected_indices.transfer_family.value(), 0, &transfer_queue.queue);
 	transfer_queue.queue_family = selected_indices.transfer_family.value();
 
-	vkGetDeviceQueue(device, selected_indices.compute_family.value(), 0, &compute_queue.queue);
-	compute_queue.queue_family = selected_indices.compute_family.value();
+	if (selected_indices.compute_family) {
+		vkGetDeviceQueue(device, *selected_indices.compute_family, 0, &compute_queue.queue);
+		compute_queue.queue_family = *selected_indices.compute_family;
+	} else {
+		compute_queue.queue = graphics_queue.queue;
+		compute_queue.queue_family = graphics_queue.queue_family;
+	}
 
-	vkGetDeviceQueue(device, selected_indices.present_family.value(), 0, &present_queue.queue);
-	present_queue.queue_family = selected_indices.present_family.value();
+	if (selected_indices.present_family) {
+		vkGetDeviceQueue(device, *selected_indices.present_family, 0, &present_queue.queue);
+		present_queue.queue_family = *selected_indices.present_family;
+	} else {
+		present_queue.queue = graphics_queue.queue;
+		present_queue.queue_family = graphics_queue.queue_family;
+	}
 
 	// Cleanup
 	deletion_queue.push_function([this]() {
