@@ -339,7 +339,7 @@ Pipeline VulkanRenderBackend::render_pipeline_create(Shader p_shader,
 		PipelineRasterizationState p_rasterization_state,
 		PipelineMultisampleState p_multisample_state,
 		PipelineDepthStencilState p_depth_stencil_state, PipelineColorBlendState p_blend_state,
-		PipelineDynamicStateFlags p_dynamic_state, RenderingState p_rendering_state) {
+		PipelineDynamicStateFlags p_dynamic_state, PipelineRenderingState p_rendering_state) {
 	// Vertex info
 	const VkPipelineVertexInputStateCreateInfo vertex_info =
 			_get_vertex_input_state_info(this, p_shader, p_vertex_input_state);

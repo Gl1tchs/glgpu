@@ -535,12 +535,12 @@ struct PipelineColorBlendState {
 	Vec4f blend_constant;
 };
 
-struct RenderingState {
+struct PipelineRenderingState {
 	std::vector<DataFormat> color_attachments;
 	DataFormat depth_attachment;
 };
 
-enum PipelineDynamicStateFlags {
+enum PipelineDynamicStateBits {
 	DYNAMIC_STATE_LINE_WIDTH = (1 << 0),
 	DYNAMIC_STATE_DEPTH_BIAS = (1 << 1),
 	DYNAMIC_STATE_BLEND_CONSTANTS = (1 << 2),
@@ -549,6 +549,7 @@ enum PipelineDynamicStateFlags {
 	DYNAMIC_STATE_STENCIL_WRITE_MASK = (1 << 5),
 	DYNAMIC_STATE_STENCIL_REFERENCE = (1 << 6),
 };
+typedef uint32_t PipelineDynamicStateFlags;
 
 enum ShaderStageBits : uint32_t {
 	SHADER_STAGE_VERTEX = 0x00000001,
