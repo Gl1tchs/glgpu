@@ -460,8 +460,9 @@ void VulkanRenderBackend::command_copy_image_to_image(CommandBuffer p_cmd, Image
 void VulkanRenderBackend::command_transition_image(CommandBuffer p_cmd, Image p_image,
 		ImageLayout p_current_layout, ImageLayout p_new_layout, uint32_t p_base_mip_level,
 		uint32_t p_level_count) {
-	VkImageAspectFlags aspect_mask = (p_current_layout == ImageLayout::DEPTH_ATTACHMENT_OPTIMAL ||
-											 p_new_layout == ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+	VkImageAspectFlags aspect_mask =
+			(p_current_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+					p_new_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 			? VK_IMAGE_ASPECT_DEPTH_BIT
 			: VK_IMAGE_ASPECT_COLOR_BIT;
 

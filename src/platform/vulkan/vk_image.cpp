@@ -1,3 +1,4 @@
+#include "glgpu/types.h"
 #include "platform/vulkan/vk_backend.h"
 
 namespace gl {
@@ -26,8 +27,9 @@ static VkImageUsageFlags _gl_to_vk_image_usage_flags(ImageUsageFlags p_usage) {
 	return vk_usage;
 }
 
-Image VulkanRenderBackend::_image_create(VkFormat p_format, VkExtent3D p_size,
-		VkImageUsageFlags p_usage, bool p_mipmapped, VkSampleCountFlagBits p_samples) {
+VulkanRenderBackend::VulkanImage* VulkanRenderBackend::_image_create(VkFormat p_format,
+		VkExtent3D p_size, VkImageUsageFlags p_usage, bool p_mipmapped,
+		VkSampleCountFlagBits p_samples) {
 	const uint32_t mip_levels = p_mipmapped
 			? static_cast<uint32_t>(std::floor(std::log2(std::max(p_size.width, p_size.height)))) +
 					1
@@ -93,7 +95,7 @@ Image VulkanRenderBackend::_image_create(VkFormat p_format, VkExtent3D p_size,
 	image->image_format = p_format;
 	image->mip_levels = mip_levels;
 
-	return Image(image);
+	return image;
 }
 
 void VulkanRenderBackend::_generate_image_mipmaps(
@@ -124,16 +126,15 @@ void VulkanRenderBackend::_generate_image_mipmaps(
 			ImageLayout::SHADER_READ_ONLY_OPTIMAL, mip_levels - 1, 1);
 }
 
-Image VulkanRenderBackend::image_create(DataFormat p_format, Vec2u p_size, const void* p_data,
-		ImageUsageFlags p_usage, bool p_mipmapped, uint32_t p_samples) {
-	VkExtent3D vk_size = { p_size.x, p_size.y, 1 };
-	VkFormat vk_format = static_cast<VkFormat>(p_format);
+Image VulkanRenderBackend::image_create(const ImageCreateInfo& p_info) {
+	VkExtent3D vk_size = { p_info.size.x, p_info.size.y, 1 };
+	VkFormat vk_format = static_cast<VkFormat>(p_info.format);
 
-	VkImageUsageFlags vk_usage = _gl_to_vk_image_usage_flags(p_usage);
+	VkImageUsageFlags vk_usage = _gl_to_vk_image_usage_flags(p_info.usage);
 
-	if (!p_data) {
-		return _image_create(vk_format, vk_size, vk_usage, p_mipmapped,
-				static_cast<VkSampleCountFlagBits>(p_samples));
+	if (!p_info.data) {
+		return (Image)_image_create(vk_format, vk_size, vk_usage, p_info.mipmapped,
+				static_cast<VkSampleCountFlagBits>(p_info.samples));
 	} else {
 		const size_t data_size = vk_size.depth * vk_size.width * vk_size.height * 4;
 
@@ -142,7 +143,7 @@ Image VulkanRenderBackend::image_create(DataFormat p_format, Vec2u p_size, const
 
 		uint8_t* mapped_data = buffer_map(staging_buffer);
 		{
-			memcpy(mapped_data, p_data, data_size);
+			memcpy(mapped_data, p_info.data, data_size);
 		}
 		buffer_unmap(staging_buffer);
 
@@ -150,12 +151,12 @@ Image VulkanRenderBackend::image_create(DataFormat p_format, Vec2u p_size, const
 		image_usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-		Image new_image = _image_create(vk_format, vk_size, image_usage, p_mipmapped,
-				static_cast<VkSampleCountFlagBits>(p_samples));
+		Image new_image = (Image)_image_create(vk_format, vk_size, image_usage, p_info.mipmapped,
+				static_cast<VkSampleCountFlagBits>(p_info.samples));
 
 		command_immediate_submit(
-				[&](CommandBuffer p_cmd) {
-					command_transition_image(p_cmd, new_image, ImageLayout::UNDEFINED,
+				[&](CommandBuffer cmd) {
+					command_transition_image(cmd, new_image, ImageLayout::UNDEFINED,
 							ImageLayout::TRANSFER_DST_OPTIMAL);
 
 					BufferImageCopyRegion copy_region = {};
@@ -167,18 +168,17 @@ Image VulkanRenderBackend::image_create(DataFormat p_format, Vec2u p_size, const
 					copy_region.image_subresource.mip_level = 0;
 					copy_region.image_subresource.base_array_layer = 0;
 					copy_region.image_subresource.layer_count = 1;
-					copy_region.image_extent = { p_size.x, p_size.y, 1 };
+					copy_region.image_extent = { p_info.size.x, p_info.size.y, 1 };
 					copy_region.image_offset = { 0, 0, 0 };
 
 					// copy the buffer into the image
-					command_copy_buffer_to_image(p_cmd, staging_buffer, new_image, { copy_region });
+					command_copy_buffer_to_image(cmd, staging_buffer, new_image, { copy_region });
 
 					// generate mipmaps
-					if (p_mipmapped) {
-						_generate_image_mipmaps(p_cmd, new_image, p_size);
+					if (p_info.mipmapped) {
+						_generate_image_mipmaps(cmd, new_image, p_info.size);
 					} else {
-						command_transition_image(p_cmd, new_image,
-								ImageLayout::TRANSFER_DST_OPTIMAL,
+						command_transition_image(cmd, new_image, ImageLayout::TRANSFER_DST_OPTIMAL,
 								ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 					}
 				},
@@ -217,22 +217,20 @@ uint32_t VulkanRenderBackend::image_get_mip_levels(Image p_image) {
 	return image->mip_levels;
 }
 
-Sampler VulkanRenderBackend::sampler_create(ImageFiltering p_min_filter,
-		ImageFiltering p_mag_filter, ImageWrappingMode p_wrap_u, ImageWrappingMode p_wrap_v,
-		ImageWrappingMode p_wrap_w, uint32_t p_mip_levels) {
+Sampler VulkanRenderBackend::sampler_create(const SamplerCreateInfo& p_info) {
 	VkSamplerCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	create_info.minFilter = static_cast<VkFilter>(p_min_filter);
-	create_info.magFilter = static_cast<VkFilter>(p_mag_filter);
+	create_info.minFilter = static_cast<VkFilter>(p_info.min_filter);
+	create_info.magFilter = static_cast<VkFilter>(p_info.mag_filter);
 
-	create_info.addressModeU = static_cast<VkSamplerAddressMode>(p_wrap_u);
-	create_info.addressModeV = static_cast<VkSamplerAddressMode>(p_wrap_v);
-	create_info.addressModeW = static_cast<VkSamplerAddressMode>(p_wrap_w);
+	create_info.addressModeU = static_cast<VkSamplerAddressMode>(p_info.wrap_u);
+	create_info.addressModeV = static_cast<VkSamplerAddressMode>(p_info.wrap_v);
+	create_info.addressModeW = static_cast<VkSamplerAddressMode>(p_info.wrap_w);
 
-	if (p_mip_levels > 0) {
+	if (p_info.mip_levels > 0) {
 		create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 		create_info.minLod = 0.0f;
-		create_info.maxLod = static_cast<float>(p_mip_levels);
+		create_info.maxLod = static_cast<float>(p_info.mip_levels);
 		create_info.mipLodBias = 0.0f;
 	}
 

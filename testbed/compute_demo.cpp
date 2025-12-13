@@ -1,5 +1,6 @@
 #include "glgpu/backend.h"
 #include "glgpu/log.h"
+#include "glgpu/types.h"
 
 using namespace gl;
 
@@ -59,7 +60,7 @@ int main(void) {
 	// We need to construct SpirvData. Assuming SpirvData holds stage and code.
 	SpirvEntry spirv_entry;
 	spirv_entry.byte_code = spirv_code;
-	spirv_entry.stage = SHADER_STAGE_COMPUTE;
+	spirv_entry.stage = SHADER_STAGE_COMPUTE_BIT;
 
 	Shader compute_shader = backend->shader_create_from_bytecode({ spirv_entry });
 
@@ -71,7 +72,7 @@ int main(void) {
 	// Note: Assuming 'ShaderUniform' struct structure based on common usage
 	ShaderUniform buffer_uniform;
 	buffer_uniform.binding = 0;
-	buffer_uniform.type = UNIFORM_TYPE_STORAGE_BUFFER;
+	buffer_uniform.type = ShaderUniformType::STORAGE_BUFFER;
 	buffer_uniform.data.push_back(storage_buffer);
 
 	// Create the set (set index 0)

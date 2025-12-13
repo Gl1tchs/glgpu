@@ -1,3 +1,5 @@
+#include "glgpu/types.h"
+
 #include "platform/vulkan/vk_backend.h"
 
 namespace gl {
@@ -22,7 +24,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 		uint32_t num_descriptors = 1;
 
 		switch (uniform.type) {
-			case UNIFORM_TYPE_SAMPLER: {
+			case ShaderUniformType::SAMPLER: {
 				num_descriptors = uniform.data.size();
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
@@ -36,7 +38,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 					vk_image_infos[i].push_back(std::move(vk_img_info));
 				}
 			} break;
-			case UNIFORM_TYPE_SAMPLER_WITH_TEXTURE: {
+			case ShaderUniformType::SAMPLER_WITH_TEXTURE: {
 				num_descriptors = uniform.data.size() / 2;
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -51,7 +53,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 					vk_image_infos[i].push_back(std::move(vk_img_info));
 				}
 			} break;
-			case UNIFORM_TYPE_TEXTURE: {
+			case ShaderUniformType::TEXTURE: {
 				num_descriptors = uniform.data.size();
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -64,7 +66,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 					vk_image_infos[i].push_back(std::move(vk_img_info));
 				}
 			} break;
-			case UNIFORM_TYPE_IMAGE: {
+			case ShaderUniformType::IMAGE: {
 				num_descriptors = uniform.data.size();
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -77,7 +79,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 					vk_image_infos[i].push_back(std::move(vk_img_info));
 				}
 			} break;
-			case UNIFORM_TYPE_UNIFORM_BUFFER: {
+			case ShaderUniformType::UNIFORM_BUFFER: {
 				const VulkanBuffer* buf_info = (const VulkanBuffer*)uniform.data[0];
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -88,7 +90,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 
 				vk_buffer_infos[i] = std::move(vk_buf_info);
 			} break;
-			case UNIFORM_TYPE_STORAGE_BUFFER: {
+			case ShaderUniformType::STORAGE_BUFFER: {
 				const VulkanBuffer* buf_info = (const VulkanBuffer*)uniform.data[0];
 
 				vk_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -108,7 +110,8 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 
 		vk_writes.push_back(std::move(vk_write));
 
-		if (pool_key.uniform_type[uniform.type] == MAX_UNIFORM_POOL_ELEMENT) {
+		const uint32_t type_int = static_cast<uint32_t>(uniform.type);
+		if (pool_key.uniform_type[type_int] == MAX_UNIFORM_POOL_ELEMENT) {
 			GL_LOG_ERROR("[VULKAN] [VulkanRenderBackend::uniform_set_create] Uniform set reached "
 						 "the limit of bindings for the "
 						 "same type ({})",
@@ -116,7 +119,7 @@ UniformSet VulkanRenderBackend::uniform_set_create(
 
 			return UniformSet();
 		}
-		pool_key.uniform_type[uniform.type] += num_descriptors;
+		pool_key.uniform_type[type_int] += num_descriptors;
 	}
 
 	// Need a descriptor pool.
@@ -204,56 +207,62 @@ VkDescriptorPool VulkanRenderBackend::_uniform_pool_find_or_create(
 			memset(&curr_vk_size, 0, sizeof(VkDescriptorPoolSize));
 		};
 
-		if (p_key.uniform_type[UNIFORM_TYPE_SAMPLER]) {
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::SAMPLER)]) {
 			reset_vk_size();
 			curr_vk_size.type = VK_DESCRIPTOR_TYPE_SAMPLER;
 			curr_vk_size.descriptorCount =
-					p_key.uniform_type[UNIFORM_TYPE_SAMPLER] * MAX_DESCRIPTOR_SETS_PER_POOL;
-
-			vk_sizes.push_back(curr_vk_size);
-		}
-		if (p_key.uniform_type[UNIFORM_TYPE_SAMPLER_WITH_TEXTURE]) {
-			reset_vk_size();
-			curr_vk_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			curr_vk_size.descriptorCount = p_key.uniform_type[UNIFORM_TYPE_SAMPLER_WITH_TEXTURE] *
+					p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::SAMPLER)] *
 					MAX_DESCRIPTOR_SETS_PER_POOL;
 
 			vk_sizes.push_back(curr_vk_size);
 		}
-		if (p_key.uniform_type[UNIFORM_TYPE_TEXTURE]) {
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::SAMPLER_WITH_TEXTURE)]) {
+			reset_vk_size();
+			curr_vk_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			curr_vk_size.descriptorCount = p_key.uniform_type[static_cast<uint32_t>(
+												   ShaderUniformType::SAMPLER_WITH_TEXTURE)] *
+					MAX_DESCRIPTOR_SETS_PER_POOL;
+
+			vk_sizes.push_back(curr_vk_size);
+		}
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::TEXTURE)]) {
 			reset_vk_size();
 			curr_vk_size.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 			curr_vk_size.descriptorCount =
-					p_key.uniform_type[UNIFORM_TYPE_TEXTURE] * MAX_DESCRIPTOR_SETS_PER_POOL;
+					p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::TEXTURE)] *
+					MAX_DESCRIPTOR_SETS_PER_POOL;
 
 			vk_sizes.push_back(curr_vk_size);
 		}
-		if (p_key.uniform_type[UNIFORM_TYPE_IMAGE]) {
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::IMAGE)]) {
 			reset_vk_size();
 			curr_vk_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 			curr_vk_size.descriptorCount =
-					p_key.uniform_type[UNIFORM_TYPE_IMAGE] * MAX_DESCRIPTOR_SETS_PER_POOL;
+					p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::IMAGE)] *
+					MAX_DESCRIPTOR_SETS_PER_POOL;
 
 			vk_sizes.push_back(curr_vk_size);
 		}
-		if (p_key.uniform_type[UNIFORM_TYPE_UNIFORM_BUFFER]) {
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::UNIFORM_BUFFER)]) {
 			reset_vk_size();
 			curr_vk_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			curr_vk_size.descriptorCount =
-					p_key.uniform_type[UNIFORM_TYPE_UNIFORM_BUFFER] * MAX_DESCRIPTOR_SETS_PER_POOL;
+					p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::UNIFORM_BUFFER)] *
+					MAX_DESCRIPTOR_SETS_PER_POOL;
 
 			vk_sizes.push_back(curr_vk_size);
 		}
-		if (p_key.uniform_type[UNIFORM_TYPE_STORAGE_BUFFER]) {
+		if (p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::STORAGE_BUFFER)]) {
 			reset_vk_size();
 			curr_vk_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			curr_vk_size.descriptorCount =
-					p_key.uniform_type[UNIFORM_TYPE_STORAGE_BUFFER] * MAX_DESCRIPTOR_SETS_PER_POOL;
+					p_key.uniform_type[static_cast<uint32_t>(ShaderUniformType::STORAGE_BUFFER)] *
+					MAX_DESCRIPTOR_SETS_PER_POOL;
 
 			vk_sizes.push_back(curr_vk_size);
 		}
 
-		GL_ASSERT(vk_sizes.size() <= UNIFORM_TYPE_MAX);
+		GL_ASSERT(vk_sizes.size() <= static_cast<uint32_t>(ShaderUniformType::MAX));
 	}
 
 	VkDescriptorPoolCreateInfo descriptor_set_pool_create_info = {};

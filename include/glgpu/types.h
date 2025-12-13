@@ -5,10 +5,14 @@
 
 namespace gl {
 
-// defines handles that are not needed to be freed by user
+// -----------------------------------------------------------------------------
+// Handles & Macros
+// -----------------------------------------------------------------------------
+
+// Defines handles that are not needed to be freed by user
 #define GL_DEFINE_HANDLE(object) typedef struct object##_T* object;
 
-// defines handles that are needed to be freed by user
+// Defines handles that are needed to be freed by user
 #define GL_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef struct object##_T* object;
 
 GL_DEFINE_NON_DISPATCHABLE_HANDLE(Buffer)
@@ -30,9 +34,43 @@ GL_DEFINE_NON_DISPATCHABLE_HANDLE(Semaphore)
 #define GL_REMAINING_MIP_LEVELS (~0U)
 #define GL_REMAINING_ARRAY_LAYERS (~0U)
 
+// -----------------------------------------------------------------------------
+// Common Enums & Errors
+// -----------------------------------------------------------------------------
+
 /**
- * Enum representing data formats in GPU
+ * Global Error Enumeration
+ * Combines specific errors (Swapchain, Surface, Generic) into one type.
  */
+enum class Error {
+	NONE = 0,
+	// Generic
+	UNKNOWN,
+	OUT_OF_MEMORY,
+	DEVICE_LOST,
+	// Surface / Windowing
+	SURFACE_INVALID_COMPOSITOR,
+	SURFACE_SWAPCHAIN_NOT_SUPPORTED,
+	// Swapchain
+	SWAPCHAIN_OUT_OF_DATE, // Resize needed
+	SWAPCHAIN_LOST,
+	// Validation
+	VALIDATION_FAILED
+};
+
+enum class MemoryAllocationType {
+	CPU,
+	GPU,
+};
+
+enum class RenderAPI {
+	VULKAN,
+};
+
+// -----------------------------------------------------------------------------
+// Data Formats
+// -----------------------------------------------------------------------------
+
 enum class DataFormat : int {
 	UNDEFINED = 0,
 	R8_UNORM = 9,
@@ -132,24 +170,11 @@ enum class DataFormat : int {
 };
 
 size_t get_data_format_size(DataFormat p_format);
-
 bool is_depth_format(DataFormat p_format);
 
-enum class CompareOperator {
-	NEVER,
-	LESS,
-	EQUAL,
-	LESS_OR_EQUAL,
-	GREATER,
-	NOT_EQUAL,
-	GREATER_OR_EQUAL,
-	ALWAYS,
-};
-
-enum class MemoryAllocationType {
-	CPU,
-	GPU,
-};
+// -----------------------------------------------------------------------------
+// Buffers
+// -----------------------------------------------------------------------------
 
 enum BufferUsageBits : uint32_t {
 	BUFFER_USAGE_TRANSFER_SRC_BIT = 0x00000001,
@@ -165,6 +190,18 @@ enum BufferUsageBits : uint32_t {
 };
 typedef uint32_t BufferUsageFlags;
 
+typedef uint64_t BufferDeviceAddress;
+
+struct BufferCopyRegion {
+	uint64_t src_offset;
+	uint64_t dst_offset;
+	uint64_t size;
+};
+
+// -----------------------------------------------------------------------------
+// Images & Samplers
+// -----------------------------------------------------------------------------
+
 enum class ImageLayout : uint32_t {
 	UNDEFINED = 0,
 	GENERAL = 1,
@@ -174,21 +211,10 @@ enum class ImageLayout : uint32_t {
 	SHADER_READ_ONLY_OPTIMAL = 5,
 	TRANSFER_SRC_OPTIMAL = 6,
 	TRANSFER_DST_OPTIMAL = 7,
-	DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
-	DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
-	DEPTH_ATTACHMENT_OPTIMAL = 1000241000,
-	DEPTH_READ_ONLY_OPTIMAL = 1000241001,
-	STENCIL_ATTACHMENT_OPTIMAL = 1000241002,
-	STENCIL_READ_ONLY_OPTIMAL = 1000241003,
-	READ_ONLY_OPTIMAL = 1000314000,
-	ATTACHMENT_OPTIMAL = 1000314001,
 	PRESENT_SRC = 1000001002,
 };
 
-enum class ImageFiltering {
-	NEAREST,
-	LINEAR,
-};
+enum class ImageFiltering { NEAREST, LINEAR };
 
 enum class ImageWrappingMode {
 	REPEAT,
@@ -205,30 +231,6 @@ enum ImageAspectBits : uint32_t {
 };
 typedef uint32_t ImageAspectFlags;
 
-struct ImageSubresourceLayers {
-	ImageAspectFlags aspect_mask;
-	uint32_t mip_level;
-	uint32_t base_array_layer;
-	uint32_t layer_count;
-};
-
-enum ResolveModeBits : uint32_t {
-	RESOLVE_MODE_NONE = 0,
-	RESOLVE_MODE_SAMPLE_ZERO_BIT = 0x00000001,
-	RESOLVE_MODE_AVERAGE_BIT = 0x00000002,
-	RESOLVE_MODE_MIN_BIT = 0x00000004,
-	RESOLVE_MODE_MAX_BIT = 0x00000008,
-};
-typedef uint32_t ResolveModeFlags;
-
-struct ImageResolve {
-	ImageSubresourceLayers src_subresource;
-	Vec3i src_offset;
-	ImageSubresourceLayers dst_subresource;
-	Vec3i dst_offset;
-	Vec3u extent;
-};
-
 enum ImageUsageBits : uint32_t {
 	IMAGE_USAGE_TRANSFER_SRC_BIT = 0x00000001,
 	IMAGE_USAGE_TRANSFER_DST_BIT = 0x00000002,
@@ -239,27 +241,11 @@ enum ImageUsageBits : uint32_t {
 };
 typedef uint32_t ImageUsageFlags;
 
-enum class QueueType {
-	GRAPHICS,
-	PRESENT,
-	TRANSFER,
-	COMPUTE,
-};
-
-enum class IndexType : uint32_t {
-	UINT16 = 1,
-	UINT32 = 2,
-};
-
-enum class PipelineType {
-	GRAPHICS,
-	COMPUTE,
-};
-
-struct BufferCopyRegion {
-	uint64_t src_offset;
-	uint64_t dst_offset;
-	uint64_t size;
+struct ImageSubresourceLayers {
+	ImageAspectFlags aspect_mask;
+	uint32_t mip_level;
+	uint32_t base_array_layer;
+	uint32_t layer_count;
 };
 
 struct BufferImageCopyRegion {
@@ -271,83 +257,80 @@ struct BufferImageCopyRegion {
 	Vec3u image_extent;
 };
 
-inline const uint32_t MAX_UNIFORM_SETS = 16;
-
-enum ShaderUniformType : uint32_t {
-	UNIFORM_TYPE_SAMPLER, // For sampling only (sampler GLSL type).
-	UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, // For sampling only, but includes a
-									   // texture, (samplerXX GLSL type),
-									   // first a sampler then a texture.
-	UNIFORM_TYPE_TEXTURE, // Only texture, (textureXX GLSL type).
-	UNIFORM_TYPE_IMAGE, // Storage image (imageXX GLSL type), for compute
-						// mostly.
-	UNIFORM_TYPE_UNIFORM_BUFFER, // Regular uniform buffer (or UBO).
-	UNIFORM_TYPE_STORAGE_BUFFER, // Storage buffer ("buffer" qualifier) like
-								 // UBO, but supports storage, for compute
-								 // mostly.
-	UNIFORM_TYPE_MAX
+struct ImageCreateInfo {
+	DataFormat format = DataFormat::UNDEFINED;
+	Vec2u size = { 0, 0 };
+	const void* data = nullptr; // Optional initial data
+	ImageUsageFlags usage = IMAGE_USAGE_SAMPLED_BIT;
+	bool mipmapped = false;
+	uint32_t samples = 1;
 };
 
-/**
- * Struct representing a single shader uniform that can be a type of
- * `ShaderUniformType` in specified `binding`
- */
+struct SamplerCreateInfo {
+	ImageFiltering min_filter = ImageFiltering::LINEAR;
+	ImageFiltering mag_filter = ImageFiltering::LINEAR;
+	ImageWrappingMode wrap_u = ImageWrappingMode::CLAMP_TO_EDGE;
+	ImageWrappingMode wrap_v = ImageWrappingMode::CLAMP_TO_EDGE;
+	ImageWrappingMode wrap_w = ImageWrappingMode::CLAMP_TO_EDGE;
+	uint32_t mip_levels = 0;
+};
+
+// -----------------------------------------------------------------------------
+// Shaders & Uniforms
+// -----------------------------------------------------------------------------
+
+enum ShaderStageBits : uint32_t {
+	SHADER_STAGE_VERTEX_BIT = 0x00000001,
+	SHADER_STAGE_TESSELLATION_CONTROL_BIT = 0x00000002,
+	SHADER_STAGE_TESSELLATION_EVALUATION_BIT = 0x00000004,
+	SHADER_STAGE_GEOMETRY_BIT = 0x00000008,
+	SHADER_STAGE_FRAGMENT_BIT = 0x00000010,
+	SHADER_STAGE_COMPUTE_BIT = 0x00000020,
+};
+typedef uint32_t ShaderStageFlags;
+
+struct SpirvEntry {
+	std::vector<uint32_t> byte_code;
+	ShaderStageFlags stage;
+};
+
+struct ShaderInterfaceVariable {
+	const char* name;
+	uint32_t location;
+	DataFormat format;
+};
+
+constexpr uint32_t MAX_UNIFORM_SETS = 16;
+
+enum class ShaderUniformType : uint32_t {
+	SAMPLER,
+	SAMPLER_WITH_TEXTURE,
+	TEXTURE,
+	IMAGE,
+	UNIFORM_BUFFER,
+	STORAGE_BUFFER,
+	MAX,
+};
+
 struct ShaderUniform {
-	ShaderUniformType type = UNIFORM_TYPE_MAX;
-	uint32_t binding = 0xffffffff; // Binding index as specified in shader.
+	ShaderUniformType type = ShaderUniformType::MAX;
+	uint32_t binding = 0xffffffff;
 	std::vector<void*> data;
 };
 
-enum class AttachmentLoadOp : uint32_t {
-	LOAD = 0,
-	CLEAR = 1,
-	DONT_CARE = 2,
-	NONE = 1000400000,
-};
+// -----------------------------------------------------------------------------
+// Pipeline States
+// -----------------------------------------------------------------------------
 
-enum class AttachmentStoreOp : uint32_t {
-	STORE = 0,
-	DONT_CARE = 1,
-	NONE = 1000301000,
-};
-
-struct RenderPassAttachment {
-	DataFormat format;
-	AttachmentLoadOp load_op = AttachmentLoadOp::CLEAR;
-	AttachmentStoreOp store_op = AttachmentStoreOp::STORE;
-	ImageLayout final_layout = ImageLayout::UNDEFINED;
-	// TODO: implement
-	uint32_t sample_count = 1;
-	bool is_depth_attachment = false;
-};
-
-enum SubpassAttachmentType {
-	SUBPASS_ATTACHMENT_COLOR,
-	SUBPASS_ATTACHMENT_DEPTH_STENCIL,
-	SUBPASS_ATTACHMENT_INPUT,
-};
-
-struct SubpassAttachment {
-	uint32_t attachment_index;
-	SubpassAttachmentType type;
-};
-
-struct SubpassInfo {
-	std::vector<SubpassAttachment> attachments;
-};
-
-struct RenderingAttachment {
-	Image image;
-	ImageLayout layout = ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
-	AttachmentLoadOp load_op = AttachmentLoadOp::DONT_CARE;
-	AttachmentStoreOp store_op = AttachmentStoreOp::STORE;
-	// load_op must be set to AttachmentLoadOp::CLEAR
-	Color clear_color = COLOR_BLACK;
-
-	// For MSAA
-	ResolveModeFlags resolve_mode = RESOLVE_MODE_NONE;
-	Image resolve_image = GL_NULL_HANDLE;
-	ImageLayout resolve_layout = ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+enum class CompareOperator {
+	NEVER,
+	LESS,
+	EQUAL,
+	LESS_OR_EQUAL,
+	GREATER,
+	NOT_EQUAL,
+	GREATER_OR_EQUAL,
+	ALWAYS
 };
 
 enum class RenderPrimitive : uint32_t {
@@ -364,16 +347,8 @@ enum class RenderPrimitive : uint32_t {
 	PATCH_LIST,
 };
 
-enum class PolygonCullMode : uint32_t {
-	DISABLED,
-	FRONT,
-	BACK,
-};
-
-enum class PolygonFrontFace : uint32_t {
-	CLOCKWISE,
-	COUNTER_CLOCKWISE,
-};
+enum class PolygonCullMode : uint32_t { DISABLED, FRONT, BACK };
+enum class PolygonFrontFace : uint32_t { CLOCKWISE, COUNTER_CLOCKWISE };
 
 enum class StencilOperator : uint32_t {
 	KEEP,
@@ -427,19 +402,18 @@ enum class BlendFactor : uint32_t {
 	ONE_MINUS_SRC1_ALPHA,
 };
 
-enum class BlendOperation : uint32_t {
-	ADD,
-	SUBTRACT,
-	REVERSE_SUBTRACT,
-	MIN,
-	MAX,
-};
+enum class BlendOperation : uint32_t { ADD, SUBTRACT, REVERSE_SUBTRACT, MIN, MAX };
 
-struct ShaderInterfaceVariable {
-	const char* name;
-	uint32_t location;
-	DataFormat format;
+enum PipelineDynamicStateBits {
+	PIPELINE_DYNAMIC_STATE_LINE_WIDTH = 0x00000001,
+	PIPELINE_DYNAMIC_STATE_DEPTH_BIAS = 0x00000002,
+	PIPELINE_DYNAMIC_STATE_BLEND_CONSTANTS = 0x00000004,
+	PIPELINE_DYNAMIC_STATE_DEPTH_BOUNDS = 0x00000008,
+	PIPELINE_DYNAMIC_STATE_STENCIL_COMPARE_MASK = 0x00000010,
+	PIPELINE_DYNAMIC_STATE_STENCIL_WRITE_MASK = 0x00000020,
+	PIPELINE_DYNAMIC_STATE_STENCIL_REFERENCE = 0x00000040,
 };
+typedef uint32_t PipelineDynamicStateFlags;
 
 struct PipelineVertexInputState {
 	uint32_t stride = 0;
@@ -510,9 +484,8 @@ struct PipelineColorBlendState {
 
 	static PipelineColorBlendState create_disabled(int p_attachments = 1) {
 		PipelineColorBlendState bs;
-		for (int i = 0; i < p_attachments; i++) {
+		for (int i = 0; i < p_attachments; i++)
 			bs.attachments.push_back(Attachment());
-		}
 		return bs;
 	}
 
@@ -525,47 +498,115 @@ struct PipelineColorBlendState {
 			ba.dst_color_blend_factor = BlendFactor::ONE_MINUS_SRC_ALPHA;
 			ba.src_alpha_blend_factor = BlendFactor::SRC_ALPHA;
 			ba.dst_alpha_blend_factor = BlendFactor::ONE_MINUS_SRC_ALPHA;
-
 			bs.attachments.push_back(ba);
 		}
 		return bs;
 	}
 
-	std::vector<Attachment> attachments; // One per render target texture.
+	std::vector<Attachment> attachments;
 	Vec4f blend_constant;
 };
 
 struct PipelineRenderingState {
 	std::vector<DataFormat> color_attachments;
-	DataFormat depth_attachment;
+	DataFormat depth_attachment = DataFormat::UNDEFINED;
 };
 
-enum PipelineDynamicStateBits {
-	DYNAMIC_STATE_LINE_WIDTH = (1 << 0),
-	DYNAMIC_STATE_DEPTH_BIAS = (1 << 1),
-	DYNAMIC_STATE_BLEND_CONSTANTS = (1 << 2),
-	DYNAMIC_STATE_DEPTH_BOUNDS = (1 << 3),
-	DYNAMIC_STATE_STENCIL_COMPARE_MASK = (1 << 4),
-	DYNAMIC_STATE_STENCIL_WRITE_MASK = (1 << 5),
-	DYNAMIC_STATE_STENCIL_REFERENCE = (1 << 6),
-};
-typedef uint32_t PipelineDynamicStateFlags;
+struct RenderPipelineCreateInfo {
+	Shader shader = GL_NULL_HANDLE;
+	RenderPrimitive primitive = RenderPrimitive::TRIANGLE_LIST;
 
-enum ShaderStageBits : uint32_t {
-	SHADER_STAGE_VERTEX = 0x00000001,
-	SHADER_STAGE_TESSELLATION_CONTROL = 0x00000002,
-	SHADER_STAGE_TESSELLATION_EVALUATION = 0x00000004,
-	SHADER_STAGE_GEOMETRY = 0x00000008,
-	SHADER_STAGE_FRAGMENT = 0x00000010,
-	SHADER_STAGE_COMPUTE = 0x00000020,
-};
-typedef uint32_t ShaderStageFlags;
+	// State Descriptors
+	PipelineVertexInputState vertex_input_state;
+	PipelineRasterizationState rasterization_state;
+	PipelineMultisampleState multisample_state;
+	PipelineDepthStencilState depth_stencil_state;
+	PipelineColorBlendState color_blend_state;
+	PipelineDynamicStateFlags dynamic_state = 0;
 
-struct SpirvEntry {
-	std::vector<uint32_t> byte_code;
-	ShaderStageFlags stage;
+	// Target Definition (Legacy RenderPass OR Dynamic Rendering)
+	RenderPass render_pass = GL_NULL_HANDLE;
+	PipelineRenderingState rendering_info; // Used if render_pass is NULL
 };
 
-typedef uint64_t BufferDeviceAddress;
+enum class PipelineType { GRAPHICS, COMPUTE };
 
-} //namespace gl
+// -----------------------------------------------------------------------------
+// Render Pass & Attachments
+// -----------------------------------------------------------------------------
+
+enum class AttachmentLoadOp : uint32_t {
+	LOAD = 0,
+	CLEAR = 1,
+	DONT_CARE = 2,
+	NONE = 1000400000,
+};
+
+enum class AttachmentStoreOp : uint32_t {
+	STORE = 0,
+	DONT_CARE = 1,
+	NONE = 1000301000,
+};
+
+struct RenderPassAttachment {
+	DataFormat format;
+	AttachmentLoadOp load_op = AttachmentLoadOp::CLEAR;
+	AttachmentStoreOp store_op = AttachmentStoreOp::STORE;
+	ImageLayout final_layout = ImageLayout::UNDEFINED;
+	uint32_t sample_count = 1;
+	bool is_depth_attachment = false;
+};
+
+enum SubpassAttachmentType {
+	SUBPASS_ATTACHMENT_COLOR,
+	SUBPASS_ATTACHMENT_DEPTH_STENCIL,
+	SUBPASS_ATTACHMENT_INPUT,
+};
+
+struct SubpassAttachment {
+	uint32_t attachment_index;
+	SubpassAttachmentType type;
+};
+
+struct SubpassInfo {
+	std::vector<SubpassAttachment> attachments;
+};
+
+enum ResolveModeBits : uint32_t {
+	RESOLVE_MODE_NONE = 0,
+	RESOLVE_MODE_SAMPLE_ZERO_BIT = 0x00000001,
+	RESOLVE_MODE_AVERAGE_BIT = 0x00000002,
+	RESOLVE_MODE_MIN_BIT = 0x00000004,
+	RESOLVE_MODE_MAX_BIT = 0x00000008,
+};
+typedef uint32_t ResolveModeFlags;
+
+struct ImageResolve {
+	ImageSubresourceLayers src_subresource;
+	Vec3i src_offset;
+	ImageSubresourceLayers dst_subresource;
+	Vec3i dst_offset;
+	Vec3u extent;
+};
+
+struct RenderingAttachment {
+	Image image;
+	ImageLayout layout = ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+	AttachmentLoadOp load_op = AttachmentLoadOp::DONT_CARE;
+	AttachmentStoreOp store_op = AttachmentStoreOp::STORE;
+	Color clear_color = COLOR_BLACK;
+
+	// For MSAA
+	ResolveModeFlags resolve_mode = RESOLVE_MODE_NONE;
+	Image resolve_image = GL_NULL_HANDLE;
+	ImageLayout resolve_layout = ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+};
+
+// -----------------------------------------------------------------------------
+// Queues & Commands
+// -----------------------------------------------------------------------------
+
+enum class QueueType { GRAPHICS, PRESENT, TRANSFER, COMPUTE };
+enum class IndexType : uint32_t { UINT16 = 1, UINT32 = 2 };
+
+} // namespace gl

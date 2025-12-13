@@ -1,6 +1,7 @@
 #include "platform/vulkan/vk_backend.h"
 
 #include <vulkan/vulkan_core.h>
+#include <filesystem>
 
 namespace gl {
 
@@ -290,25 +291,25 @@ static std::vector<VkDynamicState> _get_dynamic_states(PipelineDynamicStateFlags
 		VK_DYNAMIC_STATE_SCISSOR,
 	};
 
-	if (p_dynamic_state & DYNAMIC_STATE_LINE_WIDTH) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_LINE_WIDTH) {
 		states.push_back(VK_DYNAMIC_STATE_LINE_WIDTH);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_DEPTH_BIAS) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_DEPTH_BIAS) {
 		states.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_BLEND_CONSTANTS) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_BLEND_CONSTANTS) {
 		states.push_back(VK_DYNAMIC_STATE_BLEND_CONSTANTS);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_DEPTH_BOUNDS) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_DEPTH_BOUNDS) {
 		states.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_STENCIL_COMPARE_MASK) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_STENCIL_COMPARE_MASK) {
 		states.push_back(VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_STENCIL_WRITE_MASK) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_STENCIL_WRITE_MASK) {
 		states.push_back(VK_DYNAMIC_STATE_STENCIL_WRITE_MASK);
 	}
-	if (p_dynamic_state & DYNAMIC_STATE_STENCIL_REFERENCE) {
+	if (p_dynamic_state & PIPELINE_DYNAMIC_STATE_STENCIL_REFERENCE) {
 		states.push_back(VK_DYNAMIC_STATE_STENCIL_REFERENCE);
 	}
 
@@ -334,65 +335,64 @@ constexpr static VkPipelineViewportStateCreateInfo _get_viewport_state() {
 	return viewport_state;
 }
 
-Pipeline VulkanRenderBackend::render_pipeline_create(Shader p_shader,
-		RenderPrimitive p_render_primitive, PipelineVertexInputState p_vertex_input_state,
-		PipelineRasterizationState p_rasterization_state,
-		PipelineMultisampleState p_multisample_state,
-		PipelineDepthStencilState p_depth_stencil_state, PipelineColorBlendState p_blend_state,
-		PipelineDynamicStateFlags p_dynamic_state, PipelineRenderingState p_rendering_state) {
-	// Vertex info
+Pipeline VulkanRenderBackend::render_pipeline_create(const RenderPipelineCreateInfo& p_info) {
+	// Cast handles
+	VulkanShader* shader = (VulkanShader*)p_info.shader;
+
+	// Collect pipeline state infos
 	const VkPipelineVertexInputStateCreateInfo vertex_info =
-			_get_vertex_input_state_info(this, p_shader, p_vertex_input_state);
-
-	// Input assembly state
+			_get_vertex_input_state_info(this, p_info.shader, p_info.vertex_input_state);
 	const VkPipelineInputAssemblyStateCreateInfo input_assembly =
-			_get_input_assembly_state_info(p_render_primitive);
-
-	// Rasterizer state
+			_get_input_assembly_state_info(p_info.primitive);
 	const VkPipelineRasterizationStateCreateInfo rasterizer =
-			_get_rasterization_state_info(p_rasterization_state);
-
-	// Multisampling state
+			_get_rasterization_state_info(p_info.rasterization_state);
 	const VkPipelineMultisampleStateCreateInfo multisampling =
-			_get_multisampling_state_info(p_multisample_state);
-
-	// Depth stencil state
+			_get_multisampling_state_info(p_info.multisample_state);
 	const VkPipelineDepthStencilStateCreateInfo depth_stencil =
-			_get_depth_stencil_state_info(p_depth_stencil_state);
-
-	// Color blend attachment
+			_get_depth_stencil_state_info(p_info.depth_stencil_state);
 	const std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments =
-			_get_color_blend_attachments(p_blend_state);
+			_get_color_blend_attachments(p_info.color_blend_state);
 	const VkPipelineColorBlendStateCreateInfo color_blend =
-			_get_color_blend_state_info(p_blend_state, color_blend_attachments);
+			_get_color_blend_state_info(p_info.color_blend_state, color_blend_attachments);
 
-	// Dynamic state
-	const std::vector<VkDynamicState> dynamic_states = _get_dynamic_states(p_dynamic_state);
-
+	const std::vector<VkDynamicState> dynamic_states = _get_dynamic_states(p_info.dynamic_state);
 	const VkPipelineDynamicStateCreateInfo dynamic_state = _get_dynamic_state_info(dynamic_states);
 
-	// Viewport state
 	const VkPipelineViewportStateCreateInfo viewport_state = _get_viewport_state();
 
-	// Rendering state
-	std::vector<VkFormat> vk_color_attachments;
-	for (size_t i = 0; i < p_rendering_state.color_attachments.size(); i++) {
-		vk_color_attachments.push_back(
-				static_cast<VkFormat>(p_rendering_state.color_attachments[i]));
-	}
+	// Target Dependency Handling (RenderPass vs. Dynamic Rendering)
 
 	VkPipelineRenderingCreateInfo rendering_info = {};
-	rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-	rendering_info.colorAttachmentCount = static_cast<uint32_t>(vk_color_attachments.size());
-	rendering_info.pColorAttachmentFormats = vk_color_attachments.data();
-	rendering_info.depthAttachmentFormat =
-			static_cast<VkFormat>(p_rendering_state.depth_attachment);
+	void* p_next_chain = nullptr;
 
-	VulkanShader* shader = (VulkanShader*)p_shader;
+	// Use VkPipelineRenderingCreateInfo for Dynamic Rendering (Vulkan 1.3/VK_KHR_dynamic_rendering)
+	if (p_info.render_pass == GL_NULL_HANDLE) {
+		rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+		rendering_info.colorAttachmentCount = p_info.rendering_info.color_attachments.size();
+		rendering_info.pColorAttachmentFormats =
+				(VkFormat*)p_info.rendering_info.color_attachments.data();
+		rendering_info.depthAttachmentFormat =
+				static_cast<VkFormat>(p_info.rendering_info.depth_attachment);
+
+		p_next_chain = &rendering_info;
+	}
+
+	// Final VkGraphicsPipelineCreateInfo Setup
 
 	VkGraphicsPipelineCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	create_info.pNext = &rendering_info,
+
+	// Set pNext for Dynamic Rendering, or leave it null for RenderPass
+	create_info.pNext = p_next_chain;
+
+	// If RenderPass is used, set the renderPass field directly
+	if (p_info.render_pass != GL_NULL_HANDLE) {
+		VulkanRenderPass* render_pass = (VulkanRenderPass*)p_info.render_pass;
+		create_info.renderPass = render_pass->vk_render_pass;
+		create_info.subpass = 0; // Assuming subpass 0
+	}
+
+	// Set other mandatory states
 	create_info.stageCount = static_cast<uint32_t>(shader->stage_create_infos.size());
 	create_info.pStages = shader->stage_create_infos.data();
 	create_info.pVertexInputState = &vertex_info;
@@ -405,7 +405,9 @@ Pipeline VulkanRenderBackend::render_pipeline_create(Shader p_shader,
 	create_info.pDynamicState = &dynamic_state;
 	create_info.layout = shader->pipeline_layout;
 
-	std::string cache_path = std::format(".glitch/cache/{}.cache", shader->shader_hash);
+	// Pipeline Creation
+	const auto tmp = std::filesystem::temp_directory_path();
+	const auto cache_path = tmp / std::format("glitch/cache/{}.cache", shader->shader_hash);
 
 	VkPipelineCache vk_pipeline_cache =
 			_load_pipeline_cache(device, cache_path, physical_device_properties);
@@ -414,81 +416,7 @@ Pipeline VulkanRenderBackend::render_pipeline_create(Shader p_shader,
 	VK_CHECK(vkCreateGraphicsPipelines(
 			device, vk_pipeline_cache, 1, &create_info, nullptr, &vk_pipeline));
 
-	VulkanPipeline* pipeline = VersatileResource::allocate<VulkanPipeline>(resources_allocator);
-	pipeline->vk_pipeline = vk_pipeline;
-	pipeline->vk_pipeline_cache = vk_pipeline_cache;
-	pipeline->shader_hash = shader->shader_hash;
-
-	return Pipeline(pipeline);
-}
-
-Pipeline VulkanRenderBackend::render_pipeline_create(Shader p_shader, RenderPass p_render_pass,
-		RenderPrimitive p_render_primitive, PipelineVertexInputState p_vertex_input_state,
-		PipelineRasterizationState p_rasterization_state,
-		PipelineMultisampleState p_multisample_state,
-		PipelineDepthStencilState p_depth_stencil_state, PipelineColorBlendState p_blend_state,
-		PipelineDynamicStateFlags p_dynamic_state) {
-	// Vertex info
-	const VkPipelineVertexInputStateCreateInfo vertex_info =
-			_get_vertex_input_state_info(this, p_shader, p_vertex_input_state);
-
-	// Input assembly state
-	const VkPipelineInputAssemblyStateCreateInfo input_assembly =
-			_get_input_assembly_state_info(p_render_primitive);
-
-	// Rasterizer state
-	const VkPipelineRasterizationStateCreateInfo rasterizer =
-			_get_rasterization_state_info(p_rasterization_state);
-
-	// Multisampling state
-	const VkPipelineMultisampleStateCreateInfo multisampling =
-			_get_multisampling_state_info(p_multisample_state);
-
-	// Depth stencil state
-	const VkPipelineDepthStencilStateCreateInfo depth_stencil =
-			_get_depth_stencil_state_info(p_depth_stencil_state);
-
-	// Color blend attachment
-	const std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments =
-			_get_color_blend_attachments(p_blend_state);
-	const VkPipelineColorBlendStateCreateInfo color_blend =
-			_get_color_blend_state_info(p_blend_state, color_blend_attachments);
-
-	// Dynamic state
-	const std::vector<VkDynamicState> dynamic_states = _get_dynamic_states(p_dynamic_state);
-
-	const VkPipelineDynamicStateCreateInfo dynamic_state = _get_dynamic_state_info(dynamic_states);
-
-	// Viewport state
-	const VkPipelineViewportStateCreateInfo viewport_state = _get_viewport_state();
-
-	VulkanShader* shader = (VulkanShader*)p_shader;
-	VulkanRenderPass* render_pass = (VulkanRenderPass*)p_render_pass;
-
-	VkGraphicsPipelineCreateInfo create_info = {};
-	create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	create_info.renderPass = render_pass->vk_render_pass;
-	create_info.stageCount = static_cast<uint32_t>(shader->stage_create_infos.size());
-	create_info.pStages = shader->stage_create_infos.data();
-	create_info.pVertexInputState = &vertex_info;
-	create_info.pInputAssemblyState = &input_assembly;
-	create_info.pViewportState = &viewport_state;
-	create_info.pRasterizationState = &rasterizer;
-	create_info.pMultisampleState = &multisampling;
-	create_info.pDepthStencilState = &depth_stencil;
-	create_info.pColorBlendState = &color_blend;
-	create_info.pDynamicState = &dynamic_state;
-	create_info.layout = shader->pipeline_layout;
-
-	std::string cache_path = std::format(".glitch/cache/{}.cache", shader->shader_hash);
-
-	VkPipelineCache vk_pipeline_cache =
-			_load_pipeline_cache(device, cache_path, physical_device_properties);
-
-	VkPipeline vk_pipeline = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateGraphicsPipelines(
-			device, vk_pipeline_cache, 1, &create_info, nullptr, &vk_pipeline));
-
+	// Bookkeep
 	VulkanPipeline* pipeline = VersatileResource::allocate<VulkanPipeline>(resources_allocator);
 	pipeline->vk_pipeline = vk_pipeline;
 	pipeline->vk_pipeline_cache = vk_pipeline_cache;
@@ -505,7 +433,8 @@ Pipeline VulkanRenderBackend::compute_pipeline_create(Shader p_shader) {
 	create_info.stage = shader->stage_create_infos[0];
 	create_info.layout = shader->pipeline_layout;
 
-	std::string cache_path = std::format(".glitch/cache/{}.cache", shader->shader_hash);
+	const auto tmp = std::filesystem::temp_directory_path();
+	const auto cache_path = tmp / std::format("glitch/cache/{}.cache", shader->shader_hash);
 
 	VkPipelineCache vk_pipeline_cache =
 			_load_pipeline_cache(device, cache_path, physical_device_properties);

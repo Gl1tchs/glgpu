@@ -112,7 +112,7 @@ Shader VulkanRenderBackend::shader_create_from_bytecode(const std::vector<SpirvE
 		GL_ASSERT(result == SPV_REFLECT_RESULT_SUCCESS);
 
 		// vertex input variables
-		if (shader.stage == SHADER_STAGE_VERTEX) {
+		if (shader.stage == SHADER_STAGE_VERTEX_BIT) {
 			uint32_t input_count = 0;
 			GL_ASSERT(spvReflectEnumerateInputVariables(&module, &input_count, nullptr) ==
 					SPV_REFLECT_RESULT_SUCCESS);

@@ -331,10 +331,9 @@ VulkanRenderBackend::~VulkanRenderBackend() {
 	s_initialized = false;
 }
 
-SurfaceCreateError VulkanRenderBackend::attach_surface(
-		void* p_connection_handle, void* p_window_handle) {
+Error VulkanRenderBackend::attach_surface(void* p_connection_handle, void* p_window_handle) {
 	if (!is_swapchain_supported()) {
-		return SurfaceCreateError::SWAPCHAIN_NOT_SUPPORTED;
+		return Error::SURFACE_SWAPCHAIN_NOT_SUPPORTED;
 	}
 
 	if (surface != VK_NULL_HANDLE) {
@@ -344,10 +343,10 @@ SurfaceCreateError VulkanRenderBackend::attach_surface(
 	if (_create_surface_platform_specific(p_connection_handle, p_window_handle)) {
 		// TODO: changing surface after device creation might be invalid if the device
 		// queue doesn't support the new surface
-		return SurfaceCreateError::NONE;
+		return Error::NONE;
 	}
 
-	return SurfaceCreateError::INVALID_COMPOSITOR;
+	return Error::SURFACE_INVALID_COMPOSITOR;
 }
 
 bool VulkanRenderBackend::is_swapchain_supported() { return swapchain_supported; }

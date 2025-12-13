@@ -20,18 +20,26 @@ public:
 	VulkanRenderBackend(const RenderBackendCreateInfo& p_info);
 	virtual ~VulkanRenderBackend();
 
-	// Device
+	// =========================================================================
+	// Device & Surface
+	// =========================================================================
 
 	void device_wait() override;
 
-	SurfaceCreateError attach_surface(void* p_connection_handle, void* p_window_handle) override;
+	Error attach_surface(void* p_connection_handle, void* p_window_handle) override;
 
 	bool is_swapchain_supported() override;
 
 	uint32_t get_max_msaa_samples() const override;
 
-	// Buffer
+	// Command Queue
+	CommandQueue queue_get(QueueType p_type) override;
 
+	// =========================================================================
+	// Resource Management (Buffers & Images)
+	// =========================================================================
+
+	// Buffer
 	struct VulkanBuffer {
 		VkBuffer vk_buffer;
 		struct {
@@ -58,7 +66,6 @@ public:
 	void buffer_flush(Buffer p_buffer) override;
 
 	// Image
-
 	struct VulkanImage {
 		VkImage vk_image;
 		VkImageView vk_image_view;
@@ -68,9 +75,8 @@ public:
 		uint32_t mip_levels;
 	};
 
-	Image image_create(DataFormat p_format, Vec2u p_size, const void* p_data = nullptr,
-			ImageUsageFlags p_usage = IMAGE_USAGE_SAMPLED_BIT, bool p_mipmapped = false,
-			uint32_t p_samples = 1) override;
+	// Signature updated to use ImageCreateInfo struct
+	Image image_create(const ImageCreateInfo& p_info) override;
 
 	void image_free(Image p_image) override;
 
@@ -80,17 +86,17 @@ public:
 
 	uint32_t image_get_mip_levels(Image p_image) override;
 
-	Sampler sampler_create(ImageFiltering p_min_filter = ImageFiltering::LINEAR,
-			ImageFiltering p_mag_filter = ImageFiltering::LINEAR,
-			ImageWrappingMode p_wrap_u = ImageWrappingMode::CLAMP_TO_EDGE,
-			ImageWrappingMode p_wrap_v = ImageWrappingMode::CLAMP_TO_EDGE,
-			ImageWrappingMode p_wrap_w = ImageWrappingMode::CLAMP_TO_EDGE,
-			uint32_t p_mip_levels = 0) override;
+	// Sampler
+	// Signature updated to use SamplerCreateInfo struct
+	Sampler sampler_create(const SamplerCreateInfo& p_info) override;
 
 	void sampler_free(Sampler p_sampler) override;
 
-	// Shader
+	// =========================================================================
+	// Shader & Pipelines
+	// =========================================================================
 
+	// Shader
 	struct VulkanShader {
 		std::vector<VkPipelineShaderStageCreateInfo> stage_create_infos;
 		uint32_t push_constant_stages = 0;
@@ -98,10 +104,6 @@ public:
 		VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 
 		std::vector<ShaderInterfaceVariable> vertex_input_variables;
-
-		// hash of the vulkan shader object defined as the
-		// combination of the names of the shaders with
-		// the pipeline layout
 		size_t shader_hash;
 	};
 
@@ -111,61 +113,25 @@ public:
 
 	std::vector<ShaderInterfaceVariable> shader_get_vertex_inputs(Shader p_shader) override;
 
-	// Render pass
-
-	struct VulkanRenderPass {
-		VkRenderPass vk_render_pass;
-		std::vector<RenderPassAttachment> attachments;
+	// Pipeline
+	struct VulkanPipeline {
+		VkPipeline vk_pipeline;
+		VkPipelineCache vk_pipeline_cache;
+		size_t shader_hash;
 	};
 
-	RenderPass render_pass_create(std::vector<RenderPassAttachment> p_attachments,
-			std::vector<SubpassInfo> p_subpasses) override;
+	// Consolidated two overloads into one using the RenderPipelineCreateInfo struct
+	Pipeline render_pipeline_create(const RenderPipelineCreateInfo& p_info) override;
 
-	void render_pass_destroy(RenderPass p_render_pass) override;
+	Pipeline compute_pipeline_create(Shader p_shader) override;
 
-	// Frame Buffer
-
-	FrameBuffer frame_buffer_create(RenderPass p_render_pass, std::vector<Image> p_attachments,
-			const Vec2u& p_extent) override;
-
-	void frame_buffer_destroy(FrameBuffer p_frame_buffer) override;
-
-	// Swapchain
-
-	struct VulkanSwapchain {
-		VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
-		VkFormat format = VK_FORMAT_UNDEFINED;
-		VkColorSpaceKHR color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		VkExtent2D extent;
-		std::vector<VulkanImage> images;
-		uint32_t image_index;
-		bool initialized;
-	};
-
-	Swapchain swapchain_create() override;
-
-	void swapchain_resize(CommandQueue p_cmd_queue, Swapchain p_swapchain, Vec2u size,
-			bool p_vsync = false) override;
-
-	size_t swapchain_get_image_count(Swapchain p_swapchain) override;
-
-	std::vector<Image> swapchain_get_images(Swapchain p_swapchain) override;
-
-	Result<Image, SwapchainAcquireError> swapchain_acquire_image(
-			Swapchain p_swapchain, Semaphore p_semaphore, uint32_t* o_image_index) override;
-
-	Vec2u swapchain_get_extent(Swapchain p_swapchain) override;
-
-	DataFormat swapchain_get_format(Swapchain p_swapchain) override;
-
-	void swapchain_free(Swapchain p_swapchain) override;
+	void pipeline_free(Pipeline p_pipeline) override;
 
 	// UniformSet
-
 	static const uint32_t MAX_UNIFORM_POOL_ELEMENT = 65535;
 
 	struct DescriptorSetPoolKey {
-		uint16_t uniform_type[UNIFORM_TYPE_MAX] = {};
+		uint16_t uniform_type[static_cast<uint32_t>(ShaderUniformType::MAX)] = {};
 
 		bool operator<(const DescriptorSetPoolKey& p_other) const {
 			return memcmp(uniform_type, p_other.uniform_type, sizeof(uniform_type)) < 0;
@@ -186,7 +152,63 @@ public:
 
 	void uniform_set_free(UniformSet p_uniform_set) override;
 
-	// Sync
+	// =========================================================================
+	// Render Pass & Framebuffer
+	// =========================================================================
+
+	// Render pass
+	struct VulkanRenderPass {
+		VkRenderPass vk_render_pass;
+		std::vector<RenderPassAttachment> attachments;
+	};
+
+	RenderPass render_pass_create(std::vector<RenderPassAttachment> p_attachments,
+			std::vector<SubpassInfo> p_subpasses) override;
+
+	void render_pass_destroy(RenderPass p_render_pass) override;
+
+	// Frame Buffer
+	FrameBuffer frame_buffer_create(RenderPass p_render_pass, std::vector<Image> p_attachments,
+			const Vec2u& p_extent) override;
+
+	void frame_buffer_destroy(FrameBuffer p_frame_buffer) override;
+
+	// =========================================================================
+	// Swapchain
+	// =========================================================================
+
+	struct VulkanSwapchain {
+		VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE;
+		VkFormat format = VK_FORMAT_UNDEFINED;
+		VkColorSpaceKHR color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		VkExtent2D extent;
+		std::vector<VulkanImage> images;
+		uint32_t image_index;
+		bool initialized;
+	};
+
+	Swapchain swapchain_create() override;
+
+	void swapchain_resize(CommandQueue p_cmd_queue, Swapchain p_swapchain, Vec2u size,
+			bool p_vsync = false) override;
+
+	size_t swapchain_get_image_count(Swapchain p_swapchain) override;
+
+	std::vector<Image> swapchain_get_images(Swapchain p_swapchain) override;
+
+	// Result type updated to use the global Error enum
+	Result<Image, Error> swapchain_acquire_image(
+			Swapchain p_swapchain, Semaphore p_semaphore, uint32_t* o_image_index) override;
+
+	Vec2u swapchain_get_extent(Swapchain p_swapchain) override;
+
+	DataFormat swapchain_get_format(Swapchain p_swapchain) override;
+
+	void swapchain_free(Swapchain p_swapchain) override;
+
+	// =========================================================================
+	// Synchronization
+	// =========================================================================
 
 	Fence fence_create(bool p_create_signaled = true) override;
 
@@ -200,34 +222,9 @@ public:
 
 	void semaphore_free(Semaphore p_semaphore) override;
 
-	// Pipeline
-
-	struct VulkanPipeline {
-		VkPipeline vk_pipeline;
-		VkPipelineCache vk_pipeline_cache;
-		size_t shader_hash;
-	};
-
-	Pipeline render_pipeline_create(Shader p_shader, RenderPrimitive p_render_primitive,
-			PipelineVertexInputState p_vertex_input_state,
-			PipelineRasterizationState p_rasterization_state,
-			PipelineMultisampleState p_multisample_state,
-			PipelineDepthStencilState p_depth_stencil_state, PipelineColorBlendState p_blend_state,
-			PipelineDynamicStateFlags p_dynamic_state,
-			PipelineRenderingState p_rendering_state) override;
-
-	Pipeline render_pipeline_create(Shader p_shader, RenderPass p_render_pass,
-			RenderPrimitive p_render_primitive, PipelineVertexInputState p_vertex_input_state,
-			PipelineRasterizationState p_rasterization_state,
-			PipelineMultisampleState p_multisample_state,
-			PipelineDepthStencilState p_depth_stencil_state, PipelineColorBlendState p_blend_state,
-			PipelineDynamicStateFlags p_dynamic_state) override;
-
-	Pipeline compute_pipeline_create(Shader p_shader) override;
-
-	void pipeline_free(Pipeline p_pipeline) override;
-
-	// Command Queue
+	// =========================================================================
+	// Command Submission & Recording
+	// =========================================================================
 
 	struct VulkanQueue {
 		VkQueue queue;
@@ -235,16 +232,12 @@ public:
 		std::mutex mutex;
 	};
 
-	CommandQueue queue_get(QueueType p_type) override;
-
 	void queue_submit(CommandQueue p_queue, CommandBuffer p_cmd, Fence p_fence = GL_NULL_HANDLE,
 			Semaphore p_wait_semaphore = GL_NULL_HANDLE,
 			Semaphore p_signal_semaphore = GL_NULL_HANDLE) override;
 
 	bool queue_present(CommandQueue p_queue, Swapchain p_swapchain,
 			Semaphore p_wait_semaphore = GL_NULL_HANDLE) override;
-
-	// Commands
 
 	void command_immediate_submit(std::function<void(CommandBuffer p_cmd)>&& p_function,
 			QueueType p_queue_type = QueueType::TRANSFER) override;
@@ -266,17 +259,17 @@ public:
 
 	void command_reset(CommandBuffer p_cmd) override;
 
-	void command_begin_rendering(CommandBuffer p_cmd, const Vec2u& p_draw_extent,
-			std::vector<RenderingAttachment> p_color_attachments,
-			Image p_depth_attachment) override;
-
-	void command_end_rendering(CommandBuffer p_cmd) override;
-
 	void command_begin_render_pass(CommandBuffer p_cmd, RenderPass p_render_pass,
 			FrameBuffer framebuffer, const Vec2u& p_draw_extent,
 			Color clear_color = COLOR_GRAY) override;
 
 	void command_end_render_pass(CommandBuffer p_cmd) override;
+
+	void command_begin_rendering(CommandBuffer p_cmd, const Vec2u& p_draw_extent,
+			std::vector<RenderingAttachment> p_color_attachments,
+			Image p_depth_attachment = GL_NULL_HANDLE) override; // Corrected default value
+
+	void command_end_rendering(CommandBuffer p_cmd) override;
 
 	// image layout must be ImageLayout::GENERAL
 	void command_clear_color(CommandBuffer p_cmd, Image p_image, const Color& p_clear_color,
@@ -385,7 +378,8 @@ private:
 
 	// API Helpers
 
-	Image _image_create(VkFormat p_format, VkExtent3D p_size, VkImageUsageFlags p_usage,
+	// Helper signature updated to use internal/Vulkan types
+	VulkanImage* _image_create(VkFormat p_format, VkExtent3D p_size, VkImageUsageFlags p_usage,
 			bool p_mipmapped, VkSampleCountFlagBits p_samples);
 
 	void _generate_image_mipmaps(CommandBuffer p_cmd, Image p_image, Vec2u p_size);
@@ -445,4 +439,4 @@ private:
 	DeletionQueue deletion_queue;
 };
 
-} //namespace gl
+} // namespace gl

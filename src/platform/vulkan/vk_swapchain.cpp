@@ -236,7 +236,7 @@ std::vector<Image> VulkanRenderBackend::swapchain_get_images(Swapchain p_swapcha
 	return images;
 }
 
-Result<Image, SwapchainAcquireError> VulkanRenderBackend::swapchain_acquire_image(
+Result<Image, Error> VulkanRenderBackend::swapchain_acquire_image(
 		Swapchain p_swapchain, Semaphore p_semaphore, uint32_t* o_image_index) {
 	VulkanSwapchain* swapchain = (VulkanSwapchain*)p_swapchain;
 
@@ -244,9 +244,9 @@ Result<Image, SwapchainAcquireError> VulkanRenderBackend::swapchain_acquire_imag
 			(VkSemaphore)p_semaphore, VK_NULL_HANDLE, &swapchain->image_index);
 
 	if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
-		return make_err<Image>(SwapchainAcquireError::OUT_OF_DATE);
+		return make_err<Image>(Error::SWAPCHAIN_OUT_OF_DATE);
 	} else if (res != VK_SUCCESS) {
-		return make_err<Image>(SwapchainAcquireError::ERROR);
+		return make_err<Image>(Error::SWAPCHAIN_LOST);
 	}
 
 	if (o_image_index) {
