@@ -298,7 +298,23 @@ VulkanRenderBackend::VulkanRenderBackend(const RenderBackendCreateInfo& p_info) 
 	allocator_info.vulkanApiVersion = VK_API_VERSION_1_3;
 	vmaCreateAllocator(&allocator_info, &allocator);
 
-	deletion_queue.push_function([this]() { vmaDestroyAllocator(allocator); });
+	deletion_queue.push_function([this]() {
+#if 0
+		// Print VMA Stats
+		char* stats_str;
+		vmaBuildStatsString(allocator, &stats_str, true);
+		GL_LOG_TRACE("[VMA] Stats: {}", stats_str);
+		vmaFreeStatsString(allocator, stats_str);
+#endif
+		// Destroy custom allocation pools
+		while (small_allocs_pools.size()) {
+			std::unordered_map<uint32_t, VmaPool>::iterator e = small_allocs_pools.begin();
+			vmaDestroyPool(allocator, e->second);
+			small_allocs_pools.erase(e);
+		}
+
+		vmaDestroyAllocator(allocator);
+	});
 
 	// Init commands
 	imm_transfer.fence = fence_create();
