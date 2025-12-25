@@ -1,8 +1,6 @@
 #pragma once
-#include <cmath>
-#include <cstdint>
-#include <type_traits>
 
+#include <limits>
 namespace gl {
 
 template <typename T> struct Vec2;
@@ -28,10 +26,6 @@ template <typename T> struct Vec2 {
 
 	template <typename U> Vec2(const Vec3<U>& p_other); // Defined below
 
-	constexpr Vec2 operator+(const Vec2& p_rhs) const { return Vec2(x + p_rhs.x, y + p_rhs.y); }
-
-	constexpr Vec2 operator-(const Vec2& p_rhs) const { return Vec2(x - p_rhs.x, y - p_rhs.y); }
-
 	constexpr bool operator==(const Vec2& p_rhs) const { return x == p_rhs.x && y == p_rhs.y; }
 
 	constexpr T dot(const Vec2& p_other) const { return x * p_other.x + y * p_other.y; }
@@ -48,6 +42,51 @@ template <typename T> struct Vec2 {
 
 	constexpr Vec2 normalize() const { return *this / length(); }
 };
+
+template <typename T> constexpr Vec2<T>& operator+=(Vec2<T>& p_lhs, const Vec2<T>& p_rhs) {
+	p_lhs.x += p_rhs.x;
+	p_lhs.y += p_rhs.y;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec2<T>& operator-=(Vec2<T>& p_lhs, const Vec2<T>& p_rhs) {
+	p_lhs.x -= p_rhs.x;
+	p_lhs.y -= p_rhs.y;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec2<T>& operator*=(Vec2<T>& p_lhs, const T& p_rhs) {
+	p_lhs.x *= p_rhs;
+	p_lhs.y *= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec2<T>& operator/=(Vec2<T>& p_lhs, const T& p_rhs) {
+	if (p_rhs == 0.0f) {
+		p_lhs = Vec2(std::numeric_limits<T>::max());
+		return p_lhs;
+	}
+
+	p_lhs.x /= p_rhs;
+	p_lhs.y /= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec2<T> operator+(Vec2<T> p_lhs, const Vec2<T>& p_rhs) {
+	return p_lhs += p_rhs;
+}
+
+template <typename T> constexpr Vec2<T> operator-(Vec2<T> p_lhs, const Vec2<T>& p_rhs) {
+	return p_lhs -= p_rhs;
+}
+
+template <typename T> constexpr Vec2<T> operator*(Vec2<T> p_lhs, const T& p_rhs) {
+	return p_lhs *= p_rhs;
+}
+
+template <typename T> constexpr Vec2<T> operator/(Vec2<T> p_lhs, const T& p_rhs) {
+	return p_lhs /= p_rhs;
+}
 
 using Vec2f = Vec2<float>;
 using Vec2d = Vec2<double>;
@@ -78,25 +117,6 @@ template <typename T> struct Vec3 {
 
 	// Operators
 
-	constexpr Vec3 operator+(const Vec3& p_rhs) const {
-		return Vec3(x + p_rhs.x, y + p_rhs.y, z + p_rhs.z);
-	}
-
-	constexpr Vec3 operator-(const Vec3& p_rhs) const {
-		return Vec3(x - p_rhs.x, y - p_rhs.y, z - p_rhs.z);
-	}
-
-	constexpr Vec3 operator*(const float& p_rhs) const {
-		return Vec3(x * p_rhs, y * p_rhs, z * p_rhs);
-	}
-
-	constexpr Vec3 operator/(const float& p_rhs) const {
-		if (p_rhs == 0.0f) {
-			return Vec3();
-		}
-		return Vec3(x / p_rhs, y / p_rhs, z / p_rhs);
-	}
-
 	constexpr bool operator==(const Vec3& p_rhs) const {
 		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z;
 	}
@@ -125,6 +145,55 @@ template <typename T> struct Vec3 {
 	constexpr Vec3 normalize() const { return *this / length(); }
 };
 
+template <typename T> constexpr Vec3<T>& operator+=(Vec3<T>& p_lhs, const Vec3<T>& p_rhs) {
+	p_lhs.x += p_rhs.x;
+	p_lhs.y += p_rhs.y;
+	p_lhs.z += p_rhs.z;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec3<T>& operator-=(Vec3<T>& p_lhs, const Vec3<T>& p_rhs) {
+	p_lhs.x -= p_rhs.x;
+	p_lhs.y -= p_rhs.y;
+	p_lhs.z -= p_rhs.z;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec3<T>& operator*=(Vec3<T>& p_lhs, const T& p_rhs) {
+	p_lhs.x *= p_rhs;
+	p_lhs.y *= p_rhs;
+	p_lhs.z *= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec3<T>& operator/=(Vec3<T>& p_lhs, const T& p_rhs) {
+	if (p_rhs == 0.0f) {
+		p_lhs = Vec3(std::numeric_limits<T>::max());
+		return p_lhs;
+	}
+
+	p_lhs.x /= p_rhs;
+	p_lhs.y /= p_rhs;
+	p_lhs.z /= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec3<T> operator+(Vec3<T> p_lhs, const Vec3<T>& p_rhs) {
+	return p_lhs += p_rhs;
+}
+
+template <typename T> constexpr Vec3<T> operator-(Vec3<T> p_lhs, const Vec3<T>& p_rhs) {
+	return p_lhs -= p_rhs;
+}
+
+template <typename T> constexpr Vec3<T> operator*(Vec3<T> p_lhs, const T& p_rhs) {
+	return p_lhs *= p_rhs;
+}
+
+template <typename T> constexpr Vec3<T> operator/(Vec3<T> p_lhs, const T& p_rhs) {
+	return p_lhs /= p_rhs;
+}
+
 using Vec3f = Vec3<float>;
 using Vec3d = Vec3<double>;
 using Vec3i = Vec3<int>;
@@ -148,14 +217,6 @@ template <typename T> struct Vec4 {
 			z(static_cast<T>(p_other.z)),
 			w(static_cast<T>(p_other.w)) {}
 
-	constexpr Vec4 operator+(const Vec4& p_rhs) const {
-		return Vec4(x + p_rhs.x, y + p_rhs.y, z + p_rhs.z, w + p_rhs.w);
-	}
-
-	constexpr Vec4 operator-(const Vec4& p_rhs) const {
-		return Vec4(x - p_rhs.x, y - p_rhs.y, z - p_rhs.z, w - p_rhs.w);
-	}
-
 	constexpr bool operator==(const Vec4& p_rhs) const {
 		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z && w == p_rhs.w;
 	}
@@ -176,6 +237,59 @@ template <typename T> struct Vec4 {
 
 	constexpr Vec4 normalize() const { return *this / length(); }
 };
+
+template <typename T> constexpr Vec4<T>& operator+=(Vec4<T>& p_lhs, const Vec4<T>& p_rhs) {
+	p_lhs.x += p_rhs.x;
+	p_lhs.y += p_rhs.y;
+	p_lhs.z += p_rhs.z;
+	p_lhs.w += p_rhs.w;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec4<T>& operator-=(Vec4<T>& p_lhs, const Vec4<T>& p_rhs) {
+	p_lhs.x -= p_rhs.x;
+	p_lhs.y -= p_rhs.y;
+	p_lhs.z -= p_rhs.z;
+	p_lhs.w -= p_rhs.w;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec4<T>& operator*=(Vec4<T>& p_lhs, const T& p_rhs) {
+	p_lhs.x *= p_rhs;
+	p_lhs.y *= p_rhs;
+	p_lhs.z *= p_rhs;
+	p_lhs.w *= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec4<T>& operator/=(Vec4<T>& p_lhs, const T& p_rhs) {
+	if (p_rhs == 0.0f) {
+		p_lhs = Vec4(std::numeric_limits<T>::max());
+		return p_lhs;
+	}
+
+	p_lhs.x /= p_rhs;
+	p_lhs.y /= p_rhs;
+	p_lhs.z /= p_rhs;
+	p_lhs.w /= p_rhs;
+	return p_lhs;
+}
+
+template <typename T> constexpr Vec4<T> operator+(Vec4<T> p_lhs, const Vec4<T>& p_rhs) {
+	return p_lhs += p_rhs;
+}
+
+template <typename T> constexpr Vec4<T> operator-(Vec4<T> p_lhs, const Vec4<T>& p_rhs) {
+	return p_lhs -= p_rhs;
+}
+
+template <typename T> constexpr Vec4<T> operator*(Vec4<T> p_lhs, const T& p_rhs) {
+	return p_lhs *= p_rhs;
+}
+
+template <typename T> constexpr Vec4<T> operator/(Vec4<T> p_lhs, const T& p_rhs) {
+	return p_lhs /= p_rhs;
+}
 
 using Vec4f = Vec4<float>;
 using Vec4d = Vec4<double>;
