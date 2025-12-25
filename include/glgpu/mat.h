@@ -27,8 +27,8 @@ template <> struct Mat<4, 4> {
 
 	Mat operator+(const Mat& p_other) const {
 		Mat res;
-		for (int c = 0; c < 4; ++c) {
-			for (int r = 0; r < 4; ++r) {
+		for (size_t c = 0; c < 4; ++c) {
+			for (size_t r = 0; r < 4; ++r) {
 				res.cols[c][r] = cols[c][r] + p_other.cols[c][r];
 			}
 		}
@@ -37,8 +37,8 @@ template <> struct Mat<4, 4> {
 
 	Mat operator-(const Mat& p_other) const {
 		Mat res;
-		for (int c = 0; c < 4; ++c) {
-			for (int r = 0; r < 4; ++r) {
+		for (size_t c = 0; c < 4; ++c) {
+			for (size_t r = 0; r < 4; ++r) {
 				res.cols[c][r] = cols[c][r] - p_other.cols[c][r];
 			}
 		}
@@ -47,8 +47,8 @@ template <> struct Mat<4, 4> {
 
 	Mat operator*(const Mat& p_other) const {
 		Mat res = Mat::empty();
-		for (int c = 0; c < 4; ++c) {
-			for (int r = 0; r < 4; ++r) {
+		for (size_t c = 0; c < 4; ++c) {
+			for (size_t r = 0; r < 4; ++r) {
 				// Dot product of (this Row r) and (other Col c)
 				res.cols[c][r] = cols[0][r] * p_other.cols[c][0] + cols[1][r] * p_other.cols[c][1] +
 						cols[2][r] * p_other.cols[c][2] + cols[3][r] * p_other.cols[c][3];
@@ -69,8 +69,8 @@ template <> struct Mat<4, 4> {
 	}
 
 	bool operator==(const Mat& p_other) const {
-		for (int c = 0; c < 4; ++c) {
-			for (int r = 0; r < 4; ++r) {
+		for (size_t c = 0; c < 4; ++c) {
+			for (size_t r = 0; r < 4; ++r) {
 				if (std::abs(cols[c][r] - p_other.cols[c][r]) > 1e-6f) {
 					return false;
 				}
@@ -83,8 +83,8 @@ template <> struct Mat<4, 4> {
 
 	Mat transpose() const {
 		Mat res = Mat::empty();
-		for (int c = 0; c < 4; ++c) {
-			for (int r = 0; r < 4; ++r) {
+		for (size_t c = 0; c < 4; ++c) {
+			for (size_t r = 0; r < 4; ++r) {
 				res.cols[r][c] = cols[c][r];
 			}
 		}
@@ -92,7 +92,8 @@ template <> struct Mat<4, 4> {
 	}
 
 	// Calculates 3x3 sub-determinant
-	float minor(int p_c0, int p_c1, int p_c2, int p_r0, int p_r1, int p_r2) const {
+	float minor(
+			size_t p_c0, size_t p_c1, size_t p_c2, size_t p_r0, size_t p_r1, size_t p_r2) const {
 		return cols[p_c0][p_r0] *
 				(cols[p_c1][p_r1] * cols[p_c2][p_r2] - cols[p_c2][p_r1] * cols[p_c1][p_r2]) -
 				cols[p_c1][p_r0] *
@@ -108,8 +109,9 @@ template <> struct Mat<4, 4> {
 
 	Mat inverse() const {
 		const float det = determinant();
-		if (std::abs(det) < 1e-6f)
+		if (std::abs(det) < 1e-6f) {
 			return Mat::empty();
+		}
 
 		Mat res = Mat::empty();
 		float inv_det = 1.0f / det;
@@ -230,29 +232,30 @@ template <> struct Mat<4, 4> {
 	}
 
 	// Orthographic Projection
-	static Mat ortho(float left, float right, float bottom, float top, float zNear, float zFar) {
+	static Mat ortho(float p_left, float p_right, float p_bottom, float p_top, float p_z_near,
+			float p_z_far) {
 		Mat res; // Identity
-		res.cols[0][0] = 2.0f / (right - left);
-		res.cols[1][1] = 2.0f / (top - bottom);
-		res.cols[2][2] = -2.0f / (zFar - zNear);
+		res.cols[0][0] = 2.0f / (p_right - p_left);
+		res.cols[1][1] = 2.0f / (p_top - p_bottom);
+		res.cols[2][2] = -2.0f / (p_z_far - p_z_near);
 
-		res.cols[3][0] = -(right + left) / (right - left);
-		res.cols[3][1] = -(top + bottom) / (top - bottom);
-		res.cols[3][2] = -(zFar + zNear) / (zFar - zNear);
+		res.cols[3][0] = -(p_right + p_left) / (p_right - p_left);
+		res.cols[3][1] = -(p_top + p_bottom) / (p_top - p_bottom);
+		res.cols[3][2] = -(p_z_far + p_z_near) / (p_z_far - p_z_near);
 		return res;
 	}
 
 	// Perspective Projection (FOV in radians)
-	static Mat perspective(float fovyRad, float aspect, float zNear, float zFar) {
+	static Mat perspective(float p_fovy_rad, float p_aspect, float p_z_near, float p_z_far) {
 		Mat res(0.0f); // Zero init, not identity
 
-		float const tanHalfFovy = std::tan(fovyRad / 2.0f);
+		float const tan_half_fovy = std::tan(p_fovy_rad / 2.0f);
 
-		res.cols[0][0] = 1.0f / (aspect * tanHalfFovy);
-		res.cols[1][1] = 1.0f / (tanHalfFovy);
-		res.cols[2][2] = -(zFar + zNear) / (zFar - zNear);
+		res.cols[0][0] = 1.0f / (p_aspect * tan_half_fovy);
+		res.cols[1][1] = 1.0f / (tan_half_fovy);
+		res.cols[2][2] = -(p_z_far + p_z_near) / (p_z_far - p_z_near);
 		res.cols[2][3] = -1.0f;
-		res.cols[3][2] = -(2.0f * zFar * zNear) / (zFar - zNear);
+		res.cols[3][2] = -(2.0f * p_z_far * p_z_near) / (p_z_far - p_z_near);
 
 		return res;
 	}

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <limits>
 namespace gl {
 
 template <typename T> struct Vec2;
@@ -25,6 +24,18 @@ template <typename T> struct Vec2 {
 			x(static_cast<T>(p_other.x)), y(static_cast<T>(p_other.y)) {}
 
 	template <typename U> Vec2(const Vec3<U>& p_other); // Defined below
+
+	//
+
+	static constexpr Vec2 ZERO = Vec2(0);
+	static constexpr Vec2 ONE = Vec2(1);
+
+	static constexpr Vec2 RIGHT = Vec2(1, 0);
+	static constexpr Vec2 UP = Vec2(0, 1);
+
+	// Operators
+
+	constexpr Vec2 operator-() const { return Vec2(-x, -y); }
 
 	constexpr bool operator==(const Vec2& p_rhs) const { return x == p_rhs.x && y == p_rhs.y; }
 
@@ -115,7 +126,18 @@ template <typename T> struct Vec3 {
 	template <typename U>
 	explicit Vec3(const Vec2<U>& p_other, T p_z_val = static_cast<T>(0)); // Defined below
 
+	//
+
+	static constexpr Vec3 ZERO = Vec3(0);
+	static constexpr Vec3 ONE = Vec3(1);
+
+	static constexpr Vec3 RIGHT = Vec3(1, 0, 0);
+	static constexpr Vec3 UP = Vec3(0, 1, 0);
+	static constexpr Vec3 FORWARD = Vec3(0, 0, -1);
+
 	// Operators
+
+	constexpr Vec3 operator-() const { return Vec3(-x, -y, -z); }
 
 	constexpr bool operator==(const Vec3& p_rhs) const {
 		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z;
@@ -216,6 +238,19 @@ template <typename T> struct Vec4 {
 			y(static_cast<T>(p_other.y)),
 			z(static_cast<T>(p_other.z)),
 			w(static_cast<T>(p_other.w)) {}
+
+	//
+
+	static constexpr Vec4 ZERO = Vec4(0);
+	static constexpr Vec4 ONE = Vec4(1);
+
+	static constexpr Vec4 RIGHT = Vec4(1, 0, 0, 0);
+	static constexpr Vec4 UP = Vec4(0, 1, 0, 0);
+	static constexpr Vec4 FORWARD = Vec4(0, 0, -1, 0);
+
+	// Operators
+
+	constexpr Vec4 operator-() const { return Vec4(-x, -y, -z, -w); }
 
 	constexpr bool operator==(const Vec4& p_rhs) const {
 		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z && w == p_rhs.w;
