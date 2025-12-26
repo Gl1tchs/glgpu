@@ -49,7 +49,7 @@ int main(void) {
 		return 1;
 	}
 
-	std::vector<uint32_t> spirv_code = load_spirv_file("testbed/compute.spv");
+	std::vector<uint32_t> spirv_code = load_spirv_file("examples/assets/compute.spv");
 	if (spirv_code.empty()) {
 		GL_LOG_FATAL("Could not load compute.spv. Did you compile the slang file?");
 		return 1;

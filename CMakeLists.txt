@@ -4,7 +4,7 @@ project(glgpu)
 # ------------------------------------------------------------------------------
 # Options
 # ------------------------------------------------------------------------------
-option(GL_BUILD_TESTBED "Build sanbbox application" ON)
+option(GL_BUILD_EXAMPLES "Build examples" ON)
 option(GL_BUILD_TESTS "Build tests" ON)
 option(GL_WITH_VULKAN "Enable vulkan backend" ON)
 option(GL_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
@@ -76,10 +76,10 @@ if(GL_USE_SIMD_INTRINSICS)
 endif()
 
 # ------------------------------------------------------------------------------
-# Target: testbed, tests
+# Target: examples, tests
 # ------------------------------------------------------------------------------
-if(GL_BUILD_TESTBED)
-    add_subdirectory(testbed)
+if(GL_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 if(GL_BUILD_TESTS)

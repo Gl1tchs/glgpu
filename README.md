@@ -12,12 +12,12 @@ GLGPU is a rendering interface abstracting the Vulkan API. It is used to develop
 
 ## Usage
 
-For example usage check testbed and demo applications under [testbed/](testbed/)
+For usage and API references check our examples under [examples/](examples/)
 
 ## Building
 
 Embedding into your own project:
-sw
+
 ```bash
 git clone --recursive https://github.com/Gl1tchs/glgpu.git
 ```
