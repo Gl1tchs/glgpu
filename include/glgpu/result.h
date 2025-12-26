@@ -3,7 +3,7 @@
 namespace gl {
 
 /**
- * @brief Class encapsulating an union of type T and E
+ * Class encapsulating an union of type T and E
  * which can be used to return type safe error types.
  *
  */
@@ -12,39 +12,132 @@ public:
 	using ValueType = T;
 	using ErrorType = E;
 
-	constexpr Result() noexcept = delete;
+	constexpr Result(const ValueType& p_val) : _has_value(true) { new (&_value) ValueType(p_val); }
 
-	constexpr Result(ValueType&& p_val) noexcept : _data(std::move(p_val)) {}
-	constexpr Result(const ValueType& p_val) noexcept : _data(p_val) {}
+	constexpr Result(ValueType&& p_val) noexcept : _has_value(true) {
+		new (&_value) ValueType(std::move(p_val));
+	}
 
-	constexpr explicit Result(ErrorType&& p_err) : _data(std::move(p_err)) {}
-	constexpr explicit Result(const ErrorType& p_err) : _data(p_err) {}
+	Result(const Result& p_other) : _has_value(p_other._has_value) {
+		if (_has_value) {
+			new (&_value) ValueType(p_other._value);
+		} else {
+			new (&_error) ErrorType(p_other._error);
+		}
+	}
 
-	constexpr bool has_value() const noexcept { return std::holds_alternative<ValueType>(_data); }
+	Result(Result&& p_other) noexcept : _has_value(p_other._has_value) {
+		if (_has_value) {
+			new (&_value) ValueType(std::move(p_other._value));
+		} else {
+			new (&_error) ErrorType(std::move(p_other._error));
+		}
+	}
 
-	constexpr bool has_error() const noexcept { return std::holds_alternative<ErrorType>(_data); }
+	Result& operator=(const Result& p_other) {
+		if (this == &p_other) {
+			return *this;
+		}
 
-	constexpr explicit operator bool() const noexcept { return has_value(); }
+		// Destroy current active member
+		this->~Result();
 
-	constexpr ValueType& get_value() noexcept { return std::get<ValueType>(_data); }
-	constexpr const ValueType& get_value() const noexcept { return std::get<ValueType>(_data); }
+		_has_value = p_other._has_value;
+		if (_has_value) {
+			new (&_value) ValueType(p_other._value);
+		} else {
+			new (&_error) ErrorType(p_other._error);
+		}
 
-	constexpr ErrorType& get_error() noexcept { return std::get<ErrorType>(_data); }
-	constexpr const ErrorType& get_error() const noexcept { return std::get<ErrorType>(_data); }
+		return *this;
+	}
+
+	Result& operator=(Result&& p_other) noexcept {
+		if (this == &p_other) {
+			return *this;
+		}
+
+		this->~Result();
+
+		_has_value = p_other._has_value;
+		if (_has_value) {
+			new (&_value) ValueType(std::move(p_other._value));
+		} else {
+			new (&_error) ErrorType(std::move(p_other._error));
+		}
+
+		return *this;
+	}
+
+	~Result() {
+		// Union members aren't destroyed automatically
+		if (_has_value) {
+			_value.~ValueType();
+		} else {
+			_error.~ErrorType();
+		}
+	}
+
+	constexpr bool has_value() const noexcept { return _has_value; }
+	constexpr bool has_error() const noexcept { return !_has_value; }
+	constexpr explicit operator bool() const noexcept { return _has_value; }
+
+	constexpr ValueType& get_value() noexcept {
+		assert(_has_value);
+		return _value;
+	}
+	constexpr const ValueType& get_value() const noexcept {
+		assert(_has_value);
+		return _value;
+	}
+
+	constexpr ErrorType& get_error() noexcept {
+		assert(!_has_value);
+		return _error;
+	}
+	constexpr const ErrorType& get_error() const noexcept {
+		assert(!_has_value);
+		return _error;
+	}
 
 	constexpr ValueType& operator*() noexcept { return get_value(); }
 	constexpr const ValueType& operator*() const noexcept { return get_value(); }
 
-	constexpr bool operator==(const Result& other) const noexcept { return _data == other._data; }
+	constexpr bool operator==(const Result& p_other) const noexcept {
+		// If they don't have the same state, they aren't equal
+		if (_has_value != p_other._has_value) {
+			return false;
+		}
+
+		if (_has_value) {
+			return _value == p_other._value;
+		} else {
+			return _error == p_other._error;
+		}
+	}
+
+	constexpr bool operator!=(const Result& p_other) const noexcept { return !(*this == p_other); }
 
 private:
-	std::variant<ValueType, ErrorType> _data;
+	union {
+		ValueType _value;
+		ErrorType _error;
+	};
 
-	template <typename U, typename V> friend constexpr Result<U, V> make_err(V);
+	bool _has_value;
+
+	// Internal tag to distinguish error construction when T and E are the same type
+	struct ErrorTag {};
+
+	constexpr Result(ErrorType&& p_err, ErrorTag) : _has_value(false) {
+		new (&_error) ErrorType(std::move(p_err));
+	}
+
+	template <typename U, typename V> friend constexpr Result<U, V> make_err(V&& p_err);
 };
 
-template <typename T, typename E> constexpr Result<T, E> make_err(E p_err) {
-	return Result<T, E>(std::forward<E>(p_err));
+template <typename T, typename E> constexpr Result<T, E> make_err(E&& p_err) {
+	return Result<T, E>(std::forward<E>(p_err), typename Result<T, E>::ErrorTag{});
 }
 
 } //namespace gl

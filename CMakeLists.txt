@@ -5,7 +5,9 @@ project(glgpu)
 # Options
 # ------------------------------------------------------------------------------
 option(GL_BUILD_TESTBED "Build sanbbox application" ON)
+option(GL_BUILD_TESTS "Build tests" ON)
 option(GL_WITH_VULKAN "Enable vulkan backend" ON)
+option(GL_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
 option(GL_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -69,9 +71,17 @@ target_link_libraries(glgpu
 
 target_precompile_headers(glgpu PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/pch.h)
 
+if(GL_USE_SIMD_INTRINSICS)
+    target_compile_definitions(glgpu PUBLIC GL_USE_SIMD_INTRINSICS)
+endif()
+
 # ------------------------------------------------------------------------------
-# Target: testbed
+# Target: testbed, tests
 # ------------------------------------------------------------------------------
 if(GL_BUILD_TESTBED)
     add_subdirectory(testbed)
+endif()
+
+if(GL_BUILD_TESTS)
+    add_subdirectory(tests)
 endif()

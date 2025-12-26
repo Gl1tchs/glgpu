@@ -1,71 +1,155 @@
 #pragma once
 
 #include "glgpu/math.h"
-#include "glgpu/vec.h"
+#include "glgpu/vector.h"
+
+#ifdef GL_USE_SIMD_INTRINSICS
+#include <immintrin.h>
+#endif
 
 namespace gl {
 
 template <size_t TCols, size_t TRows> struct Mat;
 
 template <> struct Mat<4, 4> {
-	std::array<std::array<float, 4>, 4> cols;
+	std::array<Vec4f, 4> cols;
 
 	// Default: Identity matrix
 	Mat(float p_value = 1.0f) :
 			cols({
-					{ { p_value, 0.0f, 0.0f, 0.0f } },
-					{ { 0.0f, p_value, 0.0f, 0.0f } },
-					{ { 0.0f, 0.0f, p_value, 0.0f } },
-					{ { 0.0f, 0.0f, 0.0f, p_value } },
+					{ Vec4f{ p_value, 0.0f, 0.0f, 0.0f } },
+					{ Vec4f{ 0.0f, p_value, 0.0f, 0.0f } },
+					{ Vec4f{ 0.0f, 0.0f, p_value, 0.0f } },
+					{ Vec4f{ 0.0f, 0.0f, 0.0f, p_value } },
 			}) {}
 
 	// Create empty matrix
 	static Mat empty() { return Mat{ {} }; }
 
-	std::array<float, 4>& operator[](size_t p_col_idx) { return cols[p_col_idx]; }
-	const std::array<float, 4>& operator[](size_t p_col_idx) const { return cols[p_col_idx]; }
+	Vec4f& operator[](size_t p_col_idx) { return cols[p_col_idx]; }
+	const Vec4f& operator[](size_t p_col_idx) const { return cols[p_col_idx]; }
 
 	Mat operator+(const Mat& p_other) const {
 		Mat res;
+#ifdef GL_USE_SIMD_INTRINSICS
+		// Load, Add, Store for each column
+		for (int i = 0; i < 4; ++i) {
+			// Unaligned loads are safe and fast on modern CPUs
+			__m128 a = _mm_loadu_ps(&cols[i].x);
+			__m128 b = _mm_loadu_ps(&p_other.cols[i].x);
+			__m128 r = _mm_add_ps(a, b);
+			_mm_storeu_ps(&res.cols[i].x, r);
+		}
+#else
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
 				res.cols[c][r] = cols[c][r] + p_other.cols[c][r];
 			}
 		}
+#endif
 		return res;
 	}
 
 	Mat operator-(const Mat& p_other) const {
 		Mat res;
+#ifdef GL_USE_SIMD_INTRINSICS
+		for (int i = 0; i < 4; ++i) {
+			__m128 a = _mm_loadu_ps(&cols[i].x);
+			__m128 b = _mm_loadu_ps(&p_other.cols[i].x);
+			__m128 r = _mm_sub_ps(a, b);
+			_mm_storeu_ps(&res.cols[i].x, r);
+		}
+#else
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
 				res.cols[c][r] = cols[c][r] - p_other.cols[c][r];
 			}
 		}
+#endif
 		return res;
 	}
 
 	Mat operator*(const Mat& p_other) const {
-		Mat res = Mat::empty();
+		Mat res;
+#ifdef GL_USE_SIMD_INTRINSICS
+		// Load columns of 'this' matrix into registers
+		__m128 Col0 = _mm_loadu_ps(&cols[0].x);
+		__m128 Col1 = _mm_loadu_ps(&cols[1].x);
+		__m128 Col2 = _mm_loadu_ps(&cols[2].x);
+		__m128 Col3 = _mm_loadu_ps(&cols[3].x);
+
+		for (int i = 0; i < 4; ++i) {
+			// Load one column from the 'other' matrix
+			__m128 OtherCol = _mm_loadu_ps(&p_other.cols[i].x);
+
+			// Broadcast the components of OtherCol:
+			// xxxx, yyyy, zzzz, wwww
+			__m128 e0 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(0, 0, 0, 0));
+			__m128 e1 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(1, 1, 1, 1));
+			__m128 e2 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(2, 2, 2, 2));
+			__m128 e3 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(3, 3, 3, 3));
+
+			// Linear Combination:
+			// Res = (Col0 * x) + (Col1 * y) + (Col2 * z) + (Col3 * w)
+			__m128 m0 = _mm_mul_ps(Col0, e0);
+			__m128 m1 = _mm_mul_ps(Col1, e1);
+			__m128 m2 = _mm_mul_ps(Col2, e2);
+			__m128 m3 = _mm_mul_ps(Col3, e3);
+
+			__m128 sum = _mm_add_ps(_mm_add_ps(m0, m1), _mm_add_ps(m2, m3));
+
+			_mm_storeu_ps(&res.cols[i].x, sum);
+		}
+#else
+		// Fallback: Clear to 0 first or use constructor
+		res = Mat::empty();
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
-				// Dot product of (this Row r) and (other Col c)
 				res.cols[c][r] = cols[0][r] * p_other.cols[c][0] + cols[1][r] * p_other.cols[c][1] +
 						cols[2][r] * p_other.cols[c][2] + cols[3][r] * p_other.cols[c][3];
 			}
 		}
+#endif
 		return res;
 	}
 
-	// Matrix * Vector Multiplication
+	// Matrix * Vector multiplication
 	Vec4f operator*(const Vec4f& p_v) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		// Load columns of matrix
+		__m128 Col0 = _mm_loadu_ps(&cols[0].x);
+		__m128 Col1 = _mm_loadu_ps(&cols[1].x);
+		__m128 Col2 = _mm_loadu_ps(&cols[2].x);
+		__m128 Col3 = _mm_loadu_ps(&cols[3].x);
+
+		// Load the vector
+		__m128 vec = _mm_loadu_ps(&p_v.x);
+
+		// Broadcast vector components
+		__m128 v0 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(0, 0, 0, 0));
+		__m128 v1 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(1, 1, 1, 1));
+		__m128 v2 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(2, 2, 2, 2));
+		__m128 v3 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(3, 3, 3, 3));
+
+		// Linear combination
+		__m128 m0 = _mm_mul_ps(Col0, v0);
+		__m128 m1 = _mm_mul_ps(Col1, v1);
+		__m128 m2 = _mm_mul_ps(Col2, v2);
+		__m128 m3 = _mm_mul_ps(Col3, v3);
+
+		__m128 res_vec = _mm_add_ps(_mm_add_ps(m0, m1), _mm_add_ps(m2, m3));
+
 		Vec4f res;
-		// Linear combination of columns
+		_mm_storeu_ps(&res.x, res_vec);
+		return res;
+#else
+		Vec4f res;
 		res.x = cols[0][0] * p_v.x + cols[1][0] * p_v.y + cols[2][0] * p_v.z + cols[3][0] * p_v.w;
 		res.y = cols[0][1] * p_v.x + cols[1][1] * p_v.y + cols[2][1] * p_v.z + cols[3][1] * p_v.w;
 		res.z = cols[0][2] * p_v.x + cols[1][2] * p_v.y + cols[2][2] * p_v.z + cols[3][2] * p_v.w;
 		res.w = cols[0][3] * p_v.x + cols[1][3] * p_v.y + cols[2][3] * p_v.z + cols[3][3] * p_v.w;
 		return res;
+#endif
 	}
 
 	bool operator==(const Mat& p_other) const {

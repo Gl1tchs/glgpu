@@ -2,6 +2,7 @@
 #include <any>
 #include <array>
 #include <bitset>
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstdint>

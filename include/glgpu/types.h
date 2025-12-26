@@ -1,7 +1,7 @@
 #pragma once
 
 #include "glgpu/color.h"
-#include "glgpu/vec.h"
+#include "glgpu/vector.h"
 
 namespace gl {
 
