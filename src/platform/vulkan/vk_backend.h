@@ -17,23 +17,25 @@ static_assert(sizeof(BufferImageCopyRegion) == sizeof(VkBufferImageCopy));
 
 class VulkanRenderBackend : public RenderBackend {
 public:
-	VulkanRenderBackend(const RenderBackendCreateInfo& p_info);
+	VulkanRenderBackend() = default;
 	virtual ~VulkanRenderBackend();
+
+	Res<> init(const RenderBackendCreateInfo& info) override;
 
 	// =========================================================================
 	// Device & Surface
 	// =========================================================================
 
-	void device_wait() override;
+	Res<> device_wait() override;
 
-	Error attach_surface(void* p_connection_handle, void* p_window_handle) override;
+	Res<> attach_surface(void* connection_handle, void* window_handle) override;
 
 	bool is_swapchain_supported() override;
 
 	uint32_t get_max_msaa_samples() const override;
 
 	// Command Queue
-	CommandQueue queue_get(QueueType p_type) override;
+	Res<CommandQueue> queue_get(QueueType type) override;
 
 	// =========================================================================
 	// Resource Management (Buffers & Images)
@@ -50,20 +52,20 @@ public:
 		VkBufferView vk_view = VK_NULL_HANDLE;
 	};
 
-	Buffer buffer_create(uint64_t p_size, BufferUsageFlags p_usage,
-			MemoryAllocationType p_allocation_type) override;
+	Res<Buffer> buffer_create(
+			uint64_t size, BufferUsageFlags usage, MemoryAllocationType allocation_type) override;
 
-	void buffer_free(Buffer p_buffer) override;
+	Res<> buffer_free(Buffer buffer) override;
 
-	BufferDeviceAddress buffer_get_device_address(Buffer p_buffer) override;
+	Res<BufferDeviceAddress> buffer_get_device_address(Buffer buffer) override;
 
-	uint8_t* buffer_map(Buffer p_buffer) override;
+	Res<uint8_t*> buffer_map(Buffer buffer) override;
 
-	void buffer_unmap(Buffer p_buffer) override;
+	Res<> buffer_unmap(Buffer buffer) override;
 
-	void buffer_invalidate(Buffer p_buffer) override;
+	Res<> buffer_invalidate(Buffer buffer) override;
 
-	void buffer_flush(Buffer p_buffer) override;
+	Res<> buffer_flush(Buffer buffer) override;
 
 	// Image
 	struct VulkanImage {
@@ -75,22 +77,20 @@ public:
 		uint32_t mip_levels;
 	};
 
-	// Signature updated to use ImageCreateInfo struct
-	Image image_create(const ImageCreateInfo& p_info) override;
+	Res<Image> image_create(const ImageCreateInfo& info) override;
 
-	void image_free(Image p_image) override;
+	Res<> image_free(Image image) override;
 
-	Vec3u image_get_size(Image p_image) override;
+	Res<Vec3u> image_get_size(Image image) override;
 
-	DataFormat image_get_format(Image p_image) override;
+	Res<DataFormat> image_get_format(Image image) override;
 
-	uint32_t image_get_mip_levels(Image p_image) override;
+	Res<uint32_t> image_get_mip_levels(Image image) override;
 
 	// Sampler
-	// Signature updated to use SamplerCreateInfo struct
-	Sampler sampler_create(const SamplerCreateInfo& p_info) override;
+	Res<Sampler> sampler_create(const SamplerCreateInfo& info) override;
 
-	void sampler_free(Sampler p_sampler) override;
+	Res<> sampler_free(Sampler sampler) override;
 
 	// =========================================================================
 	// Shader & Pipelines
@@ -107,11 +107,11 @@ public:
 		size_t shader_hash;
 	};
 
-	Shader shader_create_from_bytecode(const std::vector<SpirvEntry>& p_shaders) override;
+	Res<Shader> shader_create_from_bytecode(const std::vector<SpirvEntry>& shaders) override;
 
-	void shader_free(Shader p_shader) override;
+	Res<> shader_free(Shader shader) override;
 
-	std::vector<ShaderInterfaceVariable> shader_get_vertex_inputs(Shader p_shader) override;
+	Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader) override;
 
 	// Pipeline
 	struct VulkanPipeline {
@@ -120,12 +120,11 @@ public:
 		size_t shader_hash;
 	};
 
-	// Consolidated two overloads into one using the RenderPipelineCreateInfo struct
-	Pipeline render_pipeline_create(const RenderPipelineCreateInfo& p_info) override;
+	Res<Pipeline> render_pipeline_create(const RenderPipelineCreateInfo& info) override;
 
-	Pipeline compute_pipeline_create(Shader p_shader) override;
+	Res<Pipeline> compute_pipeline_create(Shader shader) override;
 
-	void pipeline_free(Pipeline p_pipeline) override;
+	Res<> pipeline_free(Pipeline pipeline) override;
 
 	// UniformSet
 	static const uint32_t MAX_UNIFORM_POOL_ELEMENT = 65535;
@@ -133,8 +132,8 @@ public:
 	struct DescriptorSetPoolKey {
 		uint16_t uniform_type[static_cast<uint32_t>(ShaderUniformType::MAX)] = {};
 
-		bool operator<(const DescriptorSetPoolKey& p_other) const {
-			return memcmp(uniform_type, p_other.uniform_type, sizeof(uniform_type)) < 0;
+		bool operator<(const DescriptorSetPoolKey& other) const {
+			return memcmp(uniform_type, other.uniform_type, sizeof(uniform_type)) < 0;
 		}
 	};
 
@@ -147,10 +146,10 @@ public:
 		DescriptorSetPoolKey pool_key;
 	};
 
-	UniformSet uniform_set_create(
-			std::vector<ShaderUniform> p_uniforms, Shader p_shader, uint32_t p_set_index) override;
+	Res<UniformSet> uniform_set_create(
+			std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
 
-	void uniform_set_free(UniformSet p_uniform_set) override;
+	Res<> uniform_set_free(UniformSet uniform_set) override;
 
 	// =========================================================================
 	// Render Pass & Framebuffer
@@ -162,16 +161,16 @@ public:
 		std::vector<RenderPassAttachment> attachments;
 	};
 
-	RenderPass render_pass_create(std::vector<RenderPassAttachment> p_attachments,
-			std::vector<SubpassInfo> p_subpasses) override;
+	Res<RenderPass> render_pass_create(std::vector<RenderPassAttachment> attachments,
+			std::vector<SubpassInfo> subpasses) override;
 
-	void render_pass_destroy(RenderPass p_render_pass) override;
+	Res<> render_pass_destroy(RenderPass render_pass) override;
 
 	// Frame Buffer
-	FrameBuffer frame_buffer_create(RenderPass p_render_pass, std::vector<Image> p_attachments,
-			const Vec2u& p_extent) override;
+	Res<FrameBuffer> frame_buffer_create(
+			RenderPass render_pass, std::vector<Image> attachments, const Vec2u& extent) override;
 
-	void frame_buffer_destroy(FrameBuffer p_frame_buffer) override;
+	Res<> frame_buffer_destroy(FrameBuffer frame_buffer) override;
 
 	// =========================================================================
 	// Swapchain
@@ -187,40 +186,39 @@ public:
 		bool initialized;
 	};
 
-	Swapchain swapchain_create() override;
+	Res<Swapchain> swapchain_create() override;
 
-	void swapchain_resize(CommandQueue p_cmd_queue, Swapchain p_swapchain, Vec2u size,
-			bool p_vsync = false) override;
+	Res<> swapchain_resize(
+			CommandQueue cmd_queue, Swapchain swapchain, Vec2u size, bool vsync = false) override;
 
-	size_t swapchain_get_image_count(Swapchain p_swapchain) override;
+	Res<size_t> swapchain_get_image_count(Swapchain swapchain) override;
 
-	std::vector<Image> swapchain_get_images(Swapchain p_swapchain) override;
+	Res<std::vector<Image>> swapchain_get_images(Swapchain swapchain) override;
 
-	// Result type updated to use the global Error enum
-	Result<Image, Error> swapchain_acquire_image(
-			Swapchain p_swapchain, Semaphore p_semaphore, uint32_t* o_image_index) override;
+	Res<Image> swapchain_acquire_image(
+			Swapchain swapchain, Semaphore semaphore, uint32_t* o_image_index) override;
 
-	Vec2u swapchain_get_extent(Swapchain p_swapchain) override;
+	Res<Vec2u> swapchain_get_extent(Swapchain swapchain) override;
 
-	DataFormat swapchain_get_format(Swapchain p_swapchain) override;
+	Res<DataFormat> swapchain_get_format(Swapchain swapchain) override;
 
-	void swapchain_free(Swapchain p_swapchain) override;
+	Res<> swapchain_free(Swapchain swapchain) override;
 
 	// =========================================================================
 	// Synchronization
 	// =========================================================================
 
-	Fence fence_create(bool p_create_signaled = true) override;
+	Fence fence_create(bool create_signaled = true) override;
 
-	void fence_free(Fence p_fence) override;
+	Res<> fence_free(Fence fence) override;
 
-	void fence_wait(Fence p_fence) override;
+	Res<> fence_wait(Fence fence) override;
 
-	void fence_reset(Fence p_fence) override;
+	Res<> fence_reset(Fence fence) override;
 
 	Semaphore semaphore_create() override;
 
-	void semaphore_free(Semaphore p_semaphore) override;
+	Res<> semaphore_free(Semaphore semaphore) override;
 
 	// =========================================================================
 	// Command Submission & Recording
@@ -232,103 +230,103 @@ public:
 		std::mutex mutex;
 	};
 
-	void queue_submit(CommandQueue p_queue, CommandBuffer p_cmd, Fence p_fence = GL_NULL_HANDLE,
-			Semaphore p_wait_semaphore = GL_NULL_HANDLE,
-			Semaphore p_signal_semaphore = GL_NULL_HANDLE) override;
+	Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence = GL_NULL_HANDLE,
+			Semaphore wait_semaphore = GL_NULL_HANDLE,
+			Semaphore signal_semaphore = GL_NULL_HANDLE) override;
 
-	bool queue_present(CommandQueue p_queue, Swapchain p_swapchain,
-			Semaphore p_wait_semaphore = GL_NULL_HANDLE) override;
+	Res<> queue_present(CommandQueue queue, Swapchain swapchain,
+			Semaphore wait_semaphore = GL_NULL_HANDLE) override;
 
-	void command_immediate_submit(std::function<void(CommandBuffer p_cmd)>&& p_function,
-			QueueType p_queue_type = QueueType::TRANSFER) override;
+	Res<> command_immediate_submit(std::function<void(CommandBuffer cmd)>&& function,
+			QueueType queue_type = QueueType::TRANSFER) override;
 
-	CommandPool command_pool_create(CommandQueue p_queue) override;
+	Res<CommandPool> command_pool_create(CommandQueue queue) override;
 
-	void command_pool_free(CommandPool p_command_pool) override;
+	Res<> command_pool_free(CommandPool command_pool) override;
 
-	CommandBuffer command_pool_allocate(CommandPool p_command_pool) override;
+	Res<CommandBuffer> command_pool_allocate(CommandPool command_pool) override;
 
-	std::vector<CommandBuffer> command_pool_allocate(
-			CommandPool p_command_pool, const uint32_t count) override;
+	Res<std::vector<CommandBuffer>> command_pool_allocate(
+			CommandPool command_pool, const uint32_t count) override;
 
-	void command_pool_reset(CommandPool p_command_pool) override;
+	Res<> command_pool_reset(CommandPool command_pool) override;
 
-	void command_begin(CommandBuffer p_cmd) override;
+	Res<> command_begin(CommandBuffer cmd) override;
 
-	void command_end(CommandBuffer p_cmd) override;
+	Res<> command_end(CommandBuffer cmd) override;
 
-	void command_reset(CommandBuffer p_cmd) override;
+	Res<> command_reset(CommandBuffer cmd) override;
 
-	void command_begin_render_pass(CommandBuffer p_cmd, RenderPass p_render_pass,
-			FrameBuffer framebuffer, const Vec2u& p_draw_extent,
+	Res<> command_begin_render_pass(CommandBuffer cmd, RenderPass render_pass,
+			FrameBuffer framebuffer, const Vec2u& draw_extent,
 			Color clear_color = COLOR_GRAY) override;
 
-	void command_end_render_pass(CommandBuffer p_cmd) override;
+	Res<> command_end_render_pass(CommandBuffer cmd) override;
 
-	void command_begin_rendering(CommandBuffer p_cmd, const Vec2u& p_draw_extent,
-			std::vector<RenderingAttachment> p_color_attachments,
-			Image p_depth_attachment = GL_NULL_HANDLE) override; // Corrected default value
+	Res<> command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
+			std::vector<RenderingAttachment> color_attachments,
+			Image depth_attachment = GL_NULL_HANDLE) override;
 
-	void command_end_rendering(CommandBuffer p_cmd) override;
+	Res<> command_end_rendering(CommandBuffer cmd) override;
 
 	// image layout must be ImageLayout::GENERAL
-	void command_clear_color(CommandBuffer p_cmd, Image p_image, const Color& p_clear_color,
-			ImageAspectFlags p_image_aspect = IMAGE_ASPECT_COLOR_BIT) override;
+	Res<> command_clear_color(CommandBuffer cmd, Image image, const Color& clear_color,
+			ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT) override;
 
-	void command_bind_graphics_pipeline(CommandBuffer p_cmd, Pipeline p_pipeline) override;
+	Res<> command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline) override;
 
-	void command_bind_compute_pipeline(CommandBuffer p_cmd, Pipeline p_pipeline) override;
+	Res<> command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) override;
 
-	void command_bind_vertex_buffers(CommandBuffer p_cmd, uint32_t p_first_binding,
-			std::vector<Buffer> p_vertex_buffers, std::vector<uint64_t> p_offsets) override;
+	Res<> command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
+			std::vector<Buffer> vertex_buffers, std::vector<uint64_t> offsets) override;
 
-	void command_bind_index_buffer(CommandBuffer p_cmd, Buffer p_index_buffer, uint64_t p_offset,
-			IndexType p_index_type) override;
+	Res<> command_bind_index_buffer(
+			CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) override;
 
-	void command_draw(CommandBuffer p_cmd, uint32_t p_vertex_count, uint32_t p_instance_count = 1,
-			uint32_t p_first_vertex = 0, uint32_t p_first_instance = 0) override;
+	Res<> command_draw(CommandBuffer cmd, uint32_t vertex_count, uint32_t instance_count = 1,
+			uint32_t first_vertex = 0, uint32_t first_instance = 0) override;
 
-	void command_draw_indexed(CommandBuffer p_cmd, uint32_t p_index_count,
-			uint32_t p_instance_count = 1, uint32_t p_first_index = 0, int32_t p_vertex_offset = 0,
-			uint32_t p_first_instance = 0) override;
+	Res<> command_draw_indexed(CommandBuffer cmd, uint32_t index_count, uint32_t instance_count = 1,
+			uint32_t first_index = 0, int32_t vertex_offset = 0,
+			uint32_t first_instance = 0) override;
 
-	void command_draw_indexed_indirect(CommandBuffer p_cmd, Buffer p_buffer, uint64_t p_offset,
-			uint32_t p_draw_count, uint32_t p_stride) override;
+	Res<> command_draw_indexed_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset,
+			uint32_t draw_count, uint32_t stride) override;
 
-	void command_dispatch(CommandBuffer p_cmd, uint32_t p_group_count_x, uint32_t p_group_count_y,
-			uint32_t p_group_count_z) override;
+	Res<> command_dispatch(CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y,
+			uint32_t group_count_z) override;
 
-	void command_bind_uniform_sets(CommandBuffer p_cmd, Shader p_shader, uint32_t p_first_set,
-			std::vector<UniformSet> p_uniform_sets,
-			PipelineType p_type = PipelineType::GRAPHICS) override;
+	Res<> command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
+			std::vector<UniformSet> uniform_sets,
+			PipelineType type = PipelineType::GRAPHICS) override;
 
-	void command_push_constants(CommandBuffer p_cmd, Shader p_shader, uint64_t p_offset,
-			uint32_t p_size, const void* p_push_constants) override;
+	Res<> command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset, uint32_t size,
+			const void* push_constants) override;
 
-	void command_set_viewport(CommandBuffer p_cmd, const Vec2u& size) override;
+	Res<> command_set_viewport(CommandBuffer cmd, const Vec2u& size) override;
 
-	void command_set_scissor(
-			CommandBuffer p_cmd, const Vec2u& p_size, const Vec2u& p_offset = { 0, 0 }) override;
+	Res<> command_set_scissor(
+			CommandBuffer cmd, const Vec2u& size, const Vec2u& offset = { 0, 0 }) override;
 
-	void command_set_depth_bias(CommandBuffer p_cmd, float p_depth_bias_constant_factor,
-			float p_depth_bias_clamp, float p_depth_bias_slope_factor) override;
+	Res<> command_set_depth_bias(CommandBuffer cmd, float depth_bias_constant_factor,
+			float depth_bias_clamp, float depth_bias_slope_factor) override;
 
-	void command_buffer_memory_barrier(CommandBuffer p_cmd, BufferUsageFlags p_src_usage,
-			BufferUsageFlags p_dst_usage, Buffer p_buffer) override;
+	Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
+			BufferUsageFlags dst_usage, Buffer buffer) override;
 
-	void command_copy_buffer(CommandBuffer p_cmd, Buffer p_src_buffer, Buffer p_dst_buffer,
-			std::vector<BufferCopyRegion> p_regions) override;
+	Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
+			std::vector<BufferCopyRegion> regions) override;
 
-	void command_copy_buffer_to_image(CommandBuffer p_cmd, Buffer p_src_buffer, Image p_dst_image,
-			std::vector<BufferImageCopyRegion> p_regions) override;
+	Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer, Image dst_image,
+			std::vector<BufferImageCopyRegion> regions) override;
 
-	void command_copy_image_to_image(CommandBuffer p_cmd, Image p_src_image, Image p_dst_image,
-			const Vec2u& p_src_extent, const Vec2u& p_dst_extent, uint32_t p_src_mip_level = 0,
-			uint32_t p_dst_mip_level = 0) override;
+	Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
+			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
+			uint32_t dst_mip_level = 0) override;
 
-	void command_transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout,
-			ImageLayout p_new_layout, uint32_t p_base_mip_level = 0,
-			uint32_t p_level_count = GL_REMAINING_MIP_LEVELS) override;
+	Res<> command_transition_image(CommandBuffer cmd, Image image, ImageLayout current_layout,
+			ImageLayout new_layout, uint32_t base_mip_level = 0,
+			uint32_t level_count = GL_REMAINING_MIP_LEVELS) override;
 
 private:
 	// Vulkan helpers
@@ -341,22 +339,22 @@ private:
 		std::optional<uint32_t> transfer_family;
 		std::optional<uint32_t> compute_family;
 
-		bool is_complete(bool p_surface_support, bool p_distinct_compute_queue) const {
+		bool is_complete(bool surface_support, bool distinct_compute_queue) const {
 			const bool basic = graphics_family.has_value() && transfer_family.has_value();
-			return basic && (p_surface_support ? present_family.has_value() : true) &&
-					(p_distinct_compute_queue ? compute_family.has_value() : true);
+			return basic && (surface_support ? present_family.has_value() : true) &&
+					(distinct_compute_queue ? compute_family.has_value() : true);
 		}
 	};
 
-	static uint32_t _rate_device_suitability(VkPhysicalDevice p_physical_device,
-			const std::vector<const char*>& p_required_extensions,
-			RenderBackendFeatureFlags p_required_features, VkSurfaceKHR p_surface = VK_NULL_HANDLE);
+	static uint32_t _rate_device_suitability(VkPhysicalDevice physical_device,
+			const std::vector<const char*>& required_extensions,
+			RenderBackendFeatureFlags required_features, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
-	static QueueFamilyIndices _find_queue_families(VkPhysicalDevice p_device,
-			RenderBackendFeatureFlags p_flags, VkSurfaceKHR p_surface = VK_NULL_HANDLE);
+	static QueueFamilyIndices _find_queue_families(VkPhysicalDevice device,
+			RenderBackendFeatureFlags flags, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
 	static bool _check_device_extension_support(
-			VkPhysicalDevice p_device, const std::vector<const char*>& p_extensions);
+			VkPhysicalDevice device, const std::vector<const char*>& extensions);
 
 	struct SurfaceCapabilities {
 		VkSurfaceCapabilitiesKHR capabilities;
@@ -365,63 +363,62 @@ private:
 	};
 
 	static std::optional<SurfaceCapabilities> _check_surface_capabilities(
-			VkPhysicalDevice p_physical_device, VkSurfaceKHR p_surface);
+			VkPhysicalDevice physical_device, VkSurfaceKHR surface);
 
-	bool _create_surface_platform_specific(void* p_connection, void* p_window);
+	bool _create_surface_platform_specific(void* connection, void* window);
 
-	static VkResult _create_debug_utils_messenger_ext(VkInstance p_instance,
-			const VkDebugUtilsMessengerCreateInfoEXT* p_info,
-			const VkAllocationCallbacks* p_allocator, VkDebugUtilsMessengerEXT* p_debug_messenger);
+	static VkResult _create_debug_utils_messenger_ext(VkInstance instance,
+			const VkDebugUtilsMessengerCreateInfoEXT* info, const VkAllocationCallbacks* allocator,
+			VkDebugUtilsMessengerEXT* debug_messenger);
 
-	static void _destroy_debug_utils_messenger_ext(VkInstance p_instance,
-			VkDebugUtilsMessengerEXT p_debug_messenger, const VkAllocationCallbacks* p_allocator);
+	static void _destroy_debug_utils_messenger_ext(VkInstance instance,
+			VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks* allocator);
 
 	// API Helpers
 
-	// Helper signature updated to use internal/Vulkan types
-	VulkanImage* _image_create(VkFormat p_format, VkExtent3D p_size, VkImageUsageFlags p_usage,
-			bool p_mipmapped, VkSampleCountFlagBits p_samples);
+	VulkanImage* _image_create(VkFormat format, VkExtent3D size, VkImageUsageFlags usage,
+			bool mipmapped, VkSampleCountFlagBits samples);
 
-	void _generate_image_mipmaps(CommandBuffer p_cmd, Image p_image, Vec2u p_size);
+	void _generate_image_mipmaps(CommandBuffer cmd, Image image, Vec2u size);
 
-	void _swapchain_release(VulkanSwapchain* p_swapchain);
+	void _swapchain_release(VulkanSwapchain* swapchain);
 
-	VmaPool _find_or_create_small_allocs_pool(uint32_t p_mem_type_index);
+	VmaPool _find_or_create_small_allocs_pool(uint32_t mem_type_index);
 
-	VkDescriptorPool _uniform_pool_find_or_create(const DescriptorSetPoolKey& p_key);
+	VkDescriptorPool _uniform_pool_find_or_create(const DescriptorSetPoolKey& key);
 
 	void _uniform_pool_unreference(
-			const DescriptorSetPoolKey& p_key, VkDescriptorPool p_vk_descriptor_pool);
+			const DescriptorSetPoolKey& key, VkDescriptorPool vk_descriptor_pool);
 
 private:
 	using VersatileResource = VersatileResourceTemplate<VulkanBuffer, VulkanImage, VulkanShader,
 			VulkanUniformSet, VulkanPipeline>;
 
-	VkInstance instance;
-	VkDevice device;
+	VkInstance _instance;
+	VkDevice _device;
 
-	VkPhysicalDevice physical_device;
-	VkPhysicalDeviceProperties physical_device_properties;
-	VkPhysicalDeviceFeatures physical_device_features;
-	bool swapchain_supported;
+	VkPhysicalDevice _physical_device;
+	VkPhysicalDeviceProperties _physical_device_properties;
+	VkPhysicalDeviceFeatures _physical_device_features;
+	bool _swapchain_supported;
 
-	VkDebugUtilsMessengerEXT debug_messenger;
+	VkDebugUtilsMessengerEXT _debug_messenger;
 
-	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VkSurfaceKHR _surface = VK_NULL_HANDLE;
 
-	VulkanQueue graphics_queue;
-	VulkanQueue transfer_queue;
-	VulkanQueue present_queue;
-	VulkanQueue compute_queue;
+	VulkanQueue _graphics_queue;
+	VulkanQueue _transfer_queue;
+	VulkanQueue _present_queue;
+	VulkanQueue _compute_queue;
 
 	static const uint32_t SMALL_ALLOCATION_MAX_SIZE = 4096;
 
-	VmaAllocator allocator = nullptr;
-	std::unordered_map<uint32_t, VmaPool> small_allocs_pools;
+	VmaAllocator _allocator = nullptr;
+	std::unordered_map<uint32_t, VmaPool> _small_allocs_pools;
 
-	DescriptorSetPools descriptor_set_pools;
+	DescriptorSetPools _descriptor_set_pools;
 
-	PagedAllocator<VersatileResource> resources_allocator;
+	PagedAllocator<VersatileResource> _resources_allocator;
 
 	// immediate commands
 	struct ImmediateBuffer {
@@ -430,13 +427,13 @@ private:
 		CommandBuffer command_buffer;
 	};
 
-	ImmediateBuffer imm_transfer;
-	std::mutex imm_cmd_transfer_mutex;
+	ImmediateBuffer _imm_transfer;
+	std::mutex _imm_cmd_transfer_mutex;
 
-	ImmediateBuffer imm_graphics;
-	std::mutex imm_cmd_graphics_mutex;
+	ImmediateBuffer _imm_graphics;
+	std::mutex _imm_cmd_graphics_mutex;
 
-	DeletionQueue deletion_queue;
+	DeletionQueue _deletion_queue;
 };
 
 } // namespace gl

@@ -7,23 +7,23 @@ template <size_t S, typename T> struct Vec;
 template <typename T> struct Vec<2, T> {
 	T x, y;
 
-	constexpr Vec(T p_val = static_cast<T>(0)) : x(p_val), y(p_val) {}
+	constexpr Vec(T val = static_cast<T>(0)) : x(val), y(val) {}
 
-	constexpr Vec(T p_x, T p_y) : x(p_x), y(p_y) {}
+	constexpr Vec(T x, T y) : x(x), y(y) {}
 
-	constexpr Vec(const Vec& p_other) = default;
+	constexpr Vec(const Vec& other) = default;
 
-	constexpr Vec(const Vec<3, T>& p_other) : x(p_other.x), y(p_other.y) {}
+	constexpr Vec(const Vec<3, T>& other) : x(other.x), y(other.y) {}
 
-	constexpr Vec(const Vec<4, T>& p_other) : x(p_other.x), y(p_other.y) {}
-
-	template <typename U>
-	constexpr explicit Vec(const Vec<2, U>& p_other) :
-			x(static_cast<T>(p_other.x)), y(static_cast<T>(p_other.y)) {}
+	constexpr Vec(const Vec<4, T>& other) : x(other.x), y(other.y) {}
 
 	template <typename U>
-	constexpr Vec(const Vec<3, U>& p_other) :
-			x(static_cast<T>(p_other.x)), y(static_cast<T>(p_other.y)) {}
+	constexpr explicit Vec(const Vec<2, U>& other) :
+			x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) {}
+
+	template <typename U>
+	constexpr Vec(const Vec<3, U>& other) :
+			x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) {}
 
 	// Dimension of the vector
 	static constexpr size_t size() { return 2; }
@@ -38,20 +38,20 @@ template <typename T> struct Vec<2, T> {
 
 	// Operators
 
-	constexpr T& operator[](size_t p_col_idx) {
-		assert(p_col_idx == 0 || p_col_idx == 1);
-		return p_col_idx == 0 ? x : y;
+	constexpr T& operator[](size_t col_idx) {
+		assert(col_idx == 0 || col_idx == 1);
+		return col_idx == 0 ? x : y;
 	}
-	const T& operator[](size_t p_col_idx) const {
-		assert(p_col_idx == 0 || p_col_idx == 1);
-		return p_col_idx == 0 ? x : y;
+	const T& operator[](size_t col_idx) const {
+		assert(col_idx == 0 || col_idx == 1);
+		return col_idx == 0 ? x : y;
 	}
 
 	constexpr Vec operator-() const { return Vec(-x, -y); }
 
-	constexpr bool operator==(const Vec& p_rhs) const { return x == p_rhs.x && y == p_rhs.y; }
+	constexpr bool operator==(const Vec& rhs) const { return x == rhs.x && y == rhs.y; }
 
-	constexpr T dot(const Vec& p_other) const { return x * p_other.x + y * p_other.y; }
+	constexpr T dot(const Vec& other) const { return x * other.x + y * other.y; }
 
 	constexpr T length_sq() const { return dot(*this); }
 
@@ -66,49 +66,49 @@ template <typename T> struct Vec<2, T> {
 	constexpr Vec normalize() const { return *this / length(); }
 };
 
-template <typename T> constexpr Vec<2, T>& operator+=(Vec<2, T>& p_lhs, const Vec<2, T>& p_rhs) {
-	p_lhs.x += p_rhs.x;
-	p_lhs.y += p_rhs.y;
-	return p_lhs;
+template <typename T> constexpr Vec<2, T>& operator+=(Vec<2, T>& lhs, const Vec<2, T>& rhs) {
+	lhs.x += rhs.x;
+	lhs.y += rhs.y;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<2, T>& operator-=(Vec<2, T>& p_lhs, const Vec<2, T>& p_rhs) {
-	p_lhs.x -= p_rhs.x;
-	p_lhs.y -= p_rhs.y;
-	return p_lhs;
+template <typename T> constexpr Vec<2, T>& operator-=(Vec<2, T>& lhs, const Vec<2, T>& rhs) {
+	lhs.x -= rhs.x;
+	lhs.y -= rhs.y;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<2, T>& operator*=(Vec<2, T>& p_lhs, const T& p_rhs) {
-	p_lhs.x *= p_rhs;
-	p_lhs.y *= p_rhs;
-	return p_lhs;
+template <typename T> constexpr Vec<2, T>& operator*=(Vec<2, T>& lhs, const T& rhs) {
+	lhs.x *= rhs;
+	lhs.y *= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<2, T>& operator/=(Vec<2, T>& p_lhs, const T& p_rhs) {
-	if (p_rhs == 0.0f) {
-		p_lhs = Vec<2, T>(std::numeric_limits<T>::max());
-		return p_lhs;
+template <typename T> constexpr Vec<2, T>& operator/=(Vec<2, T>& lhs, const T& rhs) {
+	if (rhs == 0.0f) {
+		lhs = Vec<2, T>(std::numeric_limits<T>::max());
+		return lhs;
 	}
 
-	p_lhs.x /= p_rhs;
-	p_lhs.y /= p_rhs;
-	return p_lhs;
+	lhs.x /= rhs;
+	lhs.y /= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<2, T> operator+(Vec<2, T> p_lhs, const Vec<2, T>& p_rhs) {
-	return p_lhs += p_rhs;
+template <typename T> constexpr Vec<2, T> operator+(Vec<2, T> lhs, const Vec<2, T>& rhs) {
+	return lhs += rhs;
 }
 
-template <typename T> constexpr Vec<2, T> operator-(Vec<2, T> p_lhs, const Vec<2, T>& p_rhs) {
-	return p_lhs -= p_rhs;
+template <typename T> constexpr Vec<2, T> operator-(Vec<2, T> lhs, const Vec<2, T>& rhs) {
+	return lhs -= rhs;
 }
 
-template <typename T> constexpr Vec<2, T> operator*(Vec<2, T> p_lhs, const T& p_rhs) {
-	return p_lhs *= p_rhs;
+template <typename T> constexpr Vec<2, T> operator*(Vec<2, T> lhs, const T& rhs) {
+	return lhs *= rhs;
 }
 
-template <typename T> constexpr Vec<2, T> operator/(Vec<2, T> p_lhs, const T& p_rhs) {
-	return p_lhs /= p_rhs;
+template <typename T> constexpr Vec<2, T> operator/(Vec<2, T> lhs, const T& rhs) {
+	return lhs /= rhs;
 }
 
 using Vec2f = Vec<2, float>;
@@ -119,26 +119,23 @@ using Vec2u = Vec<2, uint32_t>;
 template <typename T> struct Vec<3, T> {
 	T x, y, z;
 
-	constexpr Vec(T p_val = static_cast<T>(0)) : x(p_val), y(p_val), z(p_val) {}
+	constexpr Vec(T val = static_cast<T>(0)) : x(val), y(val), z(val) {}
 
-	constexpr Vec(T p_x, T p_y, T p_z) : x(p_x), y(p_y), z(p_z) {}
+	constexpr Vec(T x, T y, T z) : x(x), y(y), z(z) {}
 
-	constexpr Vec(const Vec& p_other) = default;
+	constexpr Vec(const Vec& other) = default;
 
-	constexpr Vec(const Vec<2, T>& p_other, T p_z = static_cast<T>(0)) :
-			x(p_other.x), y(p_other.y), z(p_z) {}
+	constexpr Vec(const Vec<2, T>& other, T z = static_cast<T>(0)) : x(other.x), y(other.y), z(z) {}
 
-	constexpr Vec(const Vec<4, T>& p_other) : x(p_other.x), y(p_other.y), z(p_other.z) {}
-
-	template <typename U>
-	constexpr explicit Vec(const Vec<3, U>& p_other) :
-			x(static_cast<T>(p_other.x)),
-			y(static_cast<T>(p_other.y)),
-			z(static_cast<T>(p_other.z)) {}
+	constexpr Vec(const Vec<4, T>& other) : x(other.x), y(other.y), z(other.z) {}
 
 	template <typename U>
-	constexpr explicit Vec(const Vec<2, U>& p_other, U p_z = static_cast<U>(0)) :
-			x(static_cast<T>(p_other.x)), y(static_cast<T>(p_other.y)), z(static_cast<U>(p_z)) {}
+	constexpr explicit Vec(const Vec<3, U>& other) :
+			x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)) {}
+
+	template <typename U>
+	constexpr explicit Vec(const Vec<2, U>& other, U z = static_cast<U>(0)) :
+			x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<U>(z)) {}
 
 	// Dimension of the vector
 	static constexpr size_t size() { return 3; }
@@ -154,30 +151,27 @@ template <typename T> struct Vec<3, T> {
 
 	// Operators
 
-	constexpr T& operator[](size_t p_col_idx) {
-		assert(p_col_idx >= 0 || p_col_idx <= 2);
-		return p_col_idx == 0 ? x : p_col_idx == 1 ? y : z;
+	constexpr T& operator[](size_t col_idx) {
+		assert(col_idx >= 0 || col_idx <= 2);
+		return col_idx == 0 ? x : col_idx == 1 ? y : z;
 	}
-	const T& operator[](size_t p_col_idx) const {
-		assert(p_col_idx >= 0 || p_col_idx <= 2);
-		return p_col_idx == 0 ? x : p_col_idx == 1 ? y : z;
+	const T& operator[](size_t col_idx) const {
+		assert(col_idx >= 0 || col_idx <= 2);
+		return col_idx == 0 ? x : col_idx == 1 ? y : z;
 	}
 
 	constexpr Vec operator-() const { return Vec(-x, -y, -z); }
 
-	constexpr bool operator==(const Vec& p_rhs) const {
-		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z;
+	constexpr bool operator==(const Vec& rhs) const {
+		return x == rhs.x && y == rhs.y && z == rhs.z;
 	}
 
 	// Methods
 
-	constexpr T dot(const Vec& p_other) const {
-		return x * p_other.x + y * p_other.y + z * p_other.z;
-	}
+	constexpr T dot(const Vec& other) const { return x * other.x + y * other.y + z * other.z; }
 
-	constexpr Vec cross(const Vec& p_other) const {
-		return Vec(y * p_other.z - z * p_other.y, z * p_other.x - x * p_other.z,
-				x * p_other.y - y * p_other.x);
+	constexpr Vec cross(const Vec& other) const {
+		return Vec(y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x);
 	}
 
 	constexpr T length_sq() const { return dot(*this); }
@@ -193,53 +187,53 @@ template <typename T> struct Vec<3, T> {
 	constexpr Vec normalize() const { return *this / length(); }
 };
 
-template <typename T> constexpr Vec<3, T>& operator+=(Vec<3, T>& p_lhs, const Vec<3, T>& p_rhs) {
-	p_lhs.x += p_rhs.x;
-	p_lhs.y += p_rhs.y;
-	p_lhs.z += p_rhs.z;
-	return p_lhs;
+template <typename T> constexpr Vec<3, T>& operator+=(Vec<3, T>& lhs, const Vec<3, T>& rhs) {
+	lhs.x += rhs.x;
+	lhs.y += rhs.y;
+	lhs.z += rhs.z;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<3, T>& operator-=(Vec<3, T>& p_lhs, const Vec<3, T>& p_rhs) {
-	p_lhs.x -= p_rhs.x;
-	p_lhs.y -= p_rhs.y;
-	p_lhs.z -= p_rhs.z;
-	return p_lhs;
+template <typename T> constexpr Vec<3, T>& operator-=(Vec<3, T>& lhs, const Vec<3, T>& rhs) {
+	lhs.x -= rhs.x;
+	lhs.y -= rhs.y;
+	lhs.z -= rhs.z;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<3, T>& operator*=(Vec<3, T>& p_lhs, const T& p_rhs) {
-	p_lhs.x *= p_rhs;
-	p_lhs.y *= p_rhs;
-	p_lhs.z *= p_rhs;
-	return p_lhs;
+template <typename T> constexpr Vec<3, T>& operator*=(Vec<3, T>& lhs, const T& rhs) {
+	lhs.x *= rhs;
+	lhs.y *= rhs;
+	lhs.z *= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<3, T>& operator/=(Vec<3, T>& p_lhs, const T& p_rhs) {
-	if (p_rhs == 0.0f) {
-		p_lhs = Vec<3, T>(std::numeric_limits<T>::max());
-		return p_lhs;
+template <typename T> constexpr Vec<3, T>& operator/=(Vec<3, T>& lhs, const T& rhs) {
+	if (rhs == 0.0f) {
+		lhs = Vec<3, T>(std::numeric_limits<T>::max());
+		return lhs;
 	}
 
-	p_lhs.x /= p_rhs;
-	p_lhs.y /= p_rhs;
-	p_lhs.z /= p_rhs;
-	return p_lhs;
+	lhs.x /= rhs;
+	lhs.y /= rhs;
+	lhs.z /= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<3, T> operator+(Vec<3, T> p_lhs, const Vec<3, T>& p_rhs) {
-	return p_lhs += p_rhs;
+template <typename T> constexpr Vec<3, T> operator+(Vec<3, T> lhs, const Vec<3, T>& rhs) {
+	return lhs += rhs;
 }
 
-template <typename T> constexpr Vec<3, T> operator-(Vec<3, T> p_lhs, const Vec<3, T>& p_rhs) {
-	return p_lhs -= p_rhs;
+template <typename T> constexpr Vec<3, T> operator-(Vec<3, T> lhs, const Vec<3, T>& rhs) {
+	return lhs -= rhs;
 }
 
-template <typename T> constexpr Vec<3, T> operator*(Vec<3, T> p_lhs, const T& p_rhs) {
-	return p_lhs *= p_rhs;
+template <typename T> constexpr Vec<3, T> operator*(Vec<3, T> lhs, const T& rhs) {
+	return lhs *= rhs;
 }
 
-template <typename T> constexpr Vec<3, T> operator/(Vec<3, T> p_lhs, const T& p_rhs) {
-	return p_lhs /= p_rhs;
+template <typename T> constexpr Vec<3, T> operator/(Vec<3, T> lhs, const T& rhs) {
+	return lhs /= rhs;
 }
 
 using Vec3f = Vec<3, float>;
@@ -250,21 +244,20 @@ using Vec3u = Vec<3, uint32_t>;
 template <typename T> struct Vec<4, T> {
 	T x, y, z, w;
 
-	constexpr Vec(T p_val = 0.0f) : x(p_val), y(p_val), z(p_val), w(p_val) {}
+	constexpr Vec(T val = 0.0f) : x(val), y(val), z(val), w(val) {}
 
-	constexpr Vec(T p_x, T p_y, T p_z, T p_w) : x(p_x), y(p_y), z(p_z), w(p_w) {}
+	constexpr Vec(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
 
-	constexpr Vec(const Vec& p_other) = default;
+	constexpr Vec(const Vec& other) = default;
 
-	constexpr Vec(const Vec<3, T>& p_v, T p_w = static_cast<T>(0)) :
-			x(p_v.x), y(p_v.y), z(p_v.z), w(p_w) {}
+	constexpr Vec(const Vec<3, T>& v, T w = static_cast<T>(0)) : x(v.x), y(v.y), z(v.z), w(w) {}
 
 	template <typename U>
-	constexpr explicit Vec(const Vec<4, U>& p_other) :
-			x(static_cast<T>(p_other.x)),
-			y(static_cast<T>(p_other.y)),
-			z(static_cast<T>(p_other.z)),
-			w(static_cast<T>(p_other.w)) {}
+	constexpr explicit Vec(const Vec<4, U>& other) :
+			x(static_cast<T>(other.x)),
+			y(static_cast<T>(other.y)),
+			z(static_cast<T>(other.z)),
+			w(static_cast<T>(other.w)) {}
 
 	// Dimension of the vector
 	static constexpr size_t size() { return 4; }
@@ -280,23 +273,23 @@ template <typename T> struct Vec<4, T> {
 
 	// Operators
 
-	constexpr T& operator[](size_t p_col_idx) {
-		assert(p_col_idx >= 0 || p_col_idx <= 3);
-		return p_col_idx == 0 ? x : p_col_idx == 1 ? y : p_col_idx == 2 ? z : w;
+	constexpr T& operator[](size_t col_idx) {
+		assert(col_idx >= 0 || col_idx <= 3);
+		return col_idx == 0 ? x : col_idx == 1 ? y : col_idx == 2 ? z : w;
 	}
-	const T& operator[](size_t p_col_idx) const {
-		assert(p_col_idx >= 0 || p_col_idx <= 3);
-		return p_col_idx == 0 ? x : p_col_idx == 1 ? y : p_col_idx == 2 ? z : w;
+	const T& operator[](size_t col_idx) const {
+		assert(col_idx >= 0 || col_idx <= 3);
+		return col_idx == 0 ? x : col_idx == 1 ? y : col_idx == 2 ? z : w;
 	}
 
 	constexpr Vec operator-() const { return Vec(-x, -y, -z, -w); }
 
-	constexpr bool operator==(const Vec& p_rhs) const {
-		return x == p_rhs.x && y == p_rhs.y && z == p_rhs.z && w == p_rhs.w;
+	constexpr bool operator==(const Vec& rhs) const {
+		return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w;
 	}
 
-	constexpr T dot(const Vec& p_other) const {
-		return x * p_other.x + y * p_other.y + z * p_other.z + w * p_other.w;
+	constexpr T dot(const Vec& other) const {
+		return x * other.x + y * other.y + z * other.z + w * other.w;
 	}
 
 	constexpr T length_sq() const { return dot(*this); }
@@ -312,57 +305,57 @@ template <typename T> struct Vec<4, T> {
 	constexpr Vec normalize() const { return *this / length(); }
 };
 
-template <typename T> constexpr Vec<4, T>& operator+=(Vec<4, T>& p_lhs, const Vec<4, T>& p_rhs) {
-	p_lhs.x += p_rhs.x;
-	p_lhs.y += p_rhs.y;
-	p_lhs.z += p_rhs.z;
-	p_lhs.w += p_rhs.w;
-	return p_lhs;
+template <typename T> constexpr Vec<4, T>& operator+=(Vec<4, T>& lhs, const Vec<4, T>& rhs) {
+	lhs.x += rhs.x;
+	lhs.y += rhs.y;
+	lhs.z += rhs.z;
+	lhs.w += rhs.w;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<4, T>& operator-=(Vec<4, T>& p_lhs, const Vec<4, T>& p_rhs) {
-	p_lhs.x -= p_rhs.x;
-	p_lhs.y -= p_rhs.y;
-	p_lhs.z -= p_rhs.z;
-	p_lhs.w -= p_rhs.w;
-	return p_lhs;
+template <typename T> constexpr Vec<4, T>& operator-=(Vec<4, T>& lhs, const Vec<4, T>& rhs) {
+	lhs.x -= rhs.x;
+	lhs.y -= rhs.y;
+	lhs.z -= rhs.z;
+	lhs.w -= rhs.w;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<4, T>& operator*=(Vec<4, T>& p_lhs, const T& p_rhs) {
-	p_lhs.x *= p_rhs;
-	p_lhs.y *= p_rhs;
-	p_lhs.z *= p_rhs;
-	p_lhs.w *= p_rhs;
-	return p_lhs;
+template <typename T> constexpr Vec<4, T>& operator*=(Vec<4, T>& lhs, const T& rhs) {
+	lhs.x *= rhs;
+	lhs.y *= rhs;
+	lhs.z *= rhs;
+	lhs.w *= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<4, T>& operator/=(Vec<4, T>& p_lhs, const T& p_rhs) {
-	if (p_rhs == 0.0f) {
-		p_lhs = Vec<4, T>(std::numeric_limits<T>::max());
-		return p_lhs;
+template <typename T> constexpr Vec<4, T>& operator/=(Vec<4, T>& lhs, const T& rhs) {
+	if (rhs == 0.0f) {
+		lhs = Vec<4, T>(std::numeric_limits<T>::max());
+		return lhs;
 	}
 
-	p_lhs.x /= p_rhs;
-	p_lhs.y /= p_rhs;
-	p_lhs.z /= p_rhs;
-	p_lhs.w /= p_rhs;
-	return p_lhs;
+	lhs.x /= rhs;
+	lhs.y /= rhs;
+	lhs.z /= rhs;
+	lhs.w /= rhs;
+	return lhs;
 }
 
-template <typename T> constexpr Vec<4, T> operator+(Vec<4, T> p_lhs, const Vec<4, T>& p_rhs) {
-	return p_lhs += p_rhs;
+template <typename T> constexpr Vec<4, T> operator+(Vec<4, T> lhs, const Vec<4, T>& rhs) {
+	return lhs += rhs;
 }
 
-template <typename T> constexpr Vec<4, T> operator-(Vec<4, T> p_lhs, const Vec<4, T>& p_rhs) {
-	return p_lhs -= p_rhs;
+template <typename T> constexpr Vec<4, T> operator-(Vec<4, T> lhs, const Vec<4, T>& rhs) {
+	return lhs -= rhs;
 }
 
-template <typename T> constexpr Vec<4, T> operator*(Vec<4, T> p_lhs, const T& p_rhs) {
-	return p_lhs *= p_rhs;
+template <typename T> constexpr Vec<4, T> operator*(Vec<4, T> lhs, const T& rhs) {
+	return lhs *= rhs;
 }
 
-template <typename T> constexpr Vec<4, T> operator/(Vec<4, T> p_lhs, const T& p_rhs) {
-	return p_lhs /= p_rhs;
+template <typename T> constexpr Vec<4, T> operator/(Vec<4, T> lhs, const T& rhs) {
+	return lhs /= rhs;
 }
 
 using Vec4f = Vec<4, float>;

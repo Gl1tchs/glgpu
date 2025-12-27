@@ -49,18 +49,18 @@ int main(void) {
 		}
 	}
 
-	auto backend = RenderBackend::create(info);
+	auto backend = RenderBackend::create(info).value();
 
-	CommandQueue graphics_queue = backend->queue_get(QueueType::GRAPHICS);
-	CommandQueue present_queue = backend->queue_get(QueueType::PRESENT);
+	CommandQueue graphics_queue = backend->queue_get(QueueType::GRAPHICS).value();
+	CommandQueue present_queue = backend->queue_get(QueueType::PRESENT).value();
 
-	Swapchain swapchain = backend->swapchain_create();
+	Swapchain swapchain = backend->swapchain_create().value();
 	backend->swapchain_resize(
 			graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true /* vsync */);
 
 	// Create Command Pool and Buffer
-	CommandPool cmd_pool = backend->command_pool_create(graphics_queue);
-	CommandBuffer cmd = backend->command_pool_allocate(cmd_pool);
+	CommandPool cmd_pool = backend->command_pool_create(graphics_queue).value();
+	CommandBuffer cmd = backend->command_pool_allocate(cmd_pool).value();
 
 	// Synchronization Primitives
 	Semaphore image_available_sem = backend->semaphore_create();

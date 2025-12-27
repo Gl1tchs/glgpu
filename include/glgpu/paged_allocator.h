@@ -8,35 +8,35 @@ namespace gl {
  */
 template <typename T> class PagedAllocator {
 public:
-	PagedAllocator(size_t p_page_size = 4096) : page_size(p_page_size) { _allocate_new_page(); }
+	PagedAllocator(size_t page_size = 4096) : _page_size(page_size) { _allocate_new_page(); }
 
 	~PagedAllocator() {
-		for (auto page : pages) {
+		for (auto page : _pages) {
 			delete[] page;
 		}
 	}
 
 	T* alloc() {
-		if (free_list.empty()) {
+		if (_free_list.empty()) {
 			_allocate_new_page();
 		}
-		T* obj = free_list.back();
-		free_list.pop_back();
+		T* obj = _free_list.back();
+		_free_list.pop_back();
 		return obj;
 	}
 
-	void free(T* obj) { free_list.push_back(obj); }
+	void free(T* obj) { _free_list.push_back(obj); }
 
 private:
-	size_t page_size;
-	std::vector<T*> pages;
-	std::vector<T*> free_list;
+	size_t _page_size;
+	std::vector<T*> _pages;
+	std::vector<T*> _free_list;
 
 	void _allocate_new_page() {
-		T* page = new T[page_size]();
-		pages.push_back(page);
-		for (size_t i = 0; i < page_size; ++i) {
-			free_list.push_back(&page[i]);
+		T* page = new T[_page_size]();
+		_pages.push_back(page);
+		for (size_t i = 0; i < _page_size; ++i) {
+			_free_list.push_back(&page[i]);
 		}
 	}
 };

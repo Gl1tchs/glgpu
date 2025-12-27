@@ -13,7 +13,7 @@ struct Color {
 
 	/**
 	 * Gray-Scale constructor, fills every component
-	 * except `alpha` to `p_value`
+	 * except `alpha` to `value`
 	 */
 	constexpr Color(float value = 0.0f) : r(value), g(value), b(value) {}
 
@@ -41,13 +41,13 @@ struct Color {
 		return (red << 24) | (green << 16) | (blue << 8) | alpha;
 	}
 
-	constexpr bool operator==(const Color& p_other) const {
-		return r == p_other.r && g == p_other.g && b == p_other.b && a == p_other.a;
+	constexpr bool operator==(const Color& other) const {
+		return r == other.r && g == other.g && b == other.b && a == other.a;
 	}
 
 private:
-	constexpr static uint8_t _to_uint8(float p_value) {
-		float result = std::floor(p_value * 256.0f);
+	constexpr static uint8_t _to_uint8(float value) {
+		float result = std::floor(value * 256.0f);
 		return result > 255.0f ? 255 : static_cast<uint8_t>(result);
 	};
 };

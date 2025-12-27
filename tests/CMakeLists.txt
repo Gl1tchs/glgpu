@@ -27,12 +27,6 @@ target_include_directories(glgpu_tests PRIVATE
 )
 
 target_link_libraries(glgpu_tests PRIVATE
-    Catch2::Catch2WithMain
+    Catch2::Catch2
     glgpu
 )
-
-# CTest integration
-include(CTest)
-include(Catch)
-catch_discover_tests(glgpu_tests)
-

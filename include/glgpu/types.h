@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glgpu/color.h"
+#include "glgpu/result.h"
 #include "glgpu/vector.h"
 
 namespace gl {
@@ -42,21 +43,53 @@ GL_DEFINE_NON_DISPATCHABLE_HANDLE(Semaphore)
  * Global Error Enumeration
  * Combines specific errors (Swapchain, Surface, Generic) into one type.
  */
-enum class Error {
+enum class Error : uint32_t {
 	NONE = 0,
-	// Generic
-	UNKNOWN,
-	OUT_OF_MEMORY,
+
+	// Initialization
+	INITIALIZATION_FAILED,
+	MISSING_REQUIRED_EXTENSION,
+	VALIDATION_LAYER_NOT_FOUND,
+	WINDOW_CREATION_FAILED,
+
+	// Device / Context
 	DEVICE_LOST,
-	// Surface / Windowing
+	DEVICE_OUT_OF_MEMORY,
+	SURFACE_LOST,
+	QUEUE_FAMILY_NOT_FOUND,
+
+	// Resources
+	OUT_OF_HOST_MEMORY,
+	BUFFER_CREATION_FAILED,
+	IMAGE_CREATION_FAILED,
+	SAMPLER_CREATION_FAILED,
+	SHADER_COMPILATION_FAILED,
+	DESCRIPTOR_POOL_EXHAUSTED,
+
+	// Pipeline / Operations
+	PIPELINE_CREATION_FAILED,
+	INVALID_OPERATION,
+	COMMAND_SUBMISSION_FAILED,
+	FENCE_TIMEOUT,
+
+	// Swapchain
+	SWAPCHAIN_OUT_OF_DATE,
+	SWAPCHAIN_SUBOPTIMAL,
+	IMAGE_ACQUIRE_FAILED,
+	PRESENTATION_FAILED,
+
+	// Surface
 	SURFACE_INVALID_COMPOSITOR,
 	SURFACE_SWAPCHAIN_NOT_SUPPORTED,
-	// Swapchain
-	SWAPCHAIN_OUT_OF_DATE, // Resize needed
-	SWAPCHAIN_LOST,
+
 	// Validation
-	VALIDATION_FAILED
+	INVALID_ARGUMENT,
+	INVALID_HANDLE,
+	UNIMPLEMENTED,
 };
+
+// Alias for Result<T, Error>
+template <typename T = void> using Res = Result<T, Error>;
 
 enum class MemoryAllocationType {
 	CPU,
@@ -169,8 +202,8 @@ enum class DataFormat : int {
 	MAX = 0x7FFFFFFF,
 };
 
-size_t get_data_format_size(DataFormat p_format);
-bool is_depth_format(DataFormat p_format);
+size_t get_data_format_size(DataFormat format);
+bool is_depth_format(DataFormat format);
 
 // -----------------------------------------------------------------------------
 // Buffers
@@ -482,16 +515,16 @@ struct PipelineColorBlendState {
 		bool write_a = true;
 	};
 
-	static PipelineColorBlendState create_disabled(int p_attachments = 1) {
+	static PipelineColorBlendState create_disabled(int attachments = 1) {
 		PipelineColorBlendState bs;
-		for (int i = 0; i < p_attachments; i++)
+		for (int i = 0; i < attachments; i++)
 			bs.attachments.push_back(Attachment());
 		return bs;
 	}
 
-	static PipelineColorBlendState create_blend(int p_attachments = 1) {
+	static PipelineColorBlendState create_blend(int attachments = 1) {
 		PipelineColorBlendState bs;
-		for (int i = 0; i < p_attachments; i++) {
+		for (int i = 0; i < attachments; i++) {
 			Attachment ba;
 			ba.enable_blend = true;
 			ba.src_color_blend_factor = BlendFactor::SRC_ALPHA;

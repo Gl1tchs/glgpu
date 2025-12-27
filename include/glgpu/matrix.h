@@ -15,61 +15,61 @@ template <> struct Mat<4, 4> {
 	std::array<Vec4f, 4> cols;
 
 	// Default: Identity matrix
-	Mat(float p_value = 1.0f) :
+	Mat(float value = 1.0f) :
 			cols({
-					{ Vec4f{ p_value, 0.0f, 0.0f, 0.0f } },
-					{ Vec4f{ 0.0f, p_value, 0.0f, 0.0f } },
-					{ Vec4f{ 0.0f, 0.0f, p_value, 0.0f } },
-					{ Vec4f{ 0.0f, 0.0f, 0.0f, p_value } },
+					{ Vec4f{ value, 0.0f, 0.0f, 0.0f } },
+					{ Vec4f{ 0.0f, value, 0.0f, 0.0f } },
+					{ Vec4f{ 0.0f, 0.0f, value, 0.0f } },
+					{ Vec4f{ 0.0f, 0.0f, 0.0f, value } },
 			}) {}
 
 	// Create empty matrix
 	static Mat empty() { return Mat{ {} }; }
 
-	Vec4f& operator[](size_t p_col_idx) { return cols[p_col_idx]; }
-	const Vec4f& operator[](size_t p_col_idx) const { return cols[p_col_idx]; }
+	Vec4f& operator[](size_t col_idx) { return cols[col_idx]; }
+	const Vec4f& operator[](size_t col_idx) const { return cols[col_idx]; }
 
-	Mat operator+(const Mat& p_other) const {
+	Mat operator+(const Mat& other) const {
 		Mat res;
 #ifdef GL_USE_SIMD_INTRINSICS
 		// Load, Add, Store for each column
 		for (int i = 0; i < 4; ++i) {
 			// Unaligned loads are safe and fast on modern CPUs
 			__m128 a = _mm_loadu_ps(&cols[i].x);
-			__m128 b = _mm_loadu_ps(&p_other.cols[i].x);
+			__m128 b = _mm_loadu_ps(&other.cols[i].x);
 			__m128 r = _mm_add_ps(a, b);
 			_mm_storeu_ps(&res.cols[i].x, r);
 		}
 #else
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
-				res.cols[c][r] = cols[c][r] + p_other.cols[c][r];
+				res.cols[c][r] = cols[c][r] + other.cols[c][r];
 			}
 		}
 #endif
 		return res;
 	}
 
-	Mat operator-(const Mat& p_other) const {
+	Mat operator-(const Mat& other) const {
 		Mat res;
 #ifdef GL_USE_SIMD_INTRINSICS
 		for (int i = 0; i < 4; ++i) {
 			__m128 a = _mm_loadu_ps(&cols[i].x);
-			__m128 b = _mm_loadu_ps(&p_other.cols[i].x);
+			__m128 b = _mm_loadu_ps(&other.cols[i].x);
 			__m128 r = _mm_sub_ps(a, b);
 			_mm_storeu_ps(&res.cols[i].x, r);
 		}
 #else
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
-				res.cols[c][r] = cols[c][r] - p_other.cols[c][r];
+				res.cols[c][r] = cols[c][r] - other.cols[c][r];
 			}
 		}
 #endif
 		return res;
 	}
 
-	Mat operator*(const Mat& p_other) const {
+	Mat operator*(const Mat& other) const {
 		Mat res;
 #ifdef GL_USE_SIMD_INTRINSICS
 		// Load columns of 'this' matrix into registers
@@ -80,7 +80,7 @@ template <> struct Mat<4, 4> {
 
 		for (int i = 0; i < 4; ++i) {
 			// Load one column from the 'other' matrix
-			__m128 OtherCol = _mm_loadu_ps(&p_other.cols[i].x);
+			__m128 OtherCol = _mm_loadu_ps(&other.cols[i].x);
 
 			// Broadcast the components of OtherCol:
 			// xxxx, yyyy, zzzz, wwww
@@ -105,8 +105,8 @@ template <> struct Mat<4, 4> {
 		res = Mat::empty();
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
-				res.cols[c][r] = cols[0][r] * p_other.cols[c][0] + cols[1][r] * p_other.cols[c][1] +
-						cols[2][r] * p_other.cols[c][2] + cols[3][r] * p_other.cols[c][3];
+				res.cols[c][r] = cols[0][r] * other.cols[c][0] + cols[1][r] * other.cols[c][1] +
+						cols[2][r] * other.cols[c][2] + cols[3][r] * other.cols[c][3];
 			}
 		}
 #endif
@@ -114,7 +114,7 @@ template <> struct Mat<4, 4> {
 	}
 
 	// Matrix * Vector multiplication
-	Vec4f operator*(const Vec4f& p_v) const {
+	Vec4f operator*(const Vec4f& v) const {
 #ifdef GL_USE_SIMD_INTRINSICS
 		// Load columns of matrix
 		__m128 Col0 = _mm_loadu_ps(&cols[0].x);
@@ -123,7 +123,7 @@ template <> struct Mat<4, 4> {
 		__m128 Col3 = _mm_loadu_ps(&cols[3].x);
 
 		// Load the vector
-		__m128 vec = _mm_loadu_ps(&p_v.x);
+		__m128 vec = _mm_loadu_ps(&v.x);
 
 		// Broadcast vector components
 		__m128 v0 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(0, 0, 0, 0));
@@ -144,18 +144,18 @@ template <> struct Mat<4, 4> {
 		return res;
 #else
 		Vec4f res;
-		res.x = cols[0][0] * p_v.x + cols[1][0] * p_v.y + cols[2][0] * p_v.z + cols[3][0] * p_v.w;
-		res.y = cols[0][1] * p_v.x + cols[1][1] * p_v.y + cols[2][1] * p_v.z + cols[3][1] * p_v.w;
-		res.z = cols[0][2] * p_v.x + cols[1][2] * p_v.y + cols[2][2] * p_v.z + cols[3][2] * p_v.w;
-		res.w = cols[0][3] * p_v.x + cols[1][3] * p_v.y + cols[2][3] * p_v.z + cols[3][3] * p_v.w;
+		res.x = cols[0][0] * v.x + cols[1][0] * v.y + cols[2][0] * v.z + cols[3][0] * v.w;
+		res.y = cols[0][1] * v.x + cols[1][1] * v.y + cols[2][1] * v.z + cols[3][1] * v.w;
+		res.z = cols[0][2] * v.x + cols[1][2] * v.y + cols[2][2] * v.z + cols[3][2] * v.w;
+		res.w = cols[0][3] * v.x + cols[1][3] * v.y + cols[2][3] * v.z + cols[3][3] * v.w;
 		return res;
 #endif
 	}
 
-	bool operator==(const Mat& p_other) const {
+	bool operator==(const Mat& other) const {
 		for (size_t c = 0; c < 4; ++c) {
 			for (size_t r = 0; r < 4; ++r) {
-				if (std::abs(cols[c][r] - p_other.cols[c][r]) > 1e-6f) {
+				if (std::abs(cols[c][r] - other.cols[c][r]) > 1e-6f) {
 					return false;
 				}
 			}
@@ -176,14 +176,10 @@ template <> struct Mat<4, 4> {
 	}
 
 	// Calculates 3x3 sub-determinant
-	float minor(
-			size_t p_c0, size_t p_c1, size_t p_c2, size_t p_r0, size_t p_r1, size_t p_r2) const {
-		return cols[p_c0][p_r0] *
-				(cols[p_c1][p_r1] * cols[p_c2][p_r2] - cols[p_c2][p_r1] * cols[p_c1][p_r2]) -
-				cols[p_c1][p_r0] *
-				(cols[p_c0][p_r1] * cols[p_c2][p_r2] - cols[p_c2][p_r1] * cols[p_c0][p_r2]) +
-				cols[p_c2][p_r0] *
-				(cols[p_c0][p_r1] * cols[p_c1][p_r2] - cols[p_c1][p_r1] * cols[p_c0][p_r2]);
+	float minor(size_t c0, size_t c1, size_t c2, size_t r0, size_t r1, size_t r2) const {
+		return cols[c0][r0] * (cols[c1][r1] * cols[c2][r2] - cols[c2][r1] * cols[c1][r2]) -
+				cols[c1][r0] * (cols[c0][r1] * cols[c2][r2] - cols[c2][r1] * cols[c0][r2]) +
+				cols[c2][r0] * (cols[c0][r1] * cols[c1][r2] - cols[c1][r1] * cols[c0][r2]);
 	}
 
 	float determinant() const {
@@ -231,41 +227,41 @@ template <> struct Mat<4, 4> {
 	// Transformations
 
 	// Creates a translation matrix
-	static Mat translate(Vec3f p_translation) {
+	static Mat translate(Vec3f translation) {
 		Mat res; // Identity
-		res.cols[3][0] = p_translation.x;
-		res.cols[3][1] = p_translation.y;
-		res.cols[3][2] = p_translation.z;
+		res.cols[3][0] = translation.x;
+		res.cols[3][1] = translation.y;
+		res.cols[3][2] = translation.z;
 		return res;
 	}
 
 	// Creates a rotation matrix (angle in radians, axis normalized)
-	static Mat rotate(float p_angle_rad, Vec3f p_axis) {
+	static Mat rotate(float angle_rad, Vec3f axis) {
 		Mat res;
-		float c = std::cos(p_angle_rad);
-		float s = std::sin(p_angle_rad);
+		float c = std::cos(angle_rad);
+		float s = std::sin(angle_rad);
 		float omc = 1.0f - c;
 
-		res.cols[0][0] = p_axis.x * p_axis.x * omc + c;
-		res.cols[0][1] = p_axis.y * p_axis.x * omc + p_axis.z * s;
-		res.cols[0][2] = p_axis.x * p_axis.z * omc - p_axis.y * s;
+		res.cols[0][0] = axis.x * axis.x * omc + c;
+		res.cols[0][1] = axis.y * axis.x * omc + axis.z * s;
+		res.cols[0][2] = axis.x * axis.z * omc - axis.y * s;
 
-		res.cols[1][0] = p_axis.x * p_axis.y * omc - p_axis.z * s;
-		res.cols[1][1] = p_axis.y * p_axis.y * omc + c;
-		res.cols[1][2] = p_axis.y * p_axis.z * omc + p_axis.x * s;
+		res.cols[1][0] = axis.x * axis.y * omc - axis.z * s;
+		res.cols[1][1] = axis.y * axis.y * omc + c;
+		res.cols[1][2] = axis.y * axis.z * omc + axis.x * s;
 
-		res.cols[2][0] = p_axis.x * p_axis.z * omc + p_axis.y * s;
-		res.cols[2][1] = p_axis.y * p_axis.z * omc - p_axis.x * s;
-		res.cols[2][2] = p_axis.z * p_axis.z * omc + c;
+		res.cols[2][0] = axis.x * axis.z * omc + axis.y * s;
+		res.cols[2][1] = axis.y * axis.z * omc - axis.x * s;
+		res.cols[2][2] = axis.z * axis.z * omc + c;
 
 		return res;
 	}
 
 	// Turn euler angles to rotation matrix
-	static Mat from_euler_angles(const Vec3f& p_euler_degrees) {
-		const float pitch = math::as_radians(p_euler_degrees.x); // Pitch
-		const float yaw = math::as_radians(p_euler_degrees.y); // Yaw
-		const float roll = math::as_radians(p_euler_degrees.z); // Roll
+	static Mat from_euler_angles(const Vec3f& euler_degrees) {
+		const float pitch = math::as_radians(euler_degrees.x); // Pitch
+		const float yaw = math::as_radians(euler_degrees.y); // Yaw
+		const float roll = math::as_radians(euler_degrees.z); // Roll
 
 		// Rotation order: Z * X * Y
 		// Here we use the GLM-like composition: Mat = Mat_Z * Mat_X * Mat_Y
@@ -279,20 +275,20 @@ template <> struct Mat<4, 4> {
 	}
 
 	// Creates a scale matrix
-	static Mat scale(Vec3f p_scale) {
+	static Mat scale(Vec3f scale) {
 		Mat res;
-		res[0][0] = p_scale.x;
-		res[1][1] = p_scale.y;
-		res[2][2] = p_scale.z;
+		res[0][0] = scale.x;
+		res[1][1] = scale.y;
+		res[2][2] = scale.z;
 		return res;
 	}
 
 	// Projections
 
 	// LookAt (Right-Handed)
-	static Mat look_at(Vec3f p_eye, Vec3f p_center, Vec3f p_up) {
-		Vec3f f = (p_center - p_eye).normalize(); // Forward
-		Vec3f s = f.cross(p_up).normalize(); // Right
+	static Mat look_at(Vec3f eye, Vec3f center, Vec3f up) {
+		Vec3f f = (center - eye).normalize(); // Forward
+		Vec3f s = f.cross(up).normalize(); // Right
 		Vec3f u = s.cross(f); // True Up
 
 		Mat res;
@@ -308,38 +304,37 @@ template <> struct Mat<4, 4> {
 		res.cols[2][2] = -f.z;
 
 		// Translation part (dot products)
-		res.cols[3][0] = -s.dot(p_eye);
-		res.cols[3][1] = -u.dot(p_eye);
-		res.cols[3][2] = f.dot(p_eye);
+		res.cols[3][0] = -s.dot(eye);
+		res.cols[3][1] = -u.dot(eye);
+		res.cols[3][2] = f.dot(eye);
 
 		return res;
 	}
 
 	// Orthographic Projection
-	static Mat ortho(float p_left, float p_right, float p_bottom, float p_top, float p_z_near,
-			float p_z_far) {
+	static Mat ortho(float left, float right, float bottom, float top, float z_near, float z_far) {
 		Mat res; // Identity
-		res.cols[0][0] = 2.0f / (p_right - p_left);
-		res.cols[1][1] = 2.0f / (p_top - p_bottom);
-		res.cols[2][2] = -2.0f / (p_z_far - p_z_near);
+		res.cols[0][0] = 2.0f / (right - left);
+		res.cols[1][1] = 2.0f / (top - bottom);
+		res.cols[2][2] = -2.0f / (z_far - z_near);
 
-		res.cols[3][0] = -(p_right + p_left) / (p_right - p_left);
-		res.cols[3][1] = -(p_top + p_bottom) / (p_top - p_bottom);
-		res.cols[3][2] = -(p_z_far + p_z_near) / (p_z_far - p_z_near);
+		res.cols[3][0] = -(right + left) / (right - left);
+		res.cols[3][1] = -(top + bottom) / (top - bottom);
+		res.cols[3][2] = -(z_far + z_near) / (z_far - z_near);
 		return res;
 	}
 
 	// Perspective Projection (FOV in radians)
-	static Mat perspective(float p_fovy_rad, float p_aspect, float p_z_near, float p_z_far) {
+	static Mat perspective(float fovy_rad, float aspect, float z_near, float z_far) {
 		Mat res(0.0f); // Zero init, not identity
 
-		float const tan_half_fovy = std::tan(p_fovy_rad / 2.0f);
+		float const tan_half_fovy = std::tan(fovy_rad / 2.0f);
 
-		res.cols[0][0] = 1.0f / (p_aspect * tan_half_fovy);
+		res.cols[0][0] = 1.0f / (aspect * tan_half_fovy);
 		res.cols[1][1] = 1.0f / (tan_half_fovy);
-		res.cols[2][2] = -(p_z_far + p_z_near) / (p_z_far - p_z_near);
+		res.cols[2][2] = -(z_far + z_near) / (z_far - z_near);
 		res.cols[2][3] = -1.0f;
-		res.cols[3][2] = -(2.0f * p_z_far * p_z_near) / (p_z_far - p_z_near);
+		res.cols[3][2] = -(2.0f * z_far * z_near) / (z_far - z_near);
 
 		return res;
 	}

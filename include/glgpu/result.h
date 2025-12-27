@@ -78,30 +78,30 @@ public:
 		}
 	}
 
-	constexpr bool has_value() const noexcept { return _has_value; }
-	constexpr bool has_error() const noexcept { return !_has_value; }
+	constexpr bool is_ok() const noexcept { return _has_value; }
+	constexpr bool is_error() const noexcept { return !_has_value; }
 	constexpr explicit operator bool() const noexcept { return _has_value; }
 
-	constexpr ValueType& get_value() noexcept {
+	constexpr ValueType& value() noexcept {
 		assert(_has_value);
 		return _value;
 	}
-	constexpr const ValueType& get_value() const noexcept {
+	constexpr const ValueType& value() const noexcept {
 		assert(_has_value);
 		return _value;
 	}
 
-	constexpr ErrorType& get_error() noexcept {
+	constexpr ErrorType& error() noexcept {
 		assert(!_has_value);
 		return _error;
 	}
-	constexpr const ErrorType& get_error() const noexcept {
+	constexpr const ErrorType& error() const noexcept {
 		assert(!_has_value);
 		return _error;
 	}
 
-	constexpr ValueType& operator*() noexcept { return get_value(); }
-	constexpr const ValueType& operator*() const noexcept { return get_value(); }
+	constexpr ValueType& operator*() noexcept { return value(); }
+	constexpr const ValueType& operator*() const noexcept { return value(); }
 
 	constexpr bool operator==(const Result& p_other) const noexcept {
 		// If they don't have the same state, they aren't equal
@@ -133,10 +133,35 @@ private:
 		new (&_error) ErrorType(std::move(p_err));
 	}
 
-	template <typename U, typename V> friend constexpr Result<U, V> make_err(V&& p_err);
+	template <typename U, typename V> friend constexpr Result<U, V> make_err(V p_err);
 };
 
-template <typename T, typename E> constexpr Result<T, E> make_err(E&& p_err) {
+// Specialization for Result<void, E> since C++ does not support
+// void types in unions
+template <typename E> class Result<void, E> {
+public:
+	using ValueType = void;
+	using ErrorType = E;
+
+	constexpr Result() : _has_value(true), _error(E::NONE) {}
+
+	constexpr Result(E p_err) : _has_value(false), _error(p_err) {}
+
+	constexpr bool is_ok() const noexcept { return _has_value; }
+	constexpr bool is_error() const noexcept { return !_has_value; }
+	constexpr explicit operator bool() const noexcept { return _has_value; }
+
+	constexpr ErrorType& error() noexcept {
+		assert(!_has_value);
+		return _error;
+	}
+
+private:
+	bool _has_value;
+	ErrorType _error;
+};
+
+template <typename T, typename E> constexpr Result<T, E> make_err(E p_err) {
 	return Result<T, E>(std::forward<E>(p_err), typename Result<T, E>::ErrorTag{});
 }
 

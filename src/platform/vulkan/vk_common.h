@@ -5,12 +5,24 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
+// Asserting check (Use for internal logic that should never fail)
 #define VK_CHECK(x)                                                                                \
 	do {                                                                                           \
 		VkResult err = x;                                                                          \
 		if (err) {                                                                                 \
 			GL_LOG_ERROR("[VULKAN] [VK_CHECK] {}", vk_result_to_string(err));                      \
 			GL_ASSERT(false);                                                                      \
+		}                                                                                          \
+	} while (false)
+
+// Returning check (Use for runtime operations that might fail, e.g., creation)
+#define VK_CHECK_RET(x, error_code)                                                                \
+	do {                                                                                           \
+		VkResult err = x;                                                                          \
+		if (err) {                                                                                 \
+			GL_LOG_ERROR(                                                                          \
+					"[VULKAN] Error: {} -> returning {}", vk_result_to_string(err), #error_code);  \
+			return error_code;                                                                     \
 		}                                                                                          \
 	} while (false)
 
@@ -53,22 +65,10 @@ inline const char* vk_result_to_string(VkResult res) {
 		CASE(ERROR_INCOMPATIBLE_DISPLAY_KHR)
 		CASE(ERROR_VALIDATION_FAILED_EXT)
 		CASE(ERROR_INVALID_SHADER_NV)
-#ifdef VK_ENABLE_BETA_EXTENSIONS
-		CASE(ERROR_IMAGE_USAGE_NOT_SUPPORTED_KHR)
-		CASE(ERROR_VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR)
-		CASE(ERROR_VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR)
-		CASE(ERROR_VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR)
-		CASE(ERROR_VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR)
-		CASE(ERROR_VIDEO_STD_VERSION_NOT_SUPPORTED_KHR)
-#endif
-		CASE(ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT)
-		CASE(ERROR_NOT_PERMITTED_KHR)
-		CASE(ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
-		CASE(THREAD_IDLE_KHR)
-		CASE(THREAD_DONE_KHR)
-		CASE(OPERATION_DEFERRED_KHR) CASE(OPERATION_NOT_DEFERRED_KHR) default : return "unknown";
+		default:
+			return "UNKNOWN_VK_RESULT";
 	}
 #undef CASE
 }
 
-} //namespace gl
+} // namespace gl

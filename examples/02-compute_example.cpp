@@ -23,7 +23,7 @@ int main(void) {
 		.required_features = gl::RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
-	auto backend = RenderBackend::create(info);
+	auto backend = RenderBackend::create(info).value();
 	GL_LOG_INFO("Headless backend initialized.");
 
 	// We will process 1024 floats
@@ -35,10 +35,11 @@ int main(void) {
 	// purposes we are going to be using the same buffer in the GPU. Normally you would create
 	// another buffer with BUFFER_USAGE_STORAGE_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT as
 	// MemoryAllocationType::GPUs
-	Buffer storage_buffer = backend->buffer_create(
-			buffer_size, BUFFER_USAGE_STORAGE_BUFFER_BIT, MemoryAllocationType::CPU);
+	Buffer storage_buffer = backend->buffer_create(buffer_size, BUFFER_USAGE_STORAGE_BUFFER_BIT,
+										   MemoryAllocationType::CPU)
+									.value();
 
-	float* raw_data = (float*)backend->buffer_map(storage_buffer);
+	float* raw_data = (float*)backend->buffer_map(storage_buffer).value();
 	if (raw_data) {
 		for (uint32_t i = 0; i < element_count; i++) {
 			raw_data[i] = (float)i; // Fill with 0, 1, 2, ... 1023
@@ -62,9 +63,9 @@ int main(void) {
 	spirv_entry.byte_code = spirv_code;
 	spirv_entry.stage = SHADER_STAGE_COMPUTE_BIT;
 
-	Shader compute_shader = backend->shader_create_from_bytecode({ spirv_entry });
+	Shader compute_shader = backend->shader_create_from_bytecode({ spirv_entry }).value();
 
-	Pipeline compute_pipeline = backend->compute_pipeline_create(compute_shader);
+	Pipeline compute_pipeline = backend->compute_pipeline_create(compute_shader).value();
 
 	// We need to tell the shader that binding 0 is our 'storage_buffer'
 
@@ -76,12 +77,13 @@ int main(void) {
 	buffer_uniform.data.push_back(storage_buffer);
 
 	// Create the set (set index 0)
-	UniformSet uniform_set = backend->uniform_set_create({ buffer_uniform }, compute_shader, 0);
+	UniformSet uniform_set =
+			backend->uniform_set_create({ buffer_uniform }, compute_shader, 0).value();
 
 	// Commands
-	CommandQueue compute_queue = backend->queue_get(QueueType::GRAPHICS);
-	CommandPool cmd_pool = backend->command_pool_create(compute_queue);
-	CommandBuffer cmd = backend->command_pool_allocate(cmd_pool);
+	CommandQueue compute_queue = backend->queue_get(QueueType::GRAPHICS).value();
+	CommandPool cmd_pool = backend->command_pool_create(compute_queue).value();
+	CommandBuffer cmd = backend->command_pool_allocate(cmd_pool).value();
 
 	Fence fence = backend->fence_create(false);
 
@@ -113,7 +115,7 @@ int main(void) {
 
 	backend->buffer_invalidate(storage_buffer);
 
-	raw_data = (float*)backend->buffer_map(storage_buffer);
+	raw_data = (float*)backend->buffer_map(storage_buffer).value();
 	bool success = true;
 
 	for (uint32_t i = 0; i < element_count; i++) {

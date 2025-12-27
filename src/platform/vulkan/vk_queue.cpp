@@ -2,50 +2,62 @@
 
 namespace gl {
 
-CommandQueue VulkanRenderBackend::queue_get(QueueType p_type) {
-	VulkanQueue* queue;
-	switch (p_type) {
+Res<CommandQueue> VulkanRenderBackend::queue_get(QueueType type) {
+	VulkanQueue* queue = nullptr;
+	switch (type) {
 		case QueueType::GRAPHICS:
-			queue = &graphics_queue;
+			queue = &_graphics_queue;
 			break;
 		case QueueType::PRESENT:
-			queue = &present_queue;
+			queue = &_present_queue;
 			break;
 		case QueueType::TRANSFER:
-			queue = &transfer_queue;
+			queue = &_transfer_queue;
 			break;
 		case QueueType::COMPUTE:
-			queue = &compute_queue;
-		default:
-			queue = &graphics_queue;
+			queue = &_compute_queue;
 			break;
+		default:
+			queue = &_graphics_queue;
+			break;
+	}
+
+	if (!queue) {
+		return make_err<CommandQueue>(Error::QUEUE_FAMILY_NOT_FOUND);
 	}
 
 	return CommandQueue(queue);
 }
 
-void VulkanRenderBackend::queue_submit(CommandQueue p_queue, CommandBuffer p_cmd, Fence p_fence,
-		Semaphore p_wait_semaphore, Semaphore p_signal_semaphore) {
+Res<> VulkanRenderBackend::queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence,
+		Semaphore wait_semaphore, Semaphore signal_semaphore) {
+	if (!queue || !cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkCommandBufferSubmitInfo cmd_info = {};
 	cmd_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
 	cmd_info.pNext = nullptr;
-	cmd_info.commandBuffer = (VkCommandBuffer)p_cmd;
+	cmd_info.commandBuffer = (VkCommandBuffer)cmd;
 	cmd_info.deviceMask = 0;
 
 	VkSemaphoreSubmitInfo wait_semaphore_info = {};
-	wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-	wait_semaphore_info.semaphore = (VkSemaphore)p_wait_semaphore;
-	wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO get as
-																					 // parameter
-	wait_semaphore_info.deviceIndex = 0;
-	wait_semaphore_info.value = 1;
+	if (wait_semaphore) {
+		wait_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		wait_semaphore_info.semaphore = (VkSemaphore)wait_semaphore;
+		wait_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		wait_semaphore_info.deviceIndex = 0;
+		wait_semaphore_info.value = 1;
+	}
 
 	VkSemaphoreSubmitInfo signal_semaphore_info = {};
-	signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-	signal_semaphore_info.semaphore = (VkSemaphore)p_signal_semaphore;
-	signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT; // TODO get as parameter
-	signal_semaphore_info.deviceIndex = 0;
-	signal_semaphore_info.value = 1;
+	if (signal_semaphore) {
+		signal_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		signal_semaphore_info.semaphore = (VkSemaphore)signal_semaphore;
+		signal_semaphore_info.stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+		signal_semaphore_info.deviceIndex = 0;
+		signal_semaphore_info.value = 1;
+	}
 
 	VkSubmitInfo2 submit_info = {};
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -54,38 +66,57 @@ void VulkanRenderBackend::queue_submit(CommandQueue p_queue, CommandBuffer p_cmd
 	submit_info.commandBufferInfoCount = 1;
 	submit_info.pCommandBufferInfos = &cmd_info;
 
-	submit_info.waitSemaphoreInfoCount = p_wait_semaphore == nullptr ? 0 : 1;
-	submit_info.pWaitSemaphoreInfos = &wait_semaphore_info;
+	submit_info.waitSemaphoreInfoCount = wait_semaphore == nullptr ? 0 : 1;
+	submit_info.pWaitSemaphoreInfos = wait_semaphore ? &wait_semaphore_info : nullptr;
 
-	submit_info.signalSemaphoreInfoCount = p_signal_semaphore == nullptr ? 0 : 1;
-	submit_info.pSignalSemaphoreInfos = &signal_semaphore_info;
+	submit_info.signalSemaphoreInfoCount = signal_semaphore == nullptr ? 0 : 1;
+	submit_info.pSignalSemaphoreInfos = signal_semaphore ? &signal_semaphore_info : nullptr;
 
-	VulkanQueue* queue = (VulkanQueue*)p_queue;
+	VulkanQueue* vk_queue = (VulkanQueue*)queue;
 
 	// Lock queue for thread safe access
-	std::lock_guard<std::mutex> lock(queue->mutex);
+	std::lock_guard<std::mutex> lock(vk_queue->mutex);
 
-	VK_CHECK(vkQueueSubmit2(queue->queue, 1, &submit_info, (VkFence)p_fence));
+	VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
+			Error::COMMAND_SUBMISSION_FAILED);
+
+	return {};
 }
 
-bool VulkanRenderBackend::queue_present(
-		CommandQueue p_queue, Swapchain p_swapchain, Semaphore p_wait_semaphore) {
-	VulkanSwapchain* swapchain = (VulkanSwapchain*)p_swapchain;
-	VulkanQueue* queue = (VulkanQueue*)p_queue;
+Res<> VulkanRenderBackend::queue_present(
+		CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore) {
+	if (!queue || !swapchain) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
+	VulkanQueue* vk_queue = (VulkanQueue*)queue;
+
+	VkSemaphore vk_wait_sem = (VkSemaphore)wait_semaphore;
 
 	VkPresentInfoKHR present_info = {};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present_info.waitSemaphoreCount = p_wait_semaphore == nullptr ? 0 : 1;
-	present_info.pWaitSemaphores = (VkSemaphore*)&p_wait_semaphore;
+	present_info.waitSemaphoreCount = wait_semaphore == nullptr ? 0 : 1;
+	present_info.pWaitSemaphores = wait_semaphore ? &vk_wait_sem : nullptr;
 	present_info.swapchainCount = 1;
-	present_info.pSwapchains = &swapchain->vk_swapchain;
-	present_info.pImageIndices = &swapchain->image_index;
+	present_info.pSwapchains = &vk_swapchain->vk_swapchain;
+	present_info.pImageIndices = &vk_swapchain->image_index;
 
 	// Lock queue for thread safe access
-	std::lock_guard<std::mutex> lock(queue->mutex);
+	std::lock_guard<std::mutex> lock(vk_queue->mutex);
 
-	const VkResult res = vkQueuePresentKHR(queue->queue, &present_info);
-	return res == VK_SUCCESS;
+	VkResult res = vkQueuePresentKHR(vk_queue->queue, &present_info);
+
+	if (res == VK_SUCCESS) {
+		return {};
+	} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+		return Error::SWAPCHAIN_OUT_OF_DATE;
+	} else if (res == VK_SUBOPTIMAL_KHR) {
+		return Error::SWAPCHAIN_SUBOPTIMAL;
+	} else {
+		GL_LOG_ERROR("[VULKAN] Queue present failed: {}", vk_result_to_string(res));
+		return Error::PRESENTATION_FAILED;
+	}
 }
 
 } //namespace gl

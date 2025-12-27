@@ -1,0 +1,33 @@
+#define CATCH_CONFIG_RUNNER
+#include <catch2/catch_session.hpp>
+
+#include "test_common.h"
+
+int main(int argc, char* argv[]) {
+	Catch::Session session;
+
+	int code = session.applyCommandLine(argc, argv);
+	if (code != 0) {
+		return code;
+	}
+
+	// Initialize the RenderBackend globally
+	std::cout << "[Test Entry] Initializing RenderBackend..." << std::endl;
+	auto backend = gl::test::get_test_backend();
+
+	if (!backend) {
+		std::cerr << "[Test Entry] Failed to create backend. Aborting." << std::endl;
+		return 1;
+	}
+
+	// Run tests
+	std::cout << "[Test Entry] Running tests..." << std::endl;
+
+	const int num_failed = session.run();
+
+	// Cleanup
+	std::cout << "[Test Entry] Destroying RenderBackend..." << std::endl;
+	gl::test::destroy_test_backend();
+
+	return num_failed;
+}

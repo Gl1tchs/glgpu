@@ -12,7 +12,7 @@ enum LogLevel : uint8_t {
 
 class Logger {
 public:
-	static void log(LogLevel p_level, const std::string& p_fmt);
+	static void log(LogLevel level, const std::string& fmt);
 };
 
 #define GL_LOG_TRACE(...) Logger::log(LOG_LEVEL_TRACE, std::format(__VA_ARGS__))

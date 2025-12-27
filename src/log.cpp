@@ -26,9 +26,9 @@ static std::string _get_timestamp() {
 	return ss.str();
 }
 
-void Logger::log(LogLevel p_level, const std::string& p_fmt) {
+void Logger::log(LogLevel level, const std::string& fmt) {
 	// Output to stdout
-	std::cout << VERBOSITY_TO_COLOR[p_level] << std::format("[{}] {}", _get_timestamp(), p_fmt)
+	std::cout << VERBOSITY_TO_COLOR[level] << std::format("[{}] {}", _get_timestamp(), fmt)
 			  << "\x1B[0m\n";
 }
 

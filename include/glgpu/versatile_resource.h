@@ -10,15 +10,14 @@ template <typename... RESOURCE_TYPES> struct VersatileResourceTemplate {
 			*std::max_element(RESOURCE_SIZES, RESOURCE_SIZES + sizeof...(RESOURCE_TYPES));
 	uint8_t data[MAX_RESOURCE_SIZE];
 
-	template <typename T>
-	static T* allocate(PagedAllocator<VersatileResourceTemplate>& p_allocator) {
-		VersatileResourceTemplate* obj = p_allocator.alloc();
+	template <typename T> static T* allocate(PagedAllocator<VersatileResourceTemplate>& allocator) {
+		VersatileResourceTemplate* obj = allocator.alloc();
 		return new (obj->data) T;
 	}
 
 	template <typename T>
-	static void free(PagedAllocator<VersatileResourceTemplate>& p_allocator, T* p_object) {
-		p_allocator.free(reinterpret_cast<VersatileResourceTemplate*>(p_object));
+	static void free(PagedAllocator<VersatileResourceTemplate>& allocator, T* object) {
+		allocator.free(reinterpret_cast<VersatileResourceTemplate*>(object));
 	}
 };
 

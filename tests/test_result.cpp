@@ -9,28 +9,27 @@ enum class NetworkError { Timeout, Disconnected, Unknown };
 
 TEST_CASE("Result - Success State", "[Result]") {
 	SECTION("Primitive Types") {
-		// Result<Value, Error>
 		Result<int, NetworkError> res(100);
 
-		REQUIRE(res.has_value());
-		REQUIRE_FALSE(res.has_error());
+		REQUIRE(res.is_ok());
+		REQUIRE_FALSE(res.is_error());
 
 		// Test explicit bool conversion
 		REQUIRE(static_cast<bool>(res));
 
 		// Accessors
-		REQUIRE(res.get_value() == 100);
+		REQUIRE(res.value() == 100);
 		REQUIRE(*res == 100);
 	}
 
 	SECTION("String Types") {
 		Result<std::string, int> res("Success Data");
 
-		REQUIRE(res.has_value());
+		REQUIRE(res.is_ok());
 		REQUIRE(*res == "Success Data");
 
 		// Test mutation via reference
-		res.get_value() += " appended";
+		res.value() += " appended";
 		REQUIRE(*res == "Success Data appended");
 	}
 }
@@ -40,18 +39,18 @@ TEST_CASE("Result - Error State", "[Result]") {
 		// Explicitly construct with the ErrorType
 		Result<int, NetworkError> res = make_err<int>(NetworkError::Timeout);
 
-		REQUIRE_FALSE(res.has_value());
-		REQUIRE(res.has_error());
+		REQUIRE_FALSE(res.is_ok());
+		REQUIRE(res.is_error());
 		REQUIRE_FALSE(static_cast<bool>(res));
 
-		REQUIRE(res.get_error() == NetworkError::Timeout);
+		REQUIRE(res.error() == NetworkError::Timeout);
 	}
 
 	SECTION("Using make_err helper") {
 		auto res = make_err<float, std::string>("Critical Failure");
 
-		REQUIRE(res.has_error());
-		REQUIRE(res.get_error() == "Critical Failure");
+		REQUIRE(res.is_error());
+		REQUIRE(res.error() == "Critical Failure");
 	}
 }
 
@@ -62,10 +61,10 @@ TEST_CASE("Result - Copy and Move Assignment", "[Result]") {
 
 		res2 = res1; // Copy assignment
 
-		REQUIRE(res2.has_value());
-		REQUIRE(res2.get_value() == "Initial");
+		REQUIRE(res2.is_ok());
+		REQUIRE(res2.value() == "Initial");
 		// Original should still be valid
-		REQUIRE(res1.get_value() == "Initial");
+		REQUIRE(res1.value() == "Initial");
 	}
 
 	SECTION("Move Assignment") {
@@ -74,18 +73,18 @@ TEST_CASE("Result - Copy and Move Assignment", "[Result]") {
 
 		res2 = std::move(res1); // Move assignment
 
-		REQUIRE(res2.get_value() == "Initial");
+		REQUIRE(res2.value() == "Initial");
 	}
 
 	SECTION("Switching from Value to Error via Assignment") {
 		Result<std::string, std::string> res("Value");
-		REQUIRE(res.has_value());
+		REQUIRE(res.is_ok());
 
 		// Assign an error state to a value state
 		res = make_err<std::string, std::string>("Error");
 
-		REQUIRE(res.has_error());
-		REQUIRE(res.get_error() == "Error");
+		REQUIRE(res.is_error());
+		REQUIRE(res.error() == "Error");
 	}
 }
 

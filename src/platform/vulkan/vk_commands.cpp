@@ -4,119 +4,185 @@
 
 namespace gl {
 
-void VulkanRenderBackend::command_immediate_submit(
-		std::function<void(CommandBuffer p_cmd)>&& p_function, QueueType p_queue_type) {
+Res<> VulkanRenderBackend::command_immediate_submit(
+		std::function<void(CommandBuffer cmd)>&& function, QueueType queue_type) {
 	std::mutex& cmd_mutex =
-			(p_queue_type == QueueType::TRANSFER) ? imm_cmd_transfer_mutex : imm_cmd_graphics_mutex;
+			(queue_type == QueueType::TRANSFER) ? _imm_cmd_transfer_mutex : _imm_cmd_graphics_mutex;
 
 	std::scoped_lock lock(cmd_mutex);
 
-	ImmediateBuffer* imm = (p_queue_type == QueueType::TRANSFER) ? &imm_transfer : &imm_graphics;
+	ImmediateBuffer* imm = (queue_type == QueueType::TRANSFER) ? &_imm_transfer : &_imm_graphics;
 
-	VK_CHECK(vkResetFences(device, 1, (VkFence*)&imm->fence));
+	VK_CHECK_RET(vkResetFences(_device, 1, (VkFence*)&imm->fence), Error::FENCE_TIMEOUT);
 
-	command_reset(imm->command_buffer);
+	// Reset internal command buffer
+	VkResult reset_res = vkResetCommandBuffer((VkCommandBuffer)imm->command_buffer, 0);
+	if (reset_res != VK_SUCCESS)
+		return Error::COMMAND_SUBMISSION_FAILED;
 
-	command_begin(imm->command_buffer);
-	{
-		// run the command
-		p_function(imm->command_buffer);
-	}
-	command_end(imm->command_buffer);
+	// Begin recording
+	VkCommandBufferBeginInfo begin_info = {};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	// submit command buffer to the queue and execute it.
-	// imm_fence will now block until the graphic commands finish
-	// execution
-	queue_submit((p_queue_type == QueueType::TRANSFER) ? queue_get(QueueType::TRANSFER)
-													   : queue_get(QueueType::GRAPHICS),
-			imm->command_buffer, imm->fence);
+	VK_CHECK_RET(vkBeginCommandBuffer((VkCommandBuffer)imm->command_buffer, &begin_info),
+			Error::COMMAND_SUBMISSION_FAILED);
 
-	// wait till the operation finishes
-	VK_CHECK(vkWaitForFences(device, 1, (VkFence*)&imm->fence, true, UINT64_MAX));
+	// Execute user function
+	function(imm->command_buffer);
+
+	// End recording
+	VK_CHECK_RET(vkEndCommandBuffer((VkCommandBuffer)imm->command_buffer),
+			Error::COMMAND_SUBMISSION_FAILED);
+
+	// Submit
+	// Note: queue_submit returns Res<>
+	CommandQueue target_queue_res = (queue_type == QueueType::TRANSFER)
+			? queue_get(QueueType::TRANSFER).value()
+			: queue_get(QueueType::GRAPHICS).value();
+
+	Res<> submit_res = queue_submit(target_queue_res, imm->command_buffer, imm->fence);
+	if (submit_res.is_error())
+		return submit_res.error();
+
+	// Wait for fence
+	VK_CHECK_RET(vkWaitForFences(_device, 1, (VkFence*)&imm->fence, true, UINT64_MAX),
+			Error::FENCE_TIMEOUT);
+
+	return {};
 }
 
-CommandPool VulkanRenderBackend::command_pool_create(CommandQueue p_queue) {
-	VulkanQueue* queue = (VulkanQueue*)p_queue;
+Res<CommandPool> VulkanRenderBackend::command_pool_create(CommandQueue queue) {
+	VulkanQueue* vk_queue = (VulkanQueue*)queue;
+	if (!vk_queue) {
+		return make_err<CommandPool>(Error::INVALID_HANDLE);
+	}
 
 	VkCommandPoolCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	create_info.queueFamilyIndex = queue->queue_family;
+	create_info.queueFamilyIndex = vk_queue->queue_family;
 	create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	VkCommandPool vk_command_pool = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateCommandPool(device, &create_info, nullptr, &vk_command_pool));
+	VK_CHECK_RET(vkCreateCommandPool(_device, &create_info, nullptr, &vk_command_pool),
+			make_err<CommandPool>(Error::INITIALIZATION_FAILED));
 
 	return CommandPool(vk_command_pool);
 }
 
-void VulkanRenderBackend::command_pool_free(CommandPool p_command_pool) {
-	VkCommandPool command_pool = (VkCommandPool)p_command_pool;
+Res<> VulkanRenderBackend::command_pool_free(CommandPool command_pool) {
+	if (!command_pool) {
+		return {};
+	}
 
-	vkDestroyCommandPool(device, command_pool, nullptr);
+	VkCommandPool vk_pool = (VkCommandPool)command_pool;
+	vkDestroyCommandPool(_device, vk_pool, nullptr);
+
+	return {};
 }
 
-CommandBuffer VulkanRenderBackend::command_pool_allocate(CommandPool p_command_pool) {
-	VkCommandPool command_pool = (VkCommandPool)p_command_pool;
+Res<CommandBuffer> VulkanRenderBackend::command_pool_allocate(CommandPool command_pool) {
+	VkCommandPool vk_pool = (VkCommandPool)command_pool;
+	if (!vk_pool) {
+		return make_err<CommandBuffer>(Error::INVALID_HANDLE);
+	}
 
 	VkCommandBufferAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.pNext = nullptr;
-	alloc_info.commandPool = command_pool;
+	alloc_info.commandPool = vk_pool;
 	alloc_info.commandBufferCount = 1;
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
 	VkCommandBuffer vk_command_buffer = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateCommandBuffers(device, &alloc_info, &vk_command_buffer));
+	VK_CHECK_RET(vkAllocateCommandBuffers(_device, &alloc_info, &vk_command_buffer),
+			make_err<CommandBuffer>(Error::OUT_OF_HOST_MEMORY));
 
 	return CommandBuffer(vk_command_buffer);
 }
 
-std::vector<CommandBuffer> VulkanRenderBackend::command_pool_allocate(
-		CommandPool p_command_pool, const uint32_t p_count) {
-	VkCommandPool command_pool = (VkCommandPool)p_command_pool;
+Res<std::vector<CommandBuffer>> VulkanRenderBackend::command_pool_allocate(
+		CommandPool command_pool, const uint32_t count) {
+	VkCommandPool vk_pool = (VkCommandPool)command_pool;
+	if (!vk_pool) {
+		return make_err<std::vector<CommandBuffer>>(Error::INVALID_HANDLE);
+	}
 
 	VkCommandBufferAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.pNext = nullptr;
-	alloc_info.commandPool = command_pool;
-	alloc_info.commandBufferCount = p_count;
+	alloc_info.commandPool = vk_pool;
+	alloc_info.commandBufferCount = count;
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-	std::vector<CommandBuffer> command_buffers(p_count);
-	VK_CHECK(vkAllocateCommandBuffers(
-			device, &alloc_info, (VkCommandBuffer*)&command_buffers.front()));
+	std::vector<CommandBuffer> command_buffers(count);
+	VK_CHECK_RET(vkAllocateCommandBuffers(
+						 _device, &alloc_info, (VkCommandBuffer*)command_buffers.data()),
+			make_err<std::vector<CommandBuffer>>(Error::OUT_OF_HOST_MEMORY));
 
 	return command_buffers;
 }
 
-void VulkanRenderBackend::command_pool_reset(CommandPool p_command_pool) {
-	vkResetCommandPool(
-			device, (VkCommandPool)p_command_pool, VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM);
+Res<> VulkanRenderBackend::command_pool_reset(CommandPool command_pool) {
+	if (!command_pool) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VK_CHECK_RET(vkResetCommandPool(_device, (VkCommandPool)command_pool,
+						 VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM),
+			Error::INVALID_OPERATION);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_begin(CommandBuffer p_cmd) {
+Res<> VulkanRenderBackend::command_begin(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.pNext = nullptr;
 	begin_info.pInheritanceInfo = nullptr;
 	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	vkBeginCommandBuffer((VkCommandBuffer)p_cmd, &begin_info);
+	VK_CHECK_RET(vkBeginCommandBuffer((VkCommandBuffer)cmd, &begin_info),
+			Error::COMMAND_SUBMISSION_FAILED);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_end(CommandBuffer p_cmd) {
-	vkEndCommandBuffer((VkCommandBuffer)p_cmd);
+Res<> VulkanRenderBackend::command_end(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VK_CHECK_RET(vkEndCommandBuffer((VkCommandBuffer)cmd), Error::COMMAND_SUBMISSION_FAILED);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_reset(CommandBuffer p_cmd) {
-	vkResetCommandBuffer((VkCommandBuffer)p_cmd, 0);
+Res<> VulkanRenderBackend::command_reset(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VK_CHECK_RET(vkResetCommandBuffer((VkCommandBuffer)cmd, 0), Error::INVALID_OPERATION);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_begin_rendering(CommandBuffer p_cmd, const Vec2u& p_draw_extent,
-		std::vector<RenderingAttachment> p_color_attachments, Image p_depth_attachment) {
+Res<> VulkanRenderBackend::command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
+		std::vector<RenderingAttachment> color_attachments, Image depth_attachment) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
 	std::vector<VkRenderingAttachmentInfo> color_attachment_infos;
-	for (const auto& attachment : p_color_attachments) {
+	for (const auto& attachment : color_attachments) {
 		VulkanImage* vk_image = (VulkanImage*)attachment.image;
+		if (!vk_image)
+			return Error::INVALID_HANDLE;
 
 		VkRenderingAttachmentInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -148,8 +214,8 @@ void VulkanRenderBackend::command_begin_rendering(CommandBuffer p_cmd, const Vec
 	}
 
 	VkRenderingAttachmentInfo depth_attachment_info = {};
-	if (p_depth_attachment) {
-		VulkanImage* vk_depth_image = (VulkanImage*)p_depth_attachment;
+	if (depth_attachment) {
+		VulkanImage* vk_depth_image = (VulkanImage*)depth_attachment;
 
 		depth_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_attachment_info.pNext = nullptr;
@@ -162,23 +228,34 @@ void VulkanRenderBackend::command_begin_rendering(CommandBuffer p_cmd, const Vec
 
 	VkRenderingInfo render_info = {};
 	render_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-	render_info.renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, { p_draw_extent.x, p_draw_extent.y } };
+	render_info.renderArea = VkRect2D{ VkOffset2D{ 0, 0 }, { draw_extent.x, draw_extent.y } };
 	render_info.layerCount = 1;
-	render_info.colorAttachmentCount = color_attachment_infos.size();
+	render_info.colorAttachmentCount = static_cast<uint32_t>(color_attachment_infos.size());
 	render_info.pColorAttachments = color_attachment_infos.data();
-	render_info.pDepthAttachment = p_depth_attachment == nullptr ? nullptr : &depth_attachment_info;
+	render_info.pDepthAttachment = depth_attachment == nullptr ? nullptr : &depth_attachment_info;
 	render_info.pStencilAttachment = nullptr;
 
-	vkCmdBeginRendering((VkCommandBuffer)p_cmd, &render_info);
+	vkCmdBeginRendering((VkCommandBuffer)cmd, &render_info);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_end_rendering(CommandBuffer p_cmd) {
-	vkCmdEndRendering((VkCommandBuffer)p_cmd);
+Res<> VulkanRenderBackend::command_end_rendering(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdEndRendering((VkCommandBuffer)cmd);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_begin_render_pass(CommandBuffer p_cmd, RenderPass p_render_pass,
-		FrameBuffer framebuffer, const Vec2u& p_draw_extent, Color p_clear_color) {
-	VulkanRenderPass* render_pass_info = (VulkanRenderPass*)p_render_pass;
+Res<> VulkanRenderBackend::command_begin_render_pass(CommandBuffer cmd, RenderPass render_pass,
+		FrameBuffer framebuffer, const Vec2u& draw_extent, Color clear_color) {
+	VulkanRenderPass* render_pass_info = (VulkanRenderPass*)render_pass;
+	if (!cmd || !render_pass_info) {
+		return Error::INVALID_HANDLE;
+	}
 
 	std::vector<VkClearValue> clear_values(render_pass_info->attachments.size());
 	for (size_t i = 0; i < render_pass_info->attachments.size(); ++i) {
@@ -188,7 +265,7 @@ void VulkanRenderBackend::command_begin_render_pass(CommandBuffer p_cmd, RenderP
 		if (attachment.is_depth_attachment) {
 			clear.depthStencil = { 1.0f, 0 };
 		} else {
-			clear.color = { { p_clear_color.r, p_clear_color.g, p_clear_color.b, 1.0f } };
+			clear.color = { { clear_color.r, clear_color.g, clear_color.b, 1.0f } };
 		}
 	}
 
@@ -197,28 +274,39 @@ void VulkanRenderBackend::command_begin_render_pass(CommandBuffer p_cmd, RenderP
 	begin_info.renderPass = render_pass_info->vk_render_pass;
 	begin_info.framebuffer = VkFramebuffer(framebuffer);
 	begin_info.renderArea.offset = { 0, 0 };
-	begin_info.renderArea.extent = { p_draw_extent.x, p_draw_extent.y };
-	begin_info.clearValueCount = clear_values.size();
+	begin_info.renderArea.extent = { draw_extent.x, draw_extent.y };
+	begin_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
 	begin_info.pClearValues = clear_values.data();
 
-	vkCmdBeginRenderPass((VkCommandBuffer)p_cmd, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass((VkCommandBuffer)cmd, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_end_render_pass(CommandBuffer p_cmd) {
-	vkCmdEndRenderPass((VkCommandBuffer)p_cmd);
+Res<> VulkanRenderBackend::command_end_render_pass(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdEndRenderPass((VkCommandBuffer)cmd);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_clear_color(CommandBuffer p_cmd, Image p_image,
-		const Color& p_clear_color, ImageAspectFlags p_image_aspect) {
-	VulkanImage* image = (VulkanImage*)p_image;
+Res<> VulkanRenderBackend::command_clear_color(CommandBuffer cmd, Image image,
+		const Color& clear_color_val, ImageAspectFlags image_aspect) {
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!cmd || !vk_image) {
+		return Error::INVALID_HANDLE;
+	}
 
 	VkClearColorValue clear_color = {};
 	static_assert(sizeof(VkClearColorValue) == sizeof(Color));
-	memcpy(&clear_color.float32, &p_clear_color.r, sizeof(Color));
+	memcpy(&clear_color.float32, &clear_color_val.r, sizeof(Color));
 
 	VkImageSubresourceRange image_range = {};
-	image_range.aspectMask = [p_image_aspect]() -> VkImageAspectFlags {
-		switch (p_image_aspect) {
+	image_range.aspectMask = [image_aspect]() -> VkImageAspectFlags {
+		switch (image_aspect) {
 			case IMAGE_ASPECT_COLOR_BIT:
 				return VK_IMAGE_ASPECT_COLOR_BIT;
 			case IMAGE_ASPECT_DEPTH_BIT:
@@ -232,100 +320,158 @@ void VulkanRenderBackend::command_clear_color(CommandBuffer p_cmd, Image p_image
 	image_range.levelCount = 1;
 	image_range.layerCount = 1;
 
-	vkCmdClearColorImage((VkCommandBuffer)p_cmd, image->vk_image, VK_IMAGE_LAYOUT_GENERAL,
+	vkCmdClearColorImage((VkCommandBuffer)cmd, vk_image->vk_image, VK_IMAGE_LAYOUT_GENERAL,
 			&clear_color, 1, &image_range);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_bind_graphics_pipeline(CommandBuffer p_cmd, Pipeline p_pipeline) {
-	VulkanPipeline* pipeline = (VulkanPipeline*)p_pipeline;
+Res<> VulkanRenderBackend::command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline) {
+	VulkanPipeline* vk_pipeline = (VulkanPipeline*)pipeline;
+	if (!cmd || !vk_pipeline) {
+		return Error::INVALID_HANDLE;
+	}
 
 	vkCmdBindPipeline(
-			(VkCommandBuffer)p_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vk_pipeline);
+			(VkCommandBuffer)cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline->vk_pipeline);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_bind_compute_pipeline(CommandBuffer p_cmd, Pipeline p_pipeline) {
-	VulkanPipeline* pipeline = (VulkanPipeline*)p_pipeline;
+Res<> VulkanRenderBackend::command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) {
+	VulkanPipeline* vk_pipeline = (VulkanPipeline*)pipeline;
+	if (!cmd || !vk_pipeline) {
+		return Error::INVALID_HANDLE;
+	}
 
 	vkCmdBindPipeline(
-			(VkCommandBuffer)p_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->vk_pipeline);
+			(VkCommandBuffer)cmd, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline->vk_pipeline);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_bind_vertex_buffers(CommandBuffer p_cmd, uint32_t p_first_binding,
-		std::vector<Buffer> p_vertex_buffers, std::vector<uint64_t> p_offsets) {
-	GL_ASSERT(p_vertex_buffers.size() == p_offsets.size(),
-			"Buffer array size and offset array size does not match");
+Res<> VulkanRenderBackend::command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
+		std::vector<Buffer> vertex_buffers, std::vector<uint64_t> offsets) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
 
-	std::vector<VkBuffer> vk_buffers(p_vertex_buffers.size());
-	for (size_t i = 0; i < p_vertex_buffers.size(); ++i) {
-		VulkanBuffer* vk_buffer = (VulkanBuffer*)p_vertex_buffers[i];
+	if (vertex_buffers.size() != offsets.size()) {
+		return Error::INVALID_ARGUMENT;
+	}
+
+	std::vector<VkBuffer> vk_buffers(vertex_buffers.size());
+	for (size_t i = 0; i < vertex_buffers.size(); ++i) {
+		VulkanBuffer* vk_buffer = (VulkanBuffer*)vertex_buffers[i];
 		vk_buffers[i] = vk_buffer->vk_buffer;
 	}
 
-	vkCmdBindVertexBuffers((VkCommandBuffer)p_cmd, p_first_binding,
-			static_cast<uint32_t>(vk_buffers.size()), vk_buffers.data(), p_offsets.data());
+	vkCmdBindVertexBuffers((VkCommandBuffer)cmd, first_binding,
+			static_cast<uint32_t>(vk_buffers.size()), vk_buffers.data(), offsets.data());
+	return {};
 }
 
-void VulkanRenderBackend::command_bind_index_buffer(
-		CommandBuffer p_cmd, Buffer p_index_buffer, uint64_t p_offset, IndexType p_index_type) {
-	VulkanBuffer* index_buffer = (VulkanBuffer*)p_index_buffer;
-
-	vkCmdBindIndexBuffer((VkCommandBuffer)p_cmd, index_buffer->vk_buffer, p_offset,
-			p_index_type == IndexType::UINT16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
-}
-
-void VulkanRenderBackend::command_draw(CommandBuffer p_cmd, uint32_t p_vertex_count,
-		uint32_t p_instance_count, uint32_t p_first_vertex, uint32_t p_first_instance) {
-	vkCmdDraw((VkCommandBuffer)p_cmd, p_vertex_count, p_instance_count, p_first_vertex,
-			p_first_instance);
-}
-
-void VulkanRenderBackend::command_draw_indexed(CommandBuffer p_cmd, uint32_t p_index_count,
-		uint32_t p_instance_count, uint32_t p_first_index, int32_t p_vertex_offset,
-		uint32_t p_first_instance) {
-	vkCmdDrawIndexed((VkCommandBuffer)p_cmd, p_index_count, p_instance_count, p_first_index,
-			p_vertex_offset, p_first_instance);
-}
-
-void VulkanRenderBackend::command_draw_indexed_indirect(CommandBuffer p_cmd, Buffer p_buffer,
-		uint64_t p_offset, uint32_t p_draw_count, uint32_t p_stride) {
-	VulkanBuffer* buffer = (VulkanBuffer*)p_buffer;
-
-	vkCmdDrawIndexedIndirect(
-			(VkCommandBuffer)p_cmd, buffer->vk_buffer, p_offset, p_draw_count, p_stride);
-}
-
-void VulkanRenderBackend::command_dispatch(CommandBuffer p_cmd, uint32_t p_group_count_x,
-		uint32_t p_group_count_y, uint32_t p_group_count_z) {
-	vkCmdDispatch((VkCommandBuffer)p_cmd, p_group_count_x, p_group_count_y, p_group_count_z);
-}
-
-void VulkanRenderBackend::command_bind_uniform_sets(CommandBuffer p_cmd, Shader p_shader,
-		uint32_t p_first_set, std::vector<UniformSet> p_uniform_sets, PipelineType p_type) {
-	VulkanShader* shader = (VulkanShader*)p_shader;
-
-	std::vector<VkDescriptorSet> uniform_sets;
-	for (uint32_t i = 0; i < p_uniform_sets.size(); i++) {
-		VulkanUniformSet* uniform_set = (VulkanUniformSet*)p_uniform_sets[i];
-
-		uniform_sets.push_back(uniform_set->vk_descriptor_set);
+Res<> VulkanRenderBackend::command_bind_index_buffer(
+		CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) {
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)index_buffer;
+	if (!cmd || !vk_buffer) {
+		return Error::INVALID_HANDLE;
 	}
 
-	vkCmdBindDescriptorSets((VkCommandBuffer)p_cmd,
-			p_type == PipelineType::GRAPHICS ? VK_PIPELINE_BIND_POINT_GRAPHICS
-											 : VK_PIPELINE_BIND_POINT_COMPUTE,
-			shader->pipeline_layout, p_first_set, p_uniform_sets.size(), uniform_sets.data(), 0,
-			nullptr);
+	vkCmdBindIndexBuffer((VkCommandBuffer)cmd, vk_buffer->vk_buffer, offset,
+			index_type == IndexType::UINT16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_push_constants(CommandBuffer p_cmd, Shader p_shader,
-		uint64_t p_offset, uint32_t p_size, const void* p_push_constants) {
-	VulkanShader* shader = (VulkanShader*)p_shader;
+Res<> VulkanRenderBackend::command_draw(CommandBuffer cmd, uint32_t vertex_count,
+		uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
 
-	vkCmdPushConstants((VkCommandBuffer)p_cmd, shader->pipeline_layout,
-			shader->push_constant_stages, p_offset, p_size, p_push_constants);
+	vkCmdDraw((VkCommandBuffer)cmd, vertex_count, instance_count, first_vertex, first_instance);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_set_viewport(CommandBuffer p_cmd, const Vec2u& size) {
+Res<> VulkanRenderBackend::command_draw_indexed(CommandBuffer cmd, uint32_t index_count,
+		uint32_t instance_count, uint32_t first_index, int32_t vertex_offset,
+		uint32_t first_instance) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdDrawIndexed((VkCommandBuffer)cmd, index_count, instance_count, first_index, vertex_offset,
+			first_instance);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_draw_indexed_indirect(
+		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!cmd || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdDrawIndexedIndirect(
+			(VkCommandBuffer)cmd, vk_buffer->vk_buffer, offset, draw_count, stride);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_dispatch(
+		CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdDispatch((VkCommandBuffer)cmd, group_count_x, group_count_y, group_count_z);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_bind_uniform_sets(CommandBuffer cmd, Shader shader,
+		uint32_t first_set, std::vector<UniformSet> uniform_sets, PipelineType type) {
+	VulkanShader* vk_shader = (VulkanShader*)shader;
+	if (!cmd || !vk_shader) {
+		return Error::INVALID_HANDLE;
+	}
+
+	std::vector<VkDescriptorSet> vk_sets;
+	for (uint32_t i = 0; i < uniform_sets.size(); i++) {
+		VulkanUniformSet* uniform_set = (VulkanUniformSet*)uniform_sets[i];
+		vk_sets.push_back(uniform_set->vk_descriptor_set);
+	}
+
+	vkCmdBindDescriptorSets((VkCommandBuffer)cmd,
+			type == PipelineType::GRAPHICS ? VK_PIPELINE_BIND_POINT_GRAPHICS
+										   : VK_PIPELINE_BIND_POINT_COMPUTE,
+			vk_shader->pipeline_layout, first_set, static_cast<uint32_t>(uniform_sets.size()),
+			vk_sets.data(), 0, nullptr);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset,
+		uint32_t size, const void* push_constants) {
+	VulkanShader* vk_shader = (VulkanShader*)shader;
+	if (!cmd || !vk_shader) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdPushConstants((VkCommandBuffer)cmd, vk_shader->pipeline_layout,
+			vk_shader->push_constant_stages, offset, size, push_constants);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_set_viewport(CommandBuffer cmd, const Vec2u& size) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkViewport viewport = {
 		.x = 0,
 		.y = 0,
@@ -335,34 +481,49 @@ void VulkanRenderBackend::command_set_viewport(CommandBuffer p_cmd, const Vec2u&
 		.maxDepth = 1.0f,
 	};
 
-	vkCmdSetViewport((VkCommandBuffer)p_cmd, 0, 1, &viewport);
+	vkCmdSetViewport((VkCommandBuffer)cmd, 0, 1, &viewport);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_set_scissor(
-		CommandBuffer p_cmd, const Vec2u& p_size, const Vec2u& p_offset) {
+Res<> VulkanRenderBackend::command_set_scissor(
+		CommandBuffer cmd, const Vec2u& size, const Vec2u& offset) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkRect2D scissor = {};
-	memcpy(&scissor.extent, &p_size, sizeof(VkExtent2D));
-	memcpy(&scissor.offset, &p_offset, sizeof(VkExtent2D));
+	memcpy(&scissor.extent, &size, sizeof(VkExtent2D));
+	memcpy(&scissor.offset, &offset, sizeof(VkExtent2D));
 
-	vkCmdSetScissor((VkCommandBuffer)p_cmd, 0, 1, &scissor);
+	vkCmdSetScissor((VkCommandBuffer)cmd, 0, 1, &scissor);
+	return {};
 }
 
-void VulkanRenderBackend::command_set_depth_bias(CommandBuffer p_cmd,
-		float p_depth_bias_constant_factor, float p_depth_bias_clamp,
-		float p_depth_bias_slope_factor) {
-	vkCmdSetDepthBias((VkCommandBuffer)p_cmd, p_depth_bias_constant_factor, p_depth_bias_clamp,
-			p_depth_bias_slope_factor);
+Res<> VulkanRenderBackend::command_set_depth_bias(CommandBuffer cmd,
+		float depth_bias_constant_factor, float depth_bias_clamp, float depth_bias_slope_factor) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdSetDepthBias((VkCommandBuffer)cmd, depth_bias_constant_factor, depth_bias_clamp,
+			depth_bias_slope_factor);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_buffer_memory_barrier(CommandBuffer p_cmd,
-		BufferUsageFlags p_src_usage, BufferUsageFlags p_dst_usage, Buffer p_buffer) {
-	VulkanBuffer* buffer = (VulkanBuffer*)p_buffer;
+Res<> VulkanRenderBackend::command_buffer_memory_barrier(
+		CommandBuffer cmd, BufferUsageFlags src_usage, BufferUsageFlags dst_usage, Buffer buffer) {
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!cmd || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
 
-	VkAccessFlags src_access = static_cast<VkAccessFlags>(p_src_usage);
-	VkAccessFlags dst_access = static_cast<VkAccessFlags>(p_dst_usage);
+	VkAccessFlags src_access = static_cast<VkAccessFlags>(src_usage);
+	VkAccessFlags dst_access = static_cast<VkAccessFlags>(dst_usage);
 
-	VkPipelineStageFlags src_stage = static_cast<VkPipelineStageFlags>(p_src_usage);
-	VkPipelineStageFlags dst_stage = static_cast<VkPipelineStageFlags>(p_dst_usage);
+	VkPipelineStageFlags src_stage = static_cast<VkPipelineStageFlags>(src_usage);
+	VkPipelineStageFlags dst_stage = static_cast<VkPipelineStageFlags>(dst_usage);
 
 	VkBufferMemoryBarrier buffer_barrier = {};
 	buffer_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -374,107 +535,126 @@ void VulkanRenderBackend::command_buffer_memory_barrier(CommandBuffer p_cmd,
 	buffer_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	buffer_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	// Buffer Details
-	buffer_barrier.buffer = buffer->vk_buffer;
+	buffer_barrier.buffer = vk_buffer->vk_buffer;
 	buffer_barrier.offset = 0;
 	buffer_barrier.size =
-			buffer->allocation.size != UINT64_MAX ? buffer->allocation.size : VK_WHOLE_SIZE;
+			vk_buffer->allocation.size != UINT64_MAX ? vk_buffer->allocation.size : VK_WHOLE_SIZE;
 
-	vkCmdPipelineBarrier((VkCommandBuffer)p_cmd, src_stage, dst_stage, 0, 0, nullptr, 1,
+	vkCmdPipelineBarrier((VkCommandBuffer)cmd, src_stage, dst_stage, 0, 0, nullptr, 1,
 			&buffer_barrier, 0, nullptr);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_copy_buffer(CommandBuffer p_cmd, Buffer p_src_buffer,
-		Buffer p_dst_buffer, std::vector<BufferCopyRegion> p_regions) {
-	VulkanBuffer* src_buffer = (VulkanBuffer*)p_src_buffer;
-	VulkanBuffer* dst_buffer = (VulkanBuffer*)p_dst_buffer;
-
-	static_assert(sizeof(BufferCopyRegion) == sizeof(VkBufferCopy));
-
-	std::vector<VkBufferCopy> regions(p_regions.size());
-	for (uint32_t i = 0; i < p_regions.size(); i++) {
-		VkBufferCopy& copy = regions[i];
-		memcpy(&copy, &p_regions[i], sizeof(VkBufferCopy));
+Res<> VulkanRenderBackend::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer,
+		Buffer dst_buffer, std::vector<BufferCopyRegion> regions) {
+	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
+	VulkanBuffer* vk_dst = (VulkanBuffer*)dst_buffer;
+	if (!cmd || !vk_src || !vk_dst) {
+		return Error::INVALID_HANDLE;
 	}
 
-	vkCmdCopyBuffer((VkCommandBuffer)p_cmd, src_buffer->vk_buffer, dst_buffer->vk_buffer,
-			p_regions.size(), regions.data());
-}
-
-void VulkanRenderBackend::command_copy_buffer_to_image(CommandBuffer p_cmd, Buffer p_src_buffer,
-		Image p_dst_image, std::vector<BufferImageCopyRegion> p_regions) {
-	VulkanBuffer* src_buffer = (VulkanBuffer*)p_src_buffer;
-	VulkanImage* dst_image = (VulkanImage*)p_dst_image;
-
-	static_assert(sizeof(BufferImageCopyRegion) == sizeof(VkBufferImageCopy));
-
-	std::vector<VkBufferImageCopy> regions(p_regions.size());
-	for (uint32_t i = 0; i < p_regions.size(); i++) {
-		VkBufferImageCopy& copy = regions[i];
-		memcpy(&copy, &p_regions[i], sizeof(VkBufferImageCopy));
+	std::vector<VkBufferCopy> vk_regions(regions.size());
+	for (uint32_t i = 0; i < regions.size(); i++) {
+		VkBufferCopy& copy = vk_regions[i];
+		memcpy(&copy, &regions[i], sizeof(VkBufferCopy));
 	}
 
-	vkCmdCopyBufferToImage((VkCommandBuffer)p_cmd, src_buffer->vk_buffer, dst_image->vk_image,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, p_regions.size(), regions.data());
+	vkCmdCopyBuffer((VkCommandBuffer)cmd, vk_src->vk_buffer, vk_dst->vk_buffer,
+			static_cast<uint32_t>(regions.size()), vk_regions.data());
+
+	return {};
 }
 
-void VulkanRenderBackend::command_copy_image_to_image(CommandBuffer p_cmd, Image p_src_image,
-		Image p_dst_image, const Vec2u& p_src_extent, const Vec2u& p_dst_extent,
-		uint32_t p_src_mip_level, uint32_t p_dst_mip_level) {
+Res<> VulkanRenderBackend::command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
+		Image dst_image, std::vector<BufferImageCopyRegion> regions) {
+	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
+	VulkanImage* vk_dst = (VulkanImage*)dst_image;
+	if (!cmd || !vk_src || !vk_dst) {
+		return Error::INVALID_HANDLE;
+	}
+
+	std::vector<VkBufferImageCopy> vk_regions(regions.size());
+	for (uint32_t i = 0; i < regions.size(); i++) {
+		VkBufferImageCopy& copy = vk_regions[i];
+		memcpy(&copy, &regions[i], sizeof(VkBufferImageCopy));
+	}
+
+	vkCmdCopyBufferToImage((VkCommandBuffer)cmd, vk_src->vk_buffer, vk_dst->vk_image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(regions.size()),
+			vk_regions.data());
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_copy_image_to_image(CommandBuffer cmd, Image src_image,
+		Image dst_image, const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level,
+		uint32_t dst_mip_level) {
+	if (!cmd || !src_image || !dst_image) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkImageBlit2 blit_region = {};
 	blit_region.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
 
-	blit_region.srcOffsets[1].x = p_src_extent.x;
-	blit_region.srcOffsets[1].y = p_src_extent.y;
+	blit_region.srcOffsets[1].x = src_extent.x;
+	blit_region.srcOffsets[1].y = src_extent.y;
 	blit_region.srcOffsets[1].z = 1;
 
-	blit_region.dstOffsets[1].x = p_dst_extent.x;
-	blit_region.dstOffsets[1].y = p_dst_extent.y;
+	blit_region.dstOffsets[1].x = dst_extent.x;
+	blit_region.dstOffsets[1].y = dst_extent.y;
 	blit_region.dstOffsets[1].z = 1;
 
 	blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	blit_region.srcSubresource.baseArrayLayer = 0;
 	blit_region.srcSubresource.layerCount = 1;
-	blit_region.srcSubresource.mipLevel = p_src_mip_level;
+	blit_region.srcSubresource.mipLevel = src_mip_level;
 
 	blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	blit_region.dstSubresource.baseArrayLayer = 0;
 	blit_region.dstSubresource.layerCount = 1;
-	blit_region.dstSubresource.mipLevel = p_dst_mip_level;
+	blit_region.dstSubresource.mipLevel = dst_mip_level;
 
-	VulkanImage* src_image = (VulkanImage*)p_src_image;
-	VulkanImage* dst_image = (VulkanImage*)p_dst_image;
+	VulkanImage* vk_src = (VulkanImage*)src_image;
+	VulkanImage* vk_dst = (VulkanImage*)dst_image;
 
 	VkBlitImageInfo2 blit_info = {};
 	blit_info.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-	blit_info.srcImage = src_image->vk_image;
+	blit_info.srcImage = vk_src->vk_image;
 	blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	blit_info.dstImage = dst_image->vk_image;
+	blit_info.dstImage = vk_dst->vk_image;
 	blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	blit_info.regionCount = 1;
 	blit_info.pRegions = &blit_region;
 	blit_info.filter = VK_FILTER_LINEAR;
 
-	vkCmdBlitImage2((VkCommandBuffer)p_cmd, &blit_info);
+	vkCmdBlitImage2((VkCommandBuffer)cmd, &blit_info);
+
+	return {};
 }
 
-void VulkanRenderBackend::command_transition_image(CommandBuffer p_cmd, Image p_image,
-		ImageLayout p_current_layout, ImageLayout p_new_layout, uint32_t p_base_mip_level,
-		uint32_t p_level_count) {
+Res<> VulkanRenderBackend::command_transition_image(CommandBuffer cmd, Image image,
+		ImageLayout current_layout, ImageLayout new_layout, uint32_t base_mip_level,
+		uint32_t level_count) {
+	if (!cmd || !image) {
+		return Error::INVALID_HANDLE;
+	}
+
 	VkImageAspectFlags aspect_mask =
-			(p_current_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
-					p_new_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			(current_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+					new_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 			? VK_IMAGE_ASPECT_DEPTH_BIT
 			: VK_IMAGE_ASPECT_COLOR_BIT;
 
-	VkImageLayout vk_current_layout = static_cast<VkImageLayout>(p_current_layout);
-	VkImageLayout vk_new_layout = static_cast<VkImageLayout>(p_new_layout);
+	VkImageLayout vk_current_layout = static_cast<VkImageLayout>(current_layout);
+	VkImageLayout vk_new_layout = static_cast<VkImageLayout>(new_layout);
 
-	VulkanImage* image = (VulkanImage*)p_image;
+	VulkanImage* vk_image = (VulkanImage*)image;
 
 	VkImageSubresourceRange sub_image = {};
 	sub_image.aspectMask = aspect_mask;
-	sub_image.baseMipLevel = p_base_mip_level;
-	sub_image.levelCount = p_level_count;
+	sub_image.baseMipLevel = base_mip_level;
+	sub_image.levelCount = level_count;
 	sub_image.baseArrayLayer = 0;
 	sub_image.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
@@ -487,7 +667,7 @@ void VulkanRenderBackend::command_transition_image(CommandBuffer p_cmd, Image p_
 	image_barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
 	image_barrier.oldLayout = vk_current_layout;
 	image_barrier.newLayout = vk_new_layout;
-	image_barrier.image = image->vk_image;
+	image_barrier.image = vk_image->vk_image;
 	image_barrier.subresourceRange = sub_image;
 
 	VkDependencyInfo dep_info = {};
@@ -496,7 +676,9 @@ void VulkanRenderBackend::command_transition_image(CommandBuffer p_cmd, Image p_
 	dep_info.imageMemoryBarrierCount = 1;
 	dep_info.pImageMemoryBarriers = &image_barrier;
 
-	vkCmdPipelineBarrier2((VkCommandBuffer)p_cmd, &dep_info);
+	vkCmdPipelineBarrier2((VkCommandBuffer)cmd, &dep_info);
+
+	return {};
 }
 
 } //namespace gl
