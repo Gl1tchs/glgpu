@@ -2,8 +2,6 @@
 
 GLGPU is a high-performance rendering interface that abstracts the Vulkan API. It is designed to provide a low-overhead development environment for real-time graphics applications.
 
-The library handles the verbose setup of Vulkan (device selection, swapchain management, memory allocation via VMA, and descriptor management) while exposing a command-buffer-based API for rendering and compute operations.
-
 ## Features
 
 - **Dynamic Descriptors:** Automated descriptor set allocation and management.
@@ -28,7 +26,7 @@ To build GLGPU, ensure the following dependencies are installed:
 To build the library, examples, and tests from source:
 
 ```bash
-git clone --recursive [https://github.com/Gl1tchs/glgpu.git](https://github.com/Gl1tchs/glgpu.git)
+git clone --recursive https://github.com/Gl1tchs/glgpu.git
 cd glgpu
 mkdir build && cd build
 cmake ..
