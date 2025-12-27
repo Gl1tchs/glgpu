@@ -263,9 +263,9 @@ template <> struct Mat<4, 4> {
 
 	// Turn euler angles to rotation matrix
 	static Mat from_euler_angles(const Vec3f& p_euler_degrees) {
-		const float pitch = as_radians(p_euler_degrees.x); // Pitch
-		const float yaw = as_radians(p_euler_degrees.y); // Yaw
-		const float roll = as_radians(p_euler_degrees.z); // Roll
+		const float pitch = math::as_radians(p_euler_degrees.x); // Pitch
+		const float yaw = math::as_radians(p_euler_degrees.y); // Yaw
+		const float roll = math::as_radians(p_euler_degrees.z); // Roll
 
 		// Rotation order: Z * X * Y
 		// Here we use the GLM-like composition: Mat = Mat_Z * Mat_X * Mat_Y

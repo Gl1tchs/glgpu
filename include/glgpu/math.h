@@ -4,6 +4,8 @@
 
 namespace gl {
 
+namespace math {
+
 inline constexpr float as_radians(float p_degrees) {
 	constexpr float deg_to_rad = M_PI / 180.0f;
 	return p_degrees * deg_to_rad;
@@ -48,5 +50,7 @@ template <size_t S, typename T>
 inline constexpr Vec<S, T> clamp(const Vec<S, T>& p_v, T p_lower, T p_upper) {
 	return min(max(p_v, p_lower), p_upper);
 }
+
+} //namespace math
 
 } //namespace gl

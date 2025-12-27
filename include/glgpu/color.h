@@ -32,16 +32,11 @@ struct Color {
 	/**
 	 * Get RRGGBBAA packed uint32_t representation of the `Color` object.
 	 */
-	uint32_t as_uint() const {
-		auto to_uint8 = [](float p_value) {
-			float result = std::floor(p_value * 256.0f);
-			return result > 255.0f ? 255 : static_cast<uint8_t>(result);
-		};
-
-		uint8_t red = to_uint8(r);
-		uint8_t green = to_uint8(g);
-		uint8_t blue = to_uint8(b);
-		uint8_t alpha = to_uint8(a);
+	constexpr uint32_t as_uint() const {
+		uint8_t red = _to_uint8(r);
+		uint8_t green = _to_uint8(g);
+		uint8_t blue = _to_uint8(b);
+		uint8_t alpha = _to_uint8(a);
 
 		return (red << 24) | (green << 16) | (blue << 8) | alpha;
 	}
@@ -49,6 +44,12 @@ struct Color {
 	constexpr bool operator==(const Color& p_other) const {
 		return r == p_other.r && g == p_other.g && b == p_other.b && a == p_other.a;
 	}
+
+private:
+	constexpr static uint8_t _to_uint8(float p_value) {
+		float result = std::floor(p_value * 256.0f);
+		return result > 255.0f ? 255 : static_cast<uint8_t>(result);
+	};
 };
 
 constexpr Color COLOR_BLACK(0.0f, 0.0f, 0.0f, 1.0f);
