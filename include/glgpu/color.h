@@ -65,3 +65,11 @@ constexpr Color COLOR_ORANGE(1.0f, 0.5f, 0.0f, 1.0f);
 constexpr Color COLOR_TRANSPARENT(0.0f, 0.0f, 0.0f, 0.0f);
 
 } //namespace gl
+
+namespace std {
+template <> struct hash<gl::Color> {
+	size_t operator()(const gl::Color& c) const noexcept {
+		return std::hash<uint32_t>{}(c.as_uint());
+	}
+};
+} // namespace std
