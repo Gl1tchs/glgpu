@@ -28,9 +28,8 @@ To build the library, examples, and tests from source:
 ```bash
 git clone --recursive https://github.com/Gl1tchs/glgpu.git
 cd glgpu
-mkdir build && cd build
-cmake ..
-cmake --build .
+cmake --preset release
+cmake --build --preset build-release
 ```
 
 ## Examples
