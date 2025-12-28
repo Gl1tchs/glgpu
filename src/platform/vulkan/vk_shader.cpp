@@ -37,7 +37,7 @@ static VkDescriptorType _spv_reflect_descriptor_type_to_vk(SpvReflectDescriptorT
 static void _add_descriptor_set_layout_binding_if_not_exists(uint32_t set, uint32_t binding,
 		VkDescriptorType type, uint32_t descriptor_count, ShaderStageFlags stage,
 		std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>>& bindings) {
-	const int stage_bit = static_cast<int>(stage);
+	VkShaderStageFlags vk_stage = static_cast<VkShaderStageFlags>(stage);
 
 	const auto it = bindings.find(set);
 	if (it != bindings.end()) {
@@ -50,8 +50,8 @@ static void _add_descriptor_set_layout_binding_if_not_exists(uint32_t set, uint3
 				});
 		if (binding_it != set_bindings.end()) {
 			// set, binding already exists now add stage if not exists
-			if (!(binding_it->stageFlags & stage_bit)) {
-				binding_it->stageFlags |= stage_bit;
+			if (!(binding_it->stageFlags & vk_stage)) {
+				binding_it->stageFlags |= vk_stage;
 			}
 			return;
 		}
@@ -61,7 +61,7 @@ static void _add_descriptor_set_layout_binding_if_not_exists(uint32_t set, uint3
 	layout_binding.binding = binding;
 	layout_binding.descriptorType = type;
 	layout_binding.descriptorCount = descriptor_count;
-	layout_binding.stageFlags = stage_bit;
+	layout_binding.stageFlags = vk_stage;
 	layout_binding.pImmutableSamplers = nullptr;
 
 	bindings[set].push_back(layout_binding);
@@ -69,7 +69,7 @@ static void _add_descriptor_set_layout_binding_if_not_exists(uint32_t set, uint3
 
 static void _add_push_constant_range_if_not_exists(uint32_t size, uint32_t offset,
 		ShaderStageFlags stage, std::vector<VkPushConstantRange>& ranges) {
-	const int stage_bit = static_cast<int>(stage);
+	VkShaderStageFlags vk_stage = static_cast<VkShaderStageFlags>(stage);
 
 	const auto it = std::find_if(
 			ranges.begin(), ranges.end(), [=](const VkPushConstantRange& push_constant) -> bool {
@@ -77,8 +77,8 @@ static void _add_push_constant_range_if_not_exists(uint32_t size, uint32_t offse
 			});
 	if (it != ranges.end()) {
 		// push constant already exists now add the stage
-		if (!(it->stageFlags & stage_bit)) {
-			it->stageFlags |= stage_bit;
+		if (!(it->stageFlags & vk_stage)) {
+			it->stageFlags |= vk_stage;
 		}
 		return;
 	}
@@ -86,7 +86,7 @@ static void _add_push_constant_range_if_not_exists(uint32_t size, uint32_t offse
 	VkPushConstantRange range = {};
 	range.size = size;
 	range.offset = offset;
-	range.stageFlags = stage_bit;
+	range.stageFlags = vk_stage;
 
 	ranges.push_back(range);
 }
@@ -123,7 +123,7 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
 		SpvReflectShaderModule module = {};
 
 		SpvReflectResult result = spvReflectCreateShaderModule(
-				shader.byte_code.size(), shader.byte_code.data(), &module);
+				shader.byte_code.size() * sizeof(uint32_t), shader.byte_code.data(), &module);
 
 		if (result != SPV_REFLECT_RESULT_SUCCESS) {
 			cleanup_on_failure();
@@ -199,7 +199,7 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
 		VkShaderModuleCreateInfo create_info = {};
 		create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		create_info.pNext = nullptr;
-		create_info.codeSize = shader.byte_code.size();
+		create_info.codeSize = shader.byte_code.size() * sizeof(uint32_t);
 		create_info.pCode = shader.byte_code.data();
 
 		VkShaderModule vk_shader = VK_NULL_HANDLE;
