@@ -212,6 +212,7 @@ Res<> VulkanRenderBackend::init(const RenderBackendCreateInfo& info) {
 	// Prepare Features Chain
 	VkPhysicalDeviceVulkan13Features features_13 = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+		.shaderDemoteToHelperInvocation = VK_TRUE,
 		.synchronization2 = VK_TRUE,
 		.dynamicRendering = VK_TRUE,
 	};
@@ -487,9 +488,9 @@ uint32_t VulkanRenderBackend::_rate_device_suitability(VkPhysicalDevice physical
 
 	vkGetPhysicalDeviceFeatures2(physical_device, &features);
 
-	if (!features_13.dynamicRendering || !features_13.synchronization2 ||
-			!features_12.bufferDeviceAddress || !features.features.geometryShader ||
-			!features_12.descriptorIndexing ||
+	if (!features_13.shaderDemoteToHelperInvocation || !features_13.dynamicRendering ||
+			!features_13.synchronization2 || !features_12.bufferDeviceAddress ||
+			!features.features.geometryShader || !features_12.descriptorIndexing ||
 			!features_12.shaderSampledImageArrayNonUniformIndexing ||
 			!features_12.descriptorBindingSampledImageUpdateAfterBind ||
 			!features_12.descriptorBindingPartiallyBound || !features_12.runtimeDescriptorArray) {
