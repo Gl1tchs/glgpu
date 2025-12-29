@@ -116,6 +116,9 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
 	};
 
 	std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> set_bindings;
+	// Track which bindings need bindless flags
+	std::map<uint32_t, std::map<uint32_t, VkDescriptorBindingFlags>> per_binding_flags;
+
 	std::vector<VkPushConstantRange> push_constant_ranges;
 	std::vector<ShaderInterfaceVariable> vertex_input_variables;
 
@@ -172,10 +175,28 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
 				for (uint32_t i = 0; i < descriptor_set->binding_count; i++) {
 					const SpvReflectDescriptorBinding* binding = descriptor_set->bindings[i];
 
+					uint32_t count = binding->count;
+
+					bool is_runtime_array =
+							(binding->type_description->traits.array.dims_count > 0 &&
+									binding->type_description->traits.array.dims[0] == 0);
+
+					bool is_explicitly_named = binding->name != nullptr
+							? std::string(binding->name).starts_with("h_")
+							: false;
+
+					if (is_runtime_array || is_explicitly_named) {
+						count = MAX_BINDLESS_INSTANCES;
+
+						per_binding_flags[descriptor_set->set][binding->binding] =
+								VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+								VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+					}
+
 					_add_descriptor_set_layout_binding_if_not_exists(descriptor_set->set,
 							binding->binding,
-							_spv_reflect_descriptor_type_to_vk(binding->descriptor_type),
-							binding->count, shader.stage, set_bindings);
+							_spv_reflect_descriptor_type_to_vk(binding->descriptor_type), count,
+							shader.stage, set_bindings);
 				}
 			}
 		}
@@ -216,17 +237,41 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
 		vk_shaders.push_back(vk_shader);
 	}
 
-	for (auto& [_, bindings] : set_bindings) {
+	for (auto& [set_index, bindings] : set_bindings) {
 		std::sort(bindings.begin(), bindings.end(),
 				[=](const VkDescriptorSetLayoutBinding& lhs,
 						const VkDescriptorSetLayoutBinding& rhs) -> bool {
 					return lhs.binding < rhs.binding;
 				});
 
+		std::vector<VkDescriptorBindingFlags> binding_flags_list;
+		bool is_set_bindless = false;
+
+		for (const auto& b : bindings) {
+			// Look up if this specific binding was marked as bindless
+			auto it = per_binding_flags[set_index].find(b.binding);
+			if (it != per_binding_flags[set_index].end()) {
+				binding_flags_list.push_back(it->second);
+				is_set_bindless = true;
+			} else {
+				binding_flags_list.push_back(0);
+			}
+		}
+
 		VkDescriptorSetLayoutCreateInfo create_info = {};
 		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		create_info.bindingCount = static_cast<uint32_t>(bindings.size());
 		create_info.pBindings = bindings.data();
+
+		VkDescriptorSetLayoutBindingFlagsCreateInfo flags_info = {};
+		if (is_set_bindless) {
+			flags_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+			flags_info.bindingCount = static_cast<uint32_t>(binding_flags_list.size());
+			flags_info.pBindingFlags = binding_flags_list.data();
+
+			create_info.pNext = &flags_info;
+			create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+		}
 
 		VkDescriptorSetLayout vk_set = VK_NULL_HANDLE;
 		if (vkCreateDescriptorSetLayout(_device, &create_info, nullptr, &vk_set) != VK_SUCCESS) {

@@ -144,12 +144,21 @@ public:
 		VkDescriptorSet vk_descriptor_set = VK_NULL_HANDLE;
 		VkDescriptorPool vk_descriptor_pool = VK_NULL_HANDLE;
 		DescriptorSetPoolKey pool_key;
+
+		// Bindless resources
+		bool bindless = false;
 	};
 
 	Res<UniformSet> uniform_set_create(
 			std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
 
 	Res<> uniform_set_free(UniformSet uniform_set) override;
+
+	Res<UniformSet> uniform_set_create_bindless(
+			Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) override;
+
+	Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
+			Image image, Sampler sampler) override;
 
 	// =========================================================================
 	// Render Pass & Framebuffer

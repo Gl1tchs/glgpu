@@ -5,6 +5,8 @@
 
 namespace gl {
 
+constexpr size_t MAX_BINDLESS_INSTANCES = 1000;
+
 enum RenderBackendRequiredFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
@@ -111,6 +113,19 @@ public:
 	virtual Res<UniformSet> uniform_set_create(
 			std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) = 0;
 	virtual Res<> uniform_set_free(UniformSet uniform_set) = 0;
+
+	virtual Res<UniformSet> uniform_set_create_bindless(
+			Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) = 0;
+
+	/**
+	 * Update bindless uniform set texture at given index
+	 *
+	 * NOTE: Since SPIRV does not support reflection on non uniform types,
+	 * user must add 'h_' prefix to the uniform for engine to recognize
+	 * the binding as 'bindless'
+	 */
+	virtual Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
+			Image image, Sampler sampler) = 0;
 
 	// =========================================================================
 	// Render Pass & Framebuffer (Legacy)

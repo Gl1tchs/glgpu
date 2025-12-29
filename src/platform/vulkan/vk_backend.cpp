@@ -220,6 +220,10 @@ Res<> VulkanRenderBackend::init(const RenderBackendCreateInfo& info) {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		.pNext = &features_13,
 		.descriptorIndexing = VK_TRUE,
+		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+		.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+		.descriptorBindingPartiallyBound = VK_TRUE,
+		.runtimeDescriptorArray = VK_TRUE,
 		.bufferDeviceAddress = VK_TRUE,
 	};
 
@@ -484,7 +488,11 @@ uint32_t VulkanRenderBackend::_rate_device_suitability(VkPhysicalDevice physical
 	vkGetPhysicalDeviceFeatures2(physical_device, &features);
 
 	if (!features_13.dynamicRendering || !features_13.synchronization2 ||
-			!features_12.bufferDeviceAddress || !features.features.geometryShader) {
+			!features_12.bufferDeviceAddress || !features.features.geometryShader ||
+			!features_12.descriptorIndexing ||
+			!features_12.shaderSampledImageArrayNonUniformIndexing ||
+			!features_12.descriptorBindingSampledImageUpdateAfterBind ||
+			!features_12.descriptorBindingPartiallyBound || !features_12.runtimeDescriptorArray) {
 		return 0;
 	}
 

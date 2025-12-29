@@ -82,6 +82,10 @@ enum class Error : uint32_t {
 	SURFACE_INVALID_COMPOSITOR,
 	SURFACE_SWAPCHAIN_NOT_SUPPORTED,
 
+	// Uniform set
+	UNIFORM_SET_MISMATCH, // Bindless uniform set mismatch
+	UNIFORM_SET_INVALID_SET_INDEX,
+
 	// Validation
 	INVALID_ARGUMENT,
 	INVALID_HANDLE,

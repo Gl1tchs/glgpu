@@ -6,8 +6,13 @@ namespace gl {
 
 Res<UniformSet> VulkanRenderBackend::uniform_set_create(
 		std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) {
-	if (!shader) {
+	const VulkanShader* shader_info = (const VulkanShader*)shader;
+	if (!shader_info) {
 		return make_err<UniformSet>(Error::INVALID_HANDLE);
+	}
+
+	if (set_index >= shader_info->descriptor_set_layouts.size()) {
+		return make_err<UniformSet>(Error::UNIFORM_SET_INVALID_SET_INDEX);
 	}
 
 	DescriptorSetPoolKey pool_key;
@@ -153,13 +158,6 @@ Res<UniformSet> VulkanRenderBackend::uniform_set_create(
 	descriptor_set_allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descriptor_set_allocate_info.descriptorPool = vk_pool;
 	descriptor_set_allocate_info.descriptorSetCount = 1;
-
-	const VulkanShader* shader_info = (const VulkanShader*)shader;
-	if (set_index >= shader_info->descriptor_set_layouts.size()) {
-		_uniform_pool_unreference(pool_key, vk_pool);
-		return make_err<UniformSet>(Error::INVALID_ARGUMENT);
-	}
-
 	descriptor_set_allocate_info.pSetLayouts = &shader_info->descriptor_set_layouts[set_index];
 
 	VkDescriptorSet vk_descriptor_set = VK_NULL_HANDLE;
@@ -197,9 +195,6 @@ Res<UniformSet> VulkanRenderBackend::uniform_set_create(
 	// Bookkeep.
 	VulkanUniformSet* usi = VersatileResource::allocate<VulkanUniformSet>(_resources_allocator);
 	if (!usi) {
-		// Cleanup Vulkan resources if internal allocation fails
-		vkFreeDescriptorSets(_device, vk_pool, 1, &vk_descriptor_set);
-		_uniform_pool_unreference(pool_key, vk_pool);
 		return make_err<UniformSet>(Error::OUT_OF_HOST_MEMORY);
 	}
 
@@ -222,6 +217,102 @@ Res<> VulkanRenderBackend::uniform_set_free(UniformSet uniform_set) {
 	}
 
 	VersatileResource::free(_resources_allocator, usi);
+
+	return {};
+}
+
+Res<UniformSet> VulkanRenderBackend::uniform_set_create_bindless(
+		Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) {
+	VulkanShader* shader_info = (VulkanShader*)shader;
+	if (!shader_info) {
+		return make_err<UniformSet>(Error::INVALID_HANDLE);
+	}
+
+	if (set_index >= shader_info->descriptor_set_layouts.size()) {
+		return make_err<UniformSet>(Error::UNIFORM_SET_INVALID_SET_INDEX);
+	}
+
+	// NOTE: We need a dedicated pool with the UPDATE_AFTER_BIND flag.
+	// This allows us to update the descriptor set while it is bound to a command buffer in flight.
+	VkDescriptorPoolSize pool_size = {};
+	pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	pool_size.descriptorCount = max_count;
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
+			VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+	pool_info.maxSets = 1;
+	pool_info.poolSizeCount = 1;
+	pool_info.pPoolSizes = &pool_size;
+
+	VkDescriptorPool vk_pool = VK_NULL_HANDLE;
+	if (vkCreateDescriptorPool(_device, &pool_info, nullptr, &vk_pool) != VK_SUCCESS) {
+		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
+	}
+
+	// Allocate the descriptor set
+	VkDescriptorSetAllocateInfo alloc_info = {};
+	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info.descriptorPool = vk_pool;
+	alloc_info.descriptorSetCount = 1;
+	alloc_info.pSetLayouts = &shader_info->descriptor_set_layouts[set_index];
+
+	VkDescriptorSet vk_set = VK_NULL_HANDLE;
+	if (vkAllocateDescriptorSets(_device, &alloc_info, &vk_set) != VK_SUCCESS) {
+		vkDestroyDescriptorPool(_device, vk_pool, nullptr);
+		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
+	}
+
+	// Bookkeep
+	VulkanUniformSet* usi = VersatileResource::allocate<VulkanUniformSet>(_resources_allocator);
+	if (!usi) {
+		return make_err<UniformSet>(Error::OUT_OF_HOST_MEMORY);
+	}
+
+	usi->vk_descriptor_set = vk_set;
+	usi->vk_descriptor_pool = vk_pool;
+	usi->bindless = true;
+
+	// Store a dummy key so the freeing logic doesn't crash,
+	// though we might want to manually manage this pool's lifecycle
+	DescriptorSetPoolKey key = {};
+	usi->pool_key = key;
+
+	// Hack: Register this pool in the map so uniform_set_free cleans it up correctly
+	_descriptor_set_pools[key][vk_pool] = 1;
+
+	return UniformSet(usi);
+}
+
+Res<> VulkanRenderBackend::uniform_set_update_texture(
+		UniformSet set, uint32_t binding, uint32_t array_index, Image image, Sampler sampler) {
+	VulkanUniformSet* usi = (VulkanUniformSet*)set;
+	VulkanImage* vk_image = (VulkanImage*)image;
+	VkSampler vk_sampler = (VkSampler)sampler;
+	if (!usi || !vk_image || !vk_sampler) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!usi->bindless) {
+		return Error::UNIFORM_SET_MISMATCH;
+	}
+
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageView = vk_image->vk_image_view;
+	image_info.sampler = vk_sampler;
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = usi->vk_descriptor_set;
+	write.dstBinding = binding;
+	write.dstArrayElement = array_index; // Update specific index
+	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	write.descriptorCount = 1;
+	write.pImageInfo = &image_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
 
 	return {};
 }
