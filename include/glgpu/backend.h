@@ -88,6 +88,7 @@ public:
 	virtual Res<Vec3u> image_get_size(Image image) = 0;
 	virtual Res<DataFormat> image_get_format(Image image) = 0;
 	virtual Res<uint32_t> image_get_mip_levels(Image image) = 0;
+	virtual Res<ImageUsageFlags> image_get_image_usage(Image image) = 0;
 
 	// Sampler
 

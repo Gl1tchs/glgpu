@@ -103,6 +103,7 @@ VulkanRenderBackend::VulkanImage* VulkanRenderBackend::_image_create(VkFormat fo
 	image->image_extent = size;
 	image->image_format = format;
 	image->mip_levels = mip_levels;
+	image->image_usage = usage;
 
 	return image;
 }
@@ -271,6 +272,15 @@ Res<uint32_t> VulkanRenderBackend::image_get_mip_levels(Image image) {
 
 	VulkanImage* vk_image = (VulkanImage*)image;
 	return vk_image->mip_levels;
+}
+
+Res<ImageUsageFlags> VulkanRenderBackend::image_get_image_usage(Image image) {
+	if (!image) {
+		return make_err<uint32_t>(Error::INVALID_HANDLE);
+	}
+
+	VulkanImage* vk_image = (VulkanImage*)image;
+	return vk_image->image_usage;
 }
 
 Res<Sampler> VulkanRenderBackend::sampler_create(const SamplerCreateInfo& info) {

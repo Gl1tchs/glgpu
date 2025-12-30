@@ -75,6 +75,7 @@ public:
 		VkExtent3D image_extent;
 		VkFormat image_format;
 		uint32_t mip_levels;
+		VkImageUsageFlags image_usage;
 	};
 
 	Res<Image> image_create(const ImageCreateInfo& info) override;
@@ -86,6 +87,8 @@ public:
 	Res<DataFormat> image_get_format(Image image) override;
 
 	Res<uint32_t> image_get_mip_levels(Image image) override;
+
+	Res<ImageUsageFlags> image_get_image_usage(Image image) override;
 
 	// Sampler
 	Res<Sampler> sampler_create(const SamplerCreateInfo& info) override;
