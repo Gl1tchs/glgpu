@@ -15,10 +15,10 @@ public:
 	static void log(LogLevel level, const std::string& fmt);
 };
 
-#define GL_LOG_TRACE(...) Logger::log(LOG_LEVEL_TRACE, std::format(__VA_ARGS__))
-#define GL_LOG_INFO(...) Logger::log(LOG_LEVEL_INFO, std::format(__VA_ARGS__))
-#define GL_LOG_WARNING(...) Logger::log(LOG_LEVEL_WARNING, std::format(__VA_ARGS__))
-#define GL_LOG_ERROR(...) Logger::log(LOG_LEVEL_ERROR, std::format(__VA_ARGS__))
-#define GL_LOG_FATAL(...) Logger::log(LOG_LEVEL_FATAL, std::format(__VA_ARGS__))
-
 } //namespace gl
+
+#define GL_LOG_TRACE(...) gl::Logger::log(gl::LOG_LEVEL_TRACE, std::format(__VA_ARGS__))
+#define GL_LOG_INFO(...) gl::Logger::log(gl::LOG_LEVEL_INFO, std::format(__VA_ARGS__))
+#define GL_LOG_WARNING(...) gl::Logger::log(gl::LOG_LEVEL_WARNING, std::format(__VA_ARGS__))
+#define GL_LOG_ERROR(...) gl::Logger::log(gl::LOG_LEVEL_ERROR, std::format(__VA_ARGS__))
+#define GL_LOG_FATAL(...) gl::Logger::log(gl::LOG_LEVEL_FATAL, std::format(__VA_ARGS__))
