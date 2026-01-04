@@ -5,7 +5,7 @@
 namespace gl {
 
 Res<RenderPass> VulkanRenderBackend::render_pass_create(
-		std::vector<RenderPassAttachment> attachments, std::vector<SubpassInfo> subpasses) {
+		VectorView<RenderPassAttachment> attachments, VectorView<SubpassInfo> subpasses) {
 	std::vector<VkAttachmentDescription> vk_attachments;
 	for (const auto& attachment : attachments) {
 		VkAttachmentDescription vk_attachment = {};
@@ -135,7 +135,7 @@ Res<> VulkanRenderBackend::render_pass_destroy(RenderPass render_pass) {
 }
 
 Res<FrameBuffer> VulkanRenderBackend::frame_buffer_create(
-		RenderPass render_pass, std::vector<Image> attachments, const Vec2u& extent) {
+		RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent) {
 	if (!render_pass) {
 		return make_err<FrameBuffer>(Error::INVALID_HANDLE);
 	}

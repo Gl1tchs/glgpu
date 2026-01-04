@@ -549,7 +549,7 @@ struct PipelineRenderingState {
 	DataFormat depth_attachment = DataFormat::UNDEFINED;
 };
 
-struct RenderPipelineCreateInfo {
+struct GraphicsPipelineCreateInfo {
 	Shader shader = GL_NULL_HANDLE;
 	RenderPrimitive primitive = RenderPrimitive::TRIANGLE_LIST;
 

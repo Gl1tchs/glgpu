@@ -5,16 +5,30 @@
 using namespace gl;
 
 std::vector<uint32_t> load_spirv_file(const std::string& filename) {
-	size_t file_size = std::filesystem::file_size(filename);
+	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
 
-	std::ifstream file(filename, std::ios::in | std::ios::binary);
 	if (!file.is_open()) {
 		GL_LOG_ERROR("Unable to open SPIRV file at path: '{}'.", filename);
 		return {};
 	}
 
-	std::vector<uint32_t> buffer(file_size);
+	size_t file_size = static_cast<size_t>(file.tellg());
+
+	// SPIR-V blob size must be a multiple of 4
+	if (file_size % sizeof(uint32_t) != 0) {
+		GL_LOG_ERROR("SPIRV file size is not a multiple of 4 (corrupted?): '{}'.", filename);
+		return {};
+	}
+
+	// Allocate the buffer with the exact number of 32-bit words
+	std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
+
+	// Reset cursor to beginning
+	file.seekg(0);
+
+	// Read directly into the buffer
 	file.read(reinterpret_cast<char*>(buffer.data()), file_size);
+
 	return buffer;
 }
 
@@ -77,8 +91,7 @@ int main(void) {
 	buffer_uniform.data.push_back(storage_buffer);
 
 	// Create the set (set index 0)
-	UniformSet uniform_set =
-			backend->uniform_set_create({ buffer_uniform }, compute_shader, 0).value();
+	UniformSet uniform_set = backend->uniform_set_create(buffer_uniform, compute_shader, 0).value();
 
 	// Commands
 	CommandQueue compute_queue = backend->queue_get(QueueType::GRAPHICS).value();
@@ -93,8 +106,7 @@ int main(void) {
 	backend->command_bind_compute_pipeline(cmd, compute_pipeline);
 
 	// Bind Data
-	backend->command_bind_uniform_sets(
-			cmd, compute_shader, 0, { uniform_set }, PipelineType::COMPUTE);
+	backend->command_bind_uniform_sets(cmd, compute_shader, 0, uniform_set, PipelineType::COMPUTE);
 
 	// Dispatch
 	// Local size is 64 (defined in slang), so we need 1024 / 64 = 16 groups.

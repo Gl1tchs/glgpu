@@ -5,7 +5,7 @@
 namespace gl {
 
 Res<UniformSet> VulkanRenderBackend::uniform_set_create(
-		std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) {
+		VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) {
 	const VulkanShader* shader_info = (const VulkanShader*)shader;
 	if (!shader_info) {
 		return make_err<UniformSet>(Error::INVALID_HANDLE);

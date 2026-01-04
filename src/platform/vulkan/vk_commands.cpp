@@ -173,7 +173,7 @@ Res<> VulkanRenderBackend::command_reset(CommandBuffer cmd) {
 }
 
 Res<> VulkanRenderBackend::command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
-		std::vector<RenderingAttachment> color_attachments, Image depth_attachment) {
+		VectorView<RenderingAttachment> color_attachments, Image depth_attachment) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -351,7 +351,7 @@ Res<> VulkanRenderBackend::command_bind_compute_pipeline(CommandBuffer cmd, Pipe
 }
 
 Res<> VulkanRenderBackend::command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
-		std::vector<Buffer> vertex_buffers, std::vector<uint64_t> offsets) {
+		VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -433,7 +433,7 @@ Res<> VulkanRenderBackend::command_dispatch(
 }
 
 Res<> VulkanRenderBackend::command_bind_uniform_sets(CommandBuffer cmd, Shader shader,
-		uint32_t first_set, std::vector<UniformSet> uniform_sets, PipelineType type) {
+		uint32_t first_set, VectorView<UniformSet> uniform_sets, PipelineType type) {
 	VulkanShader* vk_shader = (VulkanShader*)shader;
 	if (!cmd || !vk_shader) {
 		return Error::INVALID_HANDLE;
@@ -547,7 +547,7 @@ Res<> VulkanRenderBackend::command_buffer_memory_barrier(
 }
 
 Res<> VulkanRenderBackend::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer,
-		Buffer dst_buffer, std::vector<BufferCopyRegion> regions) {
+		Buffer dst_buffer, VectorView<BufferCopyRegion> regions) {
 	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
 	VulkanBuffer* vk_dst = (VulkanBuffer*)dst_buffer;
 	if (!cmd || !vk_src || !vk_dst) {
@@ -567,7 +567,7 @@ Res<> VulkanRenderBackend::command_copy_buffer(CommandBuffer cmd, Buffer src_buf
 }
 
 Res<> VulkanRenderBackend::command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
-		Image dst_image, std::vector<BufferImageCopyRegion> regions) {
+		Image dst_image, VectorView<BufferImageCopyRegion> regions) {
 	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
 	VulkanImage* vk_dst = (VulkanImage*)dst_image;
 	if (!cmd || !vk_src || !vk_dst) {

@@ -2,6 +2,7 @@
 
 #include "glgpu/color.h"
 #include "glgpu/types.h"
+#include "glgpu/vector_view.h"
 
 namespace gl {
 
@@ -99,20 +100,20 @@ public:
 	// Shader & Pipelines
 	// =========================================================================
 
-	virtual Res<Shader> shader_create_from_bytecode(const std::vector<SpirvEntry>& shaders) = 0;
+	virtual Res<Shader> shader_create_from_bytecode(VectorView<SpirvEntry> shaders) = 0;
 	virtual Res<> shader_free(Shader shader) = 0;
 	virtual Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader) = 0;
 
 	// Pipeline Creation using the new consolidated struct
 
-	virtual Res<Pipeline> render_pipeline_create(const RenderPipelineCreateInfo& info) = 0;
+	virtual Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info) = 0;
 	virtual Res<Pipeline> compute_pipeline_create(Shader shader) = 0;
 	virtual Res<> pipeline_free(Pipeline pipeline) = 0;
 
 	// Descriptors / Uniforms
 
 	virtual Res<UniformSet> uniform_set_create(
-			std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) = 0;
+			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) = 0;
 	virtual Res<> uniform_set_free(UniformSet uniform_set) = 0;
 
 	virtual Res<UniformSet> uniform_set_create_bindless(
@@ -133,11 +134,11 @@ public:
 	// =========================================================================
 
 	virtual Res<RenderPass> render_pass_create(
-			std::vector<RenderPassAttachment> attachments, std::vector<SubpassInfo> subpasses) = 0;
+			VectorView<RenderPassAttachment> attachments, VectorView<SubpassInfo> subpasses) = 0;
 	virtual Res<> render_pass_destroy(RenderPass render_pass) = 0;
 
 	virtual Res<FrameBuffer> frame_buffer_create(
-			RenderPass render_pass, std::vector<Image> attachments, const Vec2u& extent) = 0;
+			RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent) = 0;
 	virtual Res<> frame_buffer_destroy(FrameBuffer frame_buffer) = 0;
 
 	// =========================================================================
@@ -198,7 +199,7 @@ public:
 	// Dynamic Rendering
 
 	virtual Res<> command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
-			std::vector<RenderingAttachment> color_attachments,
+			VectorView<RenderingAttachment> color_attachments,
 			Image depth_attachment = GL_NULL_HANDLE) = 0;
 	virtual Res<> command_end_rendering(CommandBuffer cmd) = 0;
 
@@ -208,12 +209,12 @@ public:
 	virtual Res<> command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) = 0;
 
 	virtual Res<> command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
-			std::vector<Buffer> vertex_buffers, std::vector<uint64_t> offsets) = 0;
+			VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets) = 0;
 	virtual Res<> command_bind_index_buffer(
 			CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) = 0;
 
 	virtual Res<> command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
-			std::vector<UniformSet> uniform_sets, PipelineType type = PipelineType::GRAPHICS) = 0;
+			VectorView<UniformSet> uniform_sets, PipelineType type = PipelineType::GRAPHICS) = 0;
 	virtual Res<> command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset,
 			uint32_t size, const void* push_constants) = 0;
 
@@ -247,13 +248,13 @@ public:
 	// Copy / Barriers
 
 	virtual Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
-			std::vector<BufferCopyRegion> regions) = 0;
+			VectorView<BufferCopyRegion> regions) = 0;
 
 	virtual Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
 			BufferUsageFlags dst_usage, Buffer buffer) = 0;
 
 	virtual Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
-			Image dst_image, std::vector<BufferImageCopyRegion> regions) = 0;
+			Image dst_image, VectorView<BufferImageCopyRegion> regions) = 0;
 
 	virtual Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,

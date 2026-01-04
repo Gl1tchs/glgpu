@@ -263,7 +263,8 @@ constexpr static VkPipelineViewportStateCreateInfo _get_viewport_state() {
 	return viewport_state;
 }
 
-Res<Pipeline> VulkanRenderBackend::render_pipeline_create(const RenderPipelineCreateInfo& info) {
+Res<Pipeline> VulkanRenderBackend::graphics_pipeline_create(
+		const GraphicsPipelineCreateInfo& info) {
 	VulkanShader* shader = (VulkanShader*)info.shader;
 	if (!shader) {
 		return make_err<Pipeline>(Error::INVALID_ARGUMENT);

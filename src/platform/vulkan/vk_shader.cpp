@@ -96,8 +96,7 @@ template <typename T> void _hash_combine(std::size_t& seed, const T& value) {
 	seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(
-		const std::vector<SpirvEntry>& shaders) {
+Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(VectorView<SpirvEntry> shaders) {
 	std::vector<VkShaderModule> vk_shaders;
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 	VkPipelineLayout vk_pipeline_layout = VK_NULL_HANDLE;

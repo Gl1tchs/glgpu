@@ -110,7 +110,7 @@ public:
 		size_t shader_hash;
 	};
 
-	Res<Shader> shader_create_from_bytecode(const std::vector<SpirvEntry>& shaders) override;
+	Res<Shader> shader_create_from_bytecode(VectorView<SpirvEntry> shaders) override;
 
 	Res<> shader_free(Shader shader) override;
 
@@ -123,7 +123,7 @@ public:
 		size_t shader_hash;
 	};
 
-	Res<Pipeline> render_pipeline_create(const RenderPipelineCreateInfo& info) override;
+	Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info) override;
 
 	Res<Pipeline> compute_pipeline_create(Shader shader) override;
 
@@ -153,7 +153,7 @@ public:
 	};
 
 	Res<UniformSet> uniform_set_create(
-			std::vector<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
+			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
 
 	Res<> uniform_set_free(UniformSet uniform_set) override;
 
@@ -173,14 +173,14 @@ public:
 		std::vector<RenderPassAttachment> attachments;
 	};
 
-	Res<RenderPass> render_pass_create(std::vector<RenderPassAttachment> attachments,
-			std::vector<SubpassInfo> subpasses) override;
+	Res<RenderPass> render_pass_create(VectorView<RenderPassAttachment> attachments,
+			VectorView<SubpassInfo> subpasses) override;
 
 	Res<> render_pass_destroy(RenderPass render_pass) override;
 
 	// Frame Buffer
 	Res<FrameBuffer> frame_buffer_create(
-			RenderPass render_pass, std::vector<Image> attachments, const Vec2u& extent) override;
+			RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent) override;
 
 	Res<> frame_buffer_destroy(FrameBuffer frame_buffer) override;
 
@@ -276,7 +276,7 @@ public:
 	Res<> command_end_render_pass(CommandBuffer cmd) override;
 
 	Res<> command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
-			std::vector<RenderingAttachment> color_attachments,
+			VectorView<RenderingAttachment> color_attachments,
 			Image depth_attachment = GL_NULL_HANDLE) override;
 
 	Res<> command_end_rendering(CommandBuffer cmd) override;
@@ -290,7 +290,7 @@ public:
 	Res<> command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) override;
 
 	Res<> command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
-			std::vector<Buffer> vertex_buffers, std::vector<uint64_t> offsets) override;
+			VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets) override;
 
 	Res<> command_bind_index_buffer(
 			CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) override;
@@ -309,7 +309,7 @@ public:
 			uint32_t group_count_z) override;
 
 	Res<> command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
-			std::vector<UniformSet> uniform_sets,
+			VectorView<UniformSet> uniform_sets,
 			PipelineType type = PipelineType::GRAPHICS) override;
 
 	Res<> command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset, uint32_t size,
@@ -327,10 +327,10 @@ public:
 			BufferUsageFlags dst_usage, Buffer buffer) override;
 
 	Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
-			std::vector<BufferCopyRegion> regions) override;
+			VectorView<BufferCopyRegion> regions) override;
 
 	Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer, Image dst_image,
-			std::vector<BufferImageCopyRegion> regions) override;
+			VectorView<BufferImageCopyRegion> regions) override;
 
 	Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
