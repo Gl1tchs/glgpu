@@ -1,9 +1,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include "glgpu/assert.h"
-#include "glgpu/backend.h"
-#include "glgpu/log.h"
+#include "glgpu/extensions/sdl2_glue.h"
+#include "glgpu/glgpu.h"
 
 using namespace gl;
 
@@ -31,22 +30,8 @@ int main(void) {
 				RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT,
 	};
 
-	SDL_SysWMinfo wm_info;
-	SDL_VERSION(&wm_info.version);
-	if (SDL_GetWindowWMInfo(window, &wm_info)) {
-		if (wm_info.subsystem == SDL_SYSWM_X11) {
-#ifdef __linux
-			info.native_connection_handle = wm_info.info.x11.display;
-			info.native_window_handle = (void*)wm_info.info.x11.window;
-#endif
-		} else if (wm_info.subsystem == SDL_SYSWM_WINDOWS) {
-#ifdef _WIN32
-			info.native_window_handle = (void*)wm_info.info.win.window;
-			info.native_connection_handle = (void*)wm_info.info.win.hinstance; // Usually
-#endif
-		} else {
-			GL_ASSERT(false, "Only X11 and windows is supported.");
-		}
+	if (!gl::extract_sdl2_info(info, window)) {
+		GL_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
 	auto backend = RenderBackend::create(info).value();
