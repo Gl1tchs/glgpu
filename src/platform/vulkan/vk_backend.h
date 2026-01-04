@@ -340,6 +340,11 @@ public:
 			ImageLayout new_layout, uint32_t base_mip_level = 0,
 			uint32_t level_count = GL_REMAINING_MIP_LEVELS) override;
 
+	// Utility functions
+
+	Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color) override;
+	Res<> command_end_label(CommandBuffer cmd) override;
+
 private:
 	// Vulkan helpers
 
@@ -414,7 +419,11 @@ private:
 	VkPhysicalDeviceFeatures _physical_device_features;
 	bool _swapchain_supported;
 
+	// Debug ressources
 	VkDebugUtilsMessengerEXT _debug_messenger;
+
+	PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;
+	PFN_vkCmdEndDebugUtilsLabelEXT _vkCmdEndDebugUtilsLabelEXT;
 
 	VkSurfaceKHR _surface = VK_NULL_HANDLE;
 

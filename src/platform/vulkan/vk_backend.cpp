@@ -117,6 +117,11 @@ Res<> VulkanRenderBackend::init(const RenderBackendCreateInfo& info) {
 				_instance, &debug_create_info, nullptr, &_debug_messenger) != VK_SUCCESS) {
 		GL_LOG_WARNING("[VULKAN] Failed to set up debug messenger!");
 	}
+
+	_vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+			_instance, "vkCmdBeginDebugUtilsLabelEXT");
+	_vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(
+			_instance, "vkCmdEndDebugUtilsLabelEXT");
 #endif
 
 	s_initialized = true;
@@ -420,6 +425,42 @@ uint32_t VulkanRenderBackend::get_max_msaa_samples() const {
 	}
 
 	return 1;
+}
+
+Res<> VulkanRenderBackend::command_begin_label(CommandBuffer cmd, const char* name, Color color) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!_vkCmdBeginDebugUtilsLabelEXT) {
+		return Error::INVALID_OPERATION;
+	}
+
+	VkDebugUtilsLabelEXT info = {};
+	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	info.pLabelName = name;
+	info.color[0] = color.r;
+	info.color[1] = color.g;
+	info.color[2] = color.b;
+	info.color[3] = color.a;
+
+	_vkCmdBeginDebugUtilsLabelEXT((VkCommandBuffer)cmd, &info);
+
+	return {};
+}
+
+Res<> VulkanRenderBackend::command_end_label(CommandBuffer cmd) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!_vkCmdEndDebugUtilsLabelEXT) {
+		return Error::INVALID_OPERATION;
+	}
+
+	_vkCmdEndDebugUtilsLabelEXT((VkCommandBuffer)cmd);
+
+	return {};
 }
 
 bool VulkanRenderBackend::_check_validation_layer_support() {

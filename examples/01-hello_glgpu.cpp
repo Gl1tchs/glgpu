@@ -95,12 +95,16 @@ int main(void) {
 		backend->command_transition_image(
 				cmd, swapchain_image, ImageLayout::UNDEFINED, ImageLayout::GENERAL);
 
+		backend->command_begin_label(cmd, "HELLO WORLD", COLOR_RED);
+
 		// Clear the Screen
 		// Calculate a color based on time
 		time += 0.01f;
 		Color clear_color = { (float)std::abs(sin(time)), (float)std::abs(cos(time)), 0.2f, 1.0f };
 
 		backend->command_clear_color(cmd, swapchain_image, clear_color);
+
+		backend->command_end_label(cmd);
 
 		// Transition Image Layout for Presentation
 		// The presentation engine requires the image to be in PRESENT_SRC layout.

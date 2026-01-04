@@ -263,6 +263,11 @@ public:
 	virtual Res<> command_transition_image(CommandBuffer cmd, Image image,
 			ImageLayout current_layout, ImageLayout new_layout, uint32_t base_mip_level = 0,
 			uint32_t level_count = GL_REMAINING_MIP_LEVELS) = 0;
+
+	// Utility functions
+
+	virtual Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color) = 0;
+	virtual Res<> command_end_label(CommandBuffer cmd) = 0;
 };
 
 } // namespace gl
