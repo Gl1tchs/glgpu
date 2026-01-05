@@ -3,11 +3,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include "glgpu/backend.h"
+#include "glgpu/device.h"
 
 namespace gl {
 
-inline bool extract_sdl2_info(RenderBackendCreateInfo& info, SDL_Window* window) {
+inline bool extract_sdl2_info(DeviceCreateInfo& info, SDL_Window* window) {
 	SDL_SysWMinfo wmInfo;
 	SDL_VERSION(&wmInfo.version);
 

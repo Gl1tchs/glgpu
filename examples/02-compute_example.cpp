@@ -1,8 +1,4 @@
-#include "glgpu/backend.h"
-#include "glgpu/log.h"
-#include "glgpu/types.h"
-
-using namespace gl;
+#include <glgpu/glgpu.h>
 
 std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
@@ -33,11 +29,11 @@ std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 }
 
 int main(void) {
-	RenderBackendCreateInfo info = {
+	gl::DeviceCreateInfo info = {
 		.required_features = gl::RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
-	auto backend = RenderBackend::create(info).value();
+	auto backend = gl::Device::create(info).value();
 	GL_LOG_INFO("Headless backend initialized.");
 
 	// We will process 1024 floats
@@ -49,9 +45,10 @@ int main(void) {
 	// purposes we are going to be using the same buffer in the GPU. Normally you would create
 	// another buffer with BUFFER_USAGE_STORAGE_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT as
 	// MemoryAllocationType::GPUs
-	Buffer storage_buffer = backend->buffer_create(buffer_size, BUFFER_USAGE_STORAGE_BUFFER_BIT,
-										   MemoryAllocationType::CPU)
-									.value();
+	gl::Buffer storage_buffer =
+			backend->buffer_create(buffer_size, gl::BUFFER_USAGE_STORAGE_BUFFER_BIT,
+						   gl::MemoryAllocationType::CPU)
+					.value();
 
 	float* raw_data = (float*)backend->buffer_map(storage_buffer).value();
 	if (raw_data) {
@@ -73,32 +70,33 @@ int main(void) {
 	// Wrap spirv data (assuming backend expects a specific struct wrapper)
 	// The API signature is: shader_create_from_bytecode(const std::vector<SpirvData>&)
 	// We need to construct SpirvData. Assuming SpirvData holds stage and code.
-	SpirvEntry spirv_entry;
+	gl::SpirvEntry spirv_entry;
 	spirv_entry.byte_code = spirv_code;
-	spirv_entry.stage = SHADER_STAGE_COMPUTE_BIT;
+	spirv_entry.stage = gl::SHADER_STAGE_COMPUTE_BIT;
 
-	Shader compute_shader = backend->shader_create_from_bytecode({ spirv_entry }).value();
+	gl::Shader compute_shader = backend->shader_create_from_bytecode({ spirv_entry }).value();
 
-	Pipeline compute_pipeline = backend->compute_pipeline_create(compute_shader).value();
+	gl::Pipeline compute_pipeline = backend->compute_pipeline_create(compute_shader).value();
 
 	// We need to tell the shader that binding 0 is our 'storage_buffer'
 
 	// Construct the uniform definition
 	// Note: Assuming 'ShaderUniform' struct structure based on common usage
-	ShaderUniform buffer_uniform;
+	gl::ShaderUniform buffer_uniform;
 	buffer_uniform.binding = 0;
-	buffer_uniform.type = ShaderUniformType::STORAGE_BUFFER;
+	buffer_uniform.type = gl::ShaderUniformType::STORAGE_BUFFER;
 	buffer_uniform.data.push_back(storage_buffer);
 
 	// Create the set (set index 0)
-	UniformSet uniform_set = backend->uniform_set_create(buffer_uniform, compute_shader, 0).value();
+	gl::UniformSet uniform_set =
+			backend->uniform_set_create(buffer_uniform, compute_shader, 0).value();
 
 	// Commands
-	CommandQueue compute_queue = backend->queue_get(QueueType::GRAPHICS).value();
-	CommandPool cmd_pool = backend->command_pool_create(compute_queue).value();
-	CommandBuffer cmd = backend->command_pool_allocate(cmd_pool).value();
+	gl::CommandQueue compute_queue = backend->queue_get(gl::QueueType::GRAPHICS).value();
+	gl::CommandPool cmd_pool = backend->command_pool_create(compute_queue).value();
+	gl::CommandBuffer cmd = backend->command_pool_allocate(cmd_pool).value();
 
-	Fence fence = backend->fence_create(false);
+	gl::Fence fence = backend->fence_create(false);
 
 	backend->command_begin(cmd);
 
@@ -106,7 +104,8 @@ int main(void) {
 	backend->command_bind_compute_pipeline(cmd, compute_pipeline);
 
 	// Bind Data
-	backend->command_bind_uniform_sets(cmd, compute_shader, 0, uniform_set, PipelineType::COMPUTE);
+	backend->command_bind_uniform_sets(
+			cmd, compute_shader, 0, uniform_set, gl::PipelineType::COMPUTE);
 
 	// Dispatch
 	// Local size is 64 (defined in slang), so we need 1024 / 64 = 16 groups.

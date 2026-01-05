@@ -1,4 +1,4 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 namespace gl {
 
@@ -26,8 +26,8 @@ static VkImageUsageFlags _gl_to_vk_image_usage_flags(ImageUsageFlags usage) {
 	return vk_usage;
 }
 
-VulkanRenderBackend::VulkanImage* VulkanRenderBackend::_image_create(VkFormat format,
-		VkExtent3D size, VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples) {
+VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent3D size,
+		VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples) {
 	const uint32_t mip_levels = mipmapped
 			? static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1
 			: 1;
@@ -108,7 +108,7 @@ VulkanRenderBackend::VulkanImage* VulkanRenderBackend::_image_create(VkFormat fo
 	return image;
 }
 
-void VulkanRenderBackend::_generate_image_mipmaps(CommandBuffer cmd, Image image, Vec2u size) {
+void VulkanDevice::_generate_image_mipmaps(CommandBuffer cmd, Image image, Vec2u size) {
 	const uint32_t mip_levels = *image_get_mip_levels(image); // should not fail
 
 	uint32_t mip_width = (uint32_t)size.x;
@@ -137,7 +137,7 @@ void VulkanRenderBackend::_generate_image_mipmaps(CommandBuffer cmd, Image image
 			ImageLayout::SHADER_READ_ONLY_OPTIMAL, mip_levels - 1, 1);
 }
 
-Res<Image> VulkanRenderBackend::image_create(const ImageCreateInfo& info) {
+Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
 	VkExtent3D vk_size = { info.size.x, info.size.y, 1 };
 	VkFormat vk_format = static_cast<VkFormat>(info.format);
 
@@ -227,7 +227,7 @@ Res<Image> VulkanRenderBackend::image_create(const ImageCreateInfo& info) {
 	}
 }
 
-Res<> VulkanRenderBackend::image_free(Image image) {
+Res<> VulkanDevice::image_free(Image image) {
 	if (!image) {
 		return {};
 	}
@@ -242,7 +242,7 @@ Res<> VulkanRenderBackend::image_free(Image image) {
 	return {};
 }
 
-Res<Vec3u> VulkanRenderBackend::image_get_size(Image image) {
+Res<Vec3u> VulkanDevice::image_get_size(Image image) {
 	if (!image) {
 		return make_err<Vec3u>(Error::INVALID_HANDLE);
 	}
@@ -256,7 +256,7 @@ Res<Vec3u> VulkanRenderBackend::image_get_size(Image image) {
 	return size;
 }
 
-Res<DataFormat> VulkanRenderBackend::image_get_format(Image image) {
+Res<DataFormat> VulkanDevice::image_get_format(Image image) {
 	if (!image) {
 		return make_err<DataFormat>(Error::INVALID_HANDLE);
 	}
@@ -265,7 +265,7 @@ Res<DataFormat> VulkanRenderBackend::image_get_format(Image image) {
 	return static_cast<DataFormat>(vk_image->image_format);
 }
 
-Res<uint32_t> VulkanRenderBackend::image_get_mip_levels(Image image) {
+Res<uint32_t> VulkanDevice::image_get_mip_levels(Image image) {
 	if (!image) {
 		return make_err<uint32_t>(Error::INVALID_HANDLE);
 	}
@@ -274,7 +274,7 @@ Res<uint32_t> VulkanRenderBackend::image_get_mip_levels(Image image) {
 	return vk_image->mip_levels;
 }
 
-Res<ImageUsageFlags> VulkanRenderBackend::image_get_image_usage(Image image) {
+Res<ImageUsageFlags> VulkanDevice::image_get_image_usage(Image image) {
 	if (!image) {
 		return make_err<uint32_t>(Error::INVALID_HANDLE);
 	}
@@ -283,7 +283,7 @@ Res<ImageUsageFlags> VulkanRenderBackend::image_get_image_usage(Image image) {
 	return vk_image->image_usage;
 }
 
-Res<Sampler> VulkanRenderBackend::sampler_create(const SamplerCreateInfo& info) {
+Res<Sampler> VulkanDevice::sampler_create(const SamplerCreateInfo& info) {
 	VkSamplerCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	create_info.minFilter = static_cast<VkFilter>(info.min_filter);
@@ -308,7 +308,7 @@ Res<Sampler> VulkanRenderBackend::sampler_create(const SamplerCreateInfo& info) 
 	return Sampler(vk_sampler);
 }
 
-Res<> VulkanRenderBackend::sampler_free(Sampler sampler) {
+Res<> VulkanDevice::sampler_free(Sampler sampler) {
 	if (!sampler) {
 		return {};
 	}

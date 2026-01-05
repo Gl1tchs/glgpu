@@ -1,10 +1,10 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include "platform/vulkan/vk_common.h"
 
 namespace gl {
 
-Res<Buffer> VulkanRenderBackend::buffer_create(
+Res<Buffer> VulkanDevice::buffer_create(
 		uint64_t size, BufferUsageFlags usage, MemoryAllocationType allocation_type) {
 	VkBufferCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -68,7 +68,7 @@ Res<Buffer> VulkanRenderBackend::buffer_create(
 	return Buffer(buf_info);
 }
 
-Res<> VulkanRenderBackend::buffer_free(Buffer buffer) {
+Res<> VulkanDevice::buffer_free(Buffer buffer) {
 	if (!buffer) {
 		return {}; // freeing null is a no-op success
 	}
@@ -87,7 +87,7 @@ Res<> VulkanRenderBackend::buffer_free(Buffer buffer) {
 	return {};
 }
 
-Res<BufferDeviceAddress> VulkanRenderBackend::buffer_get_device_address(Buffer buffer) {
+Res<BufferDeviceAddress> VulkanDevice::buffer_get_device_address(Buffer buffer) {
 	if (!buffer) {
 		return make_err<BufferDeviceAddress>(Error::INVALID_HANDLE);
 	}
@@ -110,7 +110,7 @@ Res<BufferDeviceAddress> VulkanRenderBackend::buffer_get_device_address(Buffer b
 	return addr;
 }
 
-Res<uint8_t*> VulkanRenderBackend::buffer_map(Buffer buffer) {
+Res<uint8_t*> VulkanDevice::buffer_map(Buffer buffer) {
 	if (!buffer)
 		return make_err<uint8_t*>(Error::INVALID_HANDLE);
 
@@ -124,7 +124,7 @@ Res<uint8_t*> VulkanRenderBackend::buffer_map(Buffer buffer) {
 	return (uint8_t*)data_ptr;
 }
 
-Res<> VulkanRenderBackend::buffer_unmap(Buffer buffer) {
+Res<> VulkanDevice::buffer_unmap(Buffer buffer) {
 	if (!buffer)
 		return Error::INVALID_HANDLE;
 
@@ -134,7 +134,7 @@ Res<> VulkanRenderBackend::buffer_unmap(Buffer buffer) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::buffer_invalidate(Buffer buffer) {
+Res<> VulkanDevice::buffer_invalidate(Buffer buffer) {
 	if (!buffer)
 		return Error::INVALID_HANDLE;
 
@@ -146,7 +146,7 @@ Res<> VulkanRenderBackend::buffer_invalidate(Buffer buffer) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::buffer_flush(Buffer buffer) {
+Res<> VulkanDevice::buffer_flush(Buffer buffer) {
 	if (!buffer)
 		return Error::INVALID_HANDLE;
 
@@ -158,7 +158,7 @@ Res<> VulkanRenderBackend::buffer_flush(Buffer buffer) {
 	return {};
 }
 
-VmaPool VulkanRenderBackend::_find_or_create_small_allocs_pool(uint32_t mem_type_index) {
+VmaPool VulkanDevice::_find_or_create_small_allocs_pool(uint32_t mem_type_index) {
 	if (_small_allocs_pools.find(mem_type_index) != _small_allocs_pools.end()) {
 		return _small_allocs_pools[mem_type_index];
 	}

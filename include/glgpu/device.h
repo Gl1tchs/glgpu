@@ -8,17 +8,17 @@ namespace gl {
 
 constexpr size_t MAX_BINDLESS_INSTANCES = 1000;
 
-enum RenderBackendRequiredFeatureBits : uint32_t {
+enum DeviceRequiredFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
 	RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT = 0x2,
 	RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x4,
 };
-typedef uint32_t RenderBackendFeatureFlags;
+typedef uint32_t DeviceFeatureFlags;
 
-struct RenderBackendCreateInfo {
+struct DeviceCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
-	RenderBackendFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
+	DeviceFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
 	void* native_connection_handle = nullptr; // Windows HINSTANCE or X11 Display
 	void* native_window_handle = nullptr; // HWND or XWindow
 };
@@ -26,13 +26,13 @@ struct RenderBackendCreateInfo {
 /**
  * Abstract class responsible for communicating with the GPU.
  */
-class RenderBackend {
+class Device {
 public:
-	virtual ~RenderBackend() = default;
+	virtual ~Device() = default;
 
-	static Res<std::shared_ptr<RenderBackend>> create(const RenderBackendCreateInfo& info);
+	static Res<std::shared_ptr<Device>> create(const DeviceCreateInfo& info);
 
-	virtual Res<> init(const RenderBackendCreateInfo& info) = 0;
+	virtual Res<> init(const DeviceCreateInfo& info) = 0;
 
 	// =========================================================================
 	// Device & Surface

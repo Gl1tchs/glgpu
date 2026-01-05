@@ -5,7 +5,7 @@
 using namespace gl;
 
 TEST_CASE("Image Management", "[image]") {
-	auto backend = gl::test::get_test_backend();
+	auto device = gl::test::get_test_device();
 
 	SECTION("Create 2D Texture") {
 		ImageCreateInfo img_info = {};
@@ -15,23 +15,23 @@ TEST_CASE("Image Management", "[image]") {
 		img_info.mipmapped = false;
 		img_info.samples = 1;
 
-		auto img_res = backend->image_create(img_info);
+		auto img_res = device->image_create(img_info);
 		REQUIRE(img_res.is_ok());
 		Image img = img_res.value();
 		REQUIRE(img != GL_NULL_HANDLE);
 
 		SECTION("Validate Properties") {
-			auto size_res = backend->image_get_size(img);
+			auto size_res = device->image_get_size(img);
 			REQUIRE(size_res.is_ok());
 			REQUIRE(size_res.value().x == 256);
 			REQUIRE(size_res.value().y == 256);
 
-			auto fmt_res = backend->image_get_format(img);
+			auto fmt_res = device->image_get_format(img);
 			REQUIRE(fmt_res.is_ok());
 			REQUIRE(fmt_res.value() == DataFormat::R8G8B8A8_UNORM);
 		}
 
-		REQUIRE(backend->image_free(img).is_ok());
+		REQUIRE(device->image_free(img).is_ok());
 	}
 
 	SECTION("Create Invalid Image (Zero Size)") {
@@ -39,7 +39,7 @@ TEST_CASE("Image Management", "[image]") {
 		img_info.size = { 0, 0 }; // Invalid
 		img_info.format = DataFormat::R8G8B8A8_UNORM;
 
-		auto img_res = backend->image_create(img_info);
+		auto img_res = device->image_create(img_info);
 		// Expecting an error or a handled failure
 		// If Vulkan validation layers are on, this might log an error.
 		// The Result type should catch the internal VMA failure.
@@ -47,7 +47,7 @@ TEST_CASE("Image Management", "[image]") {
 			REQUIRE(img_res.error() != Error::NONE);
 		} else {
 			// If it somehow succeeded, ensure we free it
-			backend->image_free(img_res.value());
+			device->image_free(img_res.value());
 		}
 	}
 }

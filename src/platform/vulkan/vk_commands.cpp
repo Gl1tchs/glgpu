@@ -1,10 +1,10 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include <vulkan/vulkan_core.h>
 
 namespace gl {
 
-Res<> VulkanRenderBackend::command_immediate_submit(
+Res<> VulkanDevice::command_immediate_submit(
 		std::function<void(CommandBuffer cmd)>&& function, QueueType queue_type) {
 	std::mutex& cmd_mutex =
 			(queue_type == QueueType::TRANSFER) ? _imm_cmd_transfer_mutex : _imm_cmd_graphics_mutex;
@@ -52,7 +52,7 @@ Res<> VulkanRenderBackend::command_immediate_submit(
 	return {};
 }
 
-Res<CommandPool> VulkanRenderBackend::command_pool_create(CommandQueue queue) {
+Res<CommandPool> VulkanDevice::command_pool_create(CommandQueue queue) {
 	VulkanQueue* vk_queue = (VulkanQueue*)queue;
 	if (!vk_queue) {
 		return make_err<CommandPool>(Error::INVALID_HANDLE);
@@ -70,7 +70,7 @@ Res<CommandPool> VulkanRenderBackend::command_pool_create(CommandQueue queue) {
 	return CommandPool(vk_command_pool);
 }
 
-Res<> VulkanRenderBackend::command_pool_free(CommandPool command_pool) {
+Res<> VulkanDevice::command_pool_free(CommandPool command_pool) {
 	if (!command_pool) {
 		return {};
 	}
@@ -81,7 +81,7 @@ Res<> VulkanRenderBackend::command_pool_free(CommandPool command_pool) {
 	return {};
 }
 
-Res<CommandBuffer> VulkanRenderBackend::command_pool_allocate(CommandPool command_pool) {
+Res<CommandBuffer> VulkanDevice::command_pool_allocate(CommandPool command_pool) {
 	VkCommandPool vk_pool = (VkCommandPool)command_pool;
 	if (!vk_pool) {
 		return make_err<CommandBuffer>(Error::INVALID_HANDLE);
@@ -101,7 +101,7 @@ Res<CommandBuffer> VulkanRenderBackend::command_pool_allocate(CommandPool comman
 	return CommandBuffer(vk_command_buffer);
 }
 
-Res<std::vector<CommandBuffer>> VulkanRenderBackend::command_pool_allocate(
+Res<std::vector<CommandBuffer>> VulkanDevice::command_pool_allocate(
 		CommandPool command_pool, const uint32_t count) {
 	VkCommandPool vk_pool = (VkCommandPool)command_pool;
 	if (!vk_pool) {
@@ -123,7 +123,7 @@ Res<std::vector<CommandBuffer>> VulkanRenderBackend::command_pool_allocate(
 	return command_buffers;
 }
 
-Res<> VulkanRenderBackend::command_pool_reset(CommandPool command_pool) {
+Res<> VulkanDevice::command_pool_reset(CommandPool command_pool) {
 	if (!command_pool) {
 		return Error::INVALID_HANDLE;
 	}
@@ -135,7 +135,7 @@ Res<> VulkanRenderBackend::command_pool_reset(CommandPool command_pool) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_begin(CommandBuffer cmd) {
+Res<> VulkanDevice::command_begin(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -152,7 +152,7 @@ Res<> VulkanRenderBackend::command_begin(CommandBuffer cmd) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_end(CommandBuffer cmd) {
+Res<> VulkanDevice::command_end(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -162,7 +162,7 @@ Res<> VulkanRenderBackend::command_end(CommandBuffer cmd) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_reset(CommandBuffer cmd) {
+Res<> VulkanDevice::command_reset(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -172,7 +172,7 @@ Res<> VulkanRenderBackend::command_reset(CommandBuffer cmd) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
+Res<> VulkanDevice::command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
 		VectorView<RenderingAttachment> color_attachments, Image depth_attachment) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
@@ -240,7 +240,7 @@ Res<> VulkanRenderBackend::command_begin_rendering(CommandBuffer cmd, const Vec2
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_end_rendering(CommandBuffer cmd) {
+Res<> VulkanDevice::command_end_rendering(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -250,7 +250,7 @@ Res<> VulkanRenderBackend::command_end_rendering(CommandBuffer cmd) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_begin_render_pass(CommandBuffer cmd, RenderPass render_pass,
+Res<> VulkanDevice::command_begin_render_pass(CommandBuffer cmd, RenderPass render_pass,
 		FrameBuffer framebuffer, const Vec2u& draw_extent, Color clear_color) {
 	VulkanRenderPass* render_pass_info = (VulkanRenderPass*)render_pass;
 	if (!cmd || !render_pass_info) {
@@ -283,7 +283,7 @@ Res<> VulkanRenderBackend::command_begin_render_pass(CommandBuffer cmd, RenderPa
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_end_render_pass(CommandBuffer cmd) {
+Res<> VulkanDevice::command_end_render_pass(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -293,7 +293,7 @@ Res<> VulkanRenderBackend::command_end_render_pass(CommandBuffer cmd) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_clear_color(CommandBuffer cmd, Image image,
+Res<> VulkanDevice::command_clear_color(CommandBuffer cmd, Image image,
 		const Color& clear_color_val, ImageAspectFlags image_aspect) {
 	VulkanImage* vk_image = (VulkanImage*)image;
 	if (!cmd || !vk_image) {
@@ -326,7 +326,7 @@ Res<> VulkanRenderBackend::command_clear_color(CommandBuffer cmd, Image image,
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline) {
+Res<> VulkanDevice::command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline) {
 	VulkanPipeline* vk_pipeline = (VulkanPipeline*)pipeline;
 	if (!cmd || !vk_pipeline) {
 		return Error::INVALID_HANDLE;
@@ -338,7 +338,7 @@ Res<> VulkanRenderBackend::command_bind_graphics_pipeline(CommandBuffer cmd, Pip
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) {
+Res<> VulkanDevice::command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) {
 	VulkanPipeline* vk_pipeline = (VulkanPipeline*)pipeline;
 	if (!cmd || !vk_pipeline) {
 		return Error::INVALID_HANDLE;
@@ -350,7 +350,7 @@ Res<> VulkanRenderBackend::command_bind_compute_pipeline(CommandBuffer cmd, Pipe
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
+Res<> VulkanDevice::command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
 		VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
@@ -371,7 +371,7 @@ Res<> VulkanRenderBackend::command_bind_vertex_buffers(CommandBuffer cmd, uint32
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_bind_index_buffer(
+Res<> VulkanDevice::command_bind_index_buffer(
 		CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) {
 	VulkanBuffer* vk_buffer = (VulkanBuffer*)index_buffer;
 	if (!cmd || !vk_buffer) {
@@ -384,8 +384,8 @@ Res<> VulkanRenderBackend::command_bind_index_buffer(
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_draw(CommandBuffer cmd, uint32_t vertex_count,
-		uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
+Res<> VulkanDevice::command_draw(CommandBuffer cmd, uint32_t vertex_count, uint32_t instance_count,
+		uint32_t first_vertex, uint32_t first_instance) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -395,7 +395,7 @@ Res<> VulkanRenderBackend::command_draw(CommandBuffer cmd, uint32_t vertex_count
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_draw_indexed(CommandBuffer cmd, uint32_t index_count,
+Res<> VulkanDevice::command_draw_indexed(CommandBuffer cmd, uint32_t index_count,
 		uint32_t instance_count, uint32_t first_index, int32_t vertex_offset,
 		uint32_t first_instance) {
 	if (!cmd) {
@@ -408,7 +408,7 @@ Res<> VulkanRenderBackend::command_draw_indexed(CommandBuffer cmd, uint32_t inde
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_draw_indexed_indirect(
+Res<> VulkanDevice::command_draw_indexed_indirect(
 		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
 	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
 	if (!cmd || !vk_buffer) {
@@ -421,7 +421,7 @@ Res<> VulkanRenderBackend::command_draw_indexed_indirect(
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_dispatch(
+Res<> VulkanDevice::command_dispatch(
 		CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
@@ -432,8 +432,8 @@ Res<> VulkanRenderBackend::command_dispatch(
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_bind_uniform_sets(CommandBuffer cmd, Shader shader,
-		uint32_t first_set, VectorView<UniformSet> uniform_sets, PipelineType type) {
+Res<> VulkanDevice::command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
+		VectorView<UniformSet> uniform_sets, PipelineType type) {
 	VulkanShader* vk_shader = (VulkanShader*)shader;
 	if (!cmd || !vk_shader) {
 		return Error::INVALID_HANDLE;
@@ -454,7 +454,7 @@ Res<> VulkanRenderBackend::command_bind_uniform_sets(CommandBuffer cmd, Shader s
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset,
+Res<> VulkanDevice::command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset,
 		uint32_t size, const void* push_constants) {
 	VulkanShader* vk_shader = (VulkanShader*)shader;
 	if (!cmd || !vk_shader) {
@@ -467,7 +467,7 @@ Res<> VulkanRenderBackend::command_push_constants(CommandBuffer cmd, Shader shad
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_set_viewport(CommandBuffer cmd, const Vec2u& size) {
+Res<> VulkanDevice::command_set_viewport(CommandBuffer cmd, const Vec2u& size) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -486,8 +486,7 @@ Res<> VulkanRenderBackend::command_set_viewport(CommandBuffer cmd, const Vec2u& 
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_set_scissor(
-		CommandBuffer cmd, const Vec2u& size, const Vec2u& offset) {
+Res<> VulkanDevice::command_set_scissor(CommandBuffer cmd, const Vec2u& size, const Vec2u& offset) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -500,8 +499,8 @@ Res<> VulkanRenderBackend::command_set_scissor(
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_set_depth_bias(CommandBuffer cmd,
-		float depth_bias_constant_factor, float depth_bias_clamp, float depth_bias_slope_factor) {
+Res<> VulkanDevice::command_set_depth_bias(CommandBuffer cmd, float depth_bias_constant_factor,
+		float depth_bias_clamp, float depth_bias_slope_factor) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -512,7 +511,7 @@ Res<> VulkanRenderBackend::command_set_depth_bias(CommandBuffer cmd,
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_buffer_memory_barrier(
+Res<> VulkanDevice::command_buffer_memory_barrier(
 		CommandBuffer cmd, BufferUsageFlags src_usage, BufferUsageFlags dst_usage, Buffer buffer) {
 	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
 	if (!cmd || !vk_buffer) {
@@ -546,8 +545,8 @@ Res<> VulkanRenderBackend::command_buffer_memory_barrier(
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer,
-		Buffer dst_buffer, VectorView<BufferCopyRegion> regions) {
+Res<> VulkanDevice::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
+		VectorView<BufferCopyRegion> regions) {
 	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
 	VulkanBuffer* vk_dst = (VulkanBuffer*)dst_buffer;
 	if (!cmd || !vk_src || !vk_dst) {
@@ -566,7 +565,7 @@ Res<> VulkanRenderBackend::command_copy_buffer(CommandBuffer cmd, Buffer src_buf
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
+Res<> VulkanDevice::command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
 		Image dst_image, VectorView<BufferImageCopyRegion> regions) {
 	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
 	VulkanImage* vk_dst = (VulkanImage*)dst_image;
@@ -587,8 +586,8 @@ Res<> VulkanRenderBackend::command_copy_buffer_to_image(CommandBuffer cmd, Buffe
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_copy_image_to_image(CommandBuffer cmd, Image src_image,
-		Image dst_image, const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level,
+Res<> VulkanDevice::command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
+		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level,
 		uint32_t dst_mip_level) {
 	if (!cmd || !src_image || !dst_image) {
 		return Error::INVALID_HANDLE;
@@ -633,7 +632,7 @@ Res<> VulkanRenderBackend::command_copy_image_to_image(CommandBuffer cmd, Image 
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_transition_image(CommandBuffer cmd, Image image,
+Res<> VulkanDevice::command_transition_image(CommandBuffer cmd, Image image,
 		ImageLayout current_layout, ImageLayout new_layout, uint32_t base_mip_level,
 		uint32_t level_count) {
 	if (!cmd || !image) {

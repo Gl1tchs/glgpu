@@ -1,8 +1,8 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 namespace gl {
 
-Res<CommandQueue> VulkanRenderBackend::queue_get(QueueType type) {
+Res<CommandQueue> VulkanDevice::queue_get(QueueType type) {
 	VulkanQueue* queue = nullptr;
 	switch (type) {
 		case QueueType::GRAPHICS:
@@ -29,7 +29,7 @@ Res<CommandQueue> VulkanRenderBackend::queue_get(QueueType type) {
 	return CommandQueue(queue);
 }
 
-Res<> VulkanRenderBackend::queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence,
+Res<> VulkanDevice::queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence,
 		Semaphore wait_semaphore, Semaphore signal_semaphore) {
 	if (!queue || !cmd) {
 		return Error::INVALID_HANDLE;
@@ -83,7 +83,7 @@ Res<> VulkanRenderBackend::queue_submit(CommandQueue queue, CommandBuffer cmd, F
 	return {};
 }
 
-Res<> VulkanRenderBackend::queue_present(
+Res<> VulkanDevice::queue_present(
 		CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore) {
 	if (!queue || !swapchain) {
 		return Error::INVALID_HANDLE;

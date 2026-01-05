@@ -1,10 +1,10 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include "platform/vulkan/vk_common.h"
 
 namespace gl {
 
-Res<RenderPass> VulkanRenderBackend::render_pass_create(
+Res<RenderPass> VulkanDevice::render_pass_create(
 		VectorView<RenderPassAttachment> attachments, VectorView<SubpassInfo> subpasses) {
 	std::vector<VkAttachmentDescription> vk_attachments;
 	for (const auto& attachment : attachments) {
@@ -120,7 +120,7 @@ Res<RenderPass> VulkanRenderBackend::render_pass_create(
 	return RenderPass(render_pass_info);
 }
 
-Res<> VulkanRenderBackend::render_pass_destroy(RenderPass render_pass) {
+Res<> VulkanDevice::render_pass_destroy(RenderPass render_pass) {
 	if (!render_pass) {
 		return {};
 	}
@@ -134,7 +134,7 @@ Res<> VulkanRenderBackend::render_pass_destroy(RenderPass render_pass) {
 	return {};
 }
 
-Res<FrameBuffer> VulkanRenderBackend::frame_buffer_create(
+Res<FrameBuffer> VulkanDevice::frame_buffer_create(
 		RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent) {
 	if (!render_pass) {
 		return make_err<FrameBuffer>(Error::INVALID_HANDLE);
@@ -166,7 +166,7 @@ Res<FrameBuffer> VulkanRenderBackend::frame_buffer_create(
 	return FrameBuffer(frame_buffer);
 }
 
-Res<> VulkanRenderBackend::frame_buffer_destroy(FrameBuffer frame_buffer) {
+Res<> VulkanDevice::frame_buffer_destroy(FrameBuffer frame_buffer) {
 	if (!frame_buffer) {
 		return {};
 	}

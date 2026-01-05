@@ -1,6 +1,5 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
-#include "glgpu/backend.h"
 #include "platform/vulkan/vk_common.h"
 
 #include <vulkan/vulkan.h>
@@ -46,7 +45,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 
 static bool s_initialized = false;
 
-Res<> VulkanRenderBackend::init(const RenderBackendCreateInfo& info) {
+Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	if (s_initialized) {
 		GL_LOG_ERROR("Only one backend can exist at a time.");
 		return Error::INITIALIZATION_FAILED;
@@ -377,12 +376,12 @@ Res<> VulkanRenderBackend::init(const RenderBackendCreateInfo& info) {
 	return {};
 }
 
-VulkanRenderBackend::~VulkanRenderBackend() {
+VulkanDevice::~VulkanDevice() {
 	_deletion_queue.flush();
 	s_initialized = false;
 }
 
-Res<> VulkanRenderBackend::attach_surface(void* connection_handle, void* window_handle) {
+Res<> VulkanDevice::attach_surface(void* connection_handle, void* window_handle) {
 	if (!is_swapchain_supported()) {
 		return Error::SURFACE_SWAPCHAIN_NOT_SUPPORTED;
 	}
@@ -398,14 +397,14 @@ Res<> VulkanRenderBackend::attach_surface(void* connection_handle, void* window_
 	return Error::SURFACE_INVALID_COMPOSITOR;
 }
 
-bool VulkanRenderBackend::is_swapchain_supported() { return _swapchain_supported; }
+bool VulkanDevice::is_swapchain_supported() { return _swapchain_supported; }
 
-Res<> VulkanRenderBackend::device_wait() {
+Res<> VulkanDevice::device_wait() {
 	VK_CHECK_RET(vkDeviceWaitIdle(_device), Error::DEVICE_LOST);
 	return {};
 }
 
-uint32_t VulkanRenderBackend::get_max_msaa_samples() const {
+uint32_t VulkanDevice::get_max_msaa_samples() const {
 	const VkSampleCountFlags counts =
 			_physical_device_properties.limits.framebufferColorSampleCounts &
 			_physical_device_properties.limits.framebufferDepthSampleCounts;
@@ -427,7 +426,7 @@ uint32_t VulkanRenderBackend::get_max_msaa_samples() const {
 	return 1;
 }
 
-Res<> VulkanRenderBackend::command_begin_label(CommandBuffer cmd, const char* name, Color color) {
+Res<> VulkanDevice::command_begin_label(CommandBuffer cmd, const char* name, Color color) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -449,7 +448,7 @@ Res<> VulkanRenderBackend::command_begin_label(CommandBuffer cmd, const char* na
 	return {};
 }
 
-Res<> VulkanRenderBackend::command_end_label(CommandBuffer cmd) {
+Res<> VulkanDevice::command_end_label(CommandBuffer cmd) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -463,7 +462,7 @@ Res<> VulkanRenderBackend::command_end_label(CommandBuffer cmd) {
 	return {};
 }
 
-bool VulkanRenderBackend::_check_validation_layer_support() {
+bool VulkanDevice::_check_validation_layer_support() {
 	uint32_t layer_count;
 	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
@@ -485,9 +484,9 @@ bool VulkanRenderBackend::_check_validation_layer_support() {
 	return true;
 }
 
-uint32_t VulkanRenderBackend::_rate_device_suitability(VkPhysicalDevice physical_device,
-		const std::vector<const char*>& required_extensions,
-		RenderBackendFeatureFlags required_features, VkSurfaceKHR surface) {
+uint32_t VulkanDevice::_rate_device_suitability(VkPhysicalDevice physical_device,
+		const std::vector<const char*>& required_extensions, DeviceFeatureFlags required_features,
+		VkSurfaceKHR surface) {
 	if (!_check_device_extension_support(physical_device, required_extensions)) {
 		return 0;
 	}
@@ -552,8 +551,8 @@ uint32_t VulkanRenderBackend::_rate_device_suitability(VkPhysicalDevice physical
 	return score;
 }
 
-VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_families(
-		VkPhysicalDevice device, RenderBackendFeatureFlags flags, VkSurfaceKHR surface) {
+VulkanDevice::QueueFamilyIndices VulkanDevice::_find_queue_families(
+		VkPhysicalDevice device, DeviceFeatureFlags flags, VkSurfaceKHR surface) {
 	const bool needs_surface = flags & RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT;
 	const bool distinct_compute_queue = flags & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
 
@@ -599,7 +598,7 @@ VulkanRenderBackend::QueueFamilyIndices VulkanRenderBackend::_find_queue_familie
 	return indices;
 }
 
-bool VulkanRenderBackend::_check_device_extension_support(
+bool VulkanDevice::_check_device_extension_support(
 		VkPhysicalDevice device, const std::vector<const char*>& extensions) {
 	uint32_t extension_count;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
@@ -615,8 +614,7 @@ bool VulkanRenderBackend::_check_device_extension_support(
 	return required_extensions.empty();
 }
 
-std::optional<VulkanRenderBackend::SurfaceCapabilities>
-VulkanRenderBackend::_check_surface_capabilities(
+std::optional<VulkanDevice::SurfaceCapabilities> VulkanDevice::_check_surface_capabilities(
 		VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
 	if (surface == VK_NULL_HANDLE) {
 		return std::nullopt;
@@ -648,7 +646,7 @@ VulkanRenderBackend::_check_surface_capabilities(
 	return capabilities;
 }
 
-bool VulkanRenderBackend::_create_surface_platform_specific(void* connection, void* window) {
+bool VulkanDevice::_create_surface_platform_specific(void* connection, void* window) {
 	if (!window) {
 		return false;
 	}
@@ -675,7 +673,7 @@ bool VulkanRenderBackend::_create_surface_platform_specific(void* connection, vo
 #endif
 }
 
-VkResult VulkanRenderBackend::_create_debug_utils_messenger_ext(VkInstance instance,
+VkResult VulkanDevice::_create_debug_utils_messenger_ext(VkInstance instance,
 		const VkDebugUtilsMessengerCreateInfoEXT* info, const VkAllocationCallbacks* allocator,
 		VkDebugUtilsMessengerEXT* debug_messenger) {
 	PFN_vkCreateDebugUtilsMessengerEXT func =
@@ -688,7 +686,7 @@ VkResult VulkanRenderBackend::_create_debug_utils_messenger_ext(VkInstance insta
 	}
 }
 
-void VulkanRenderBackend::_destroy_debug_utils_messenger_ext(VkInstance instance,
+void VulkanDevice::_destroy_debug_utils_messenger_ext(VkInstance instance,
 		VkDebugUtilsMessengerEXT debug_messenger, const VkAllocationCallbacks* allocator) {
 	PFN_vkDestroyDebugUtilsMessengerEXT func =
 			(PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(

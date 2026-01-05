@@ -1,7 +1,7 @@
 #pragma once
 
-#include "glgpu/backend.h"
 #include "glgpu/deletion_queue.h"
+#include "glgpu/device.h"
 #include "glgpu/types.h"
 #include "glgpu/versatile_resource.h"
 
@@ -15,12 +15,12 @@ static_assert(sizeof(ImageResolve) == sizeof(VkImageResolve));
 static_assert(sizeof(BufferCopyRegion) == sizeof(VkBufferCopy));
 static_assert(sizeof(BufferImageCopyRegion) == sizeof(VkBufferImageCopy));
 
-class VulkanRenderBackend : public RenderBackend {
+class VulkanDevice : public Device {
 public:
-	VulkanRenderBackend() = default;
-	virtual ~VulkanRenderBackend();
+	VulkanDevice() = default;
+	virtual ~VulkanDevice();
 
-	Res<> init(const RenderBackendCreateInfo& info) override;
+	Res<> init(const DeviceCreateInfo& info) override;
 
 	// =========================================================================
 	// Device & Surface
@@ -365,10 +365,10 @@ private:
 
 	static uint32_t _rate_device_suitability(VkPhysicalDevice physical_device,
 			const std::vector<const char*>& required_extensions,
-			RenderBackendFeatureFlags required_features, VkSurfaceKHR surface = VK_NULL_HANDLE);
+			DeviceFeatureFlags required_features, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
 	static QueueFamilyIndices _find_queue_families(VkPhysicalDevice device,
-			RenderBackendFeatureFlags flags, VkSurfaceKHR surface = VK_NULL_HANDLE);
+			DeviceFeatureFlags flags, VkSurfaceKHR surface = VK_NULL_HANDLE);
 
 	static bool _check_device_extension_support(
 			VkPhysicalDevice device, const std::vector<const char*>& extensions);

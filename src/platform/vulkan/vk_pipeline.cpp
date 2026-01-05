@@ -1,4 +1,4 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include "platform/vulkan/vk_common.h"
 
@@ -91,7 +91,7 @@ static Res<VkPipelineCache> _load_pipeline_cache(VkDevice device, const std::fil
 }
 
 static VkPipelineVertexInputStateCreateInfo _get_vertex_input_state_info(
-		VulkanRenderBackend* backend, Shader shader, PipelineVertexInputState vertex_input_state) {
+		VulkanDevice* backend, Shader shader, PipelineVertexInputState vertex_input_state) {
 	VkPipelineVertexInputStateCreateInfo vertex_info = {};
 	vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
@@ -263,8 +263,7 @@ constexpr static VkPipelineViewportStateCreateInfo _get_viewport_state() {
 	return viewport_state;
 }
 
-Res<Pipeline> VulkanRenderBackend::graphics_pipeline_create(
-		const GraphicsPipelineCreateInfo& info) {
+Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreateInfo& info) {
 	VulkanShader* shader = (VulkanShader*)info.shader;
 	if (!shader) {
 		return make_err<Pipeline>(Error::INVALID_ARGUMENT);
@@ -399,7 +398,7 @@ Res<Pipeline> VulkanRenderBackend::graphics_pipeline_create(
 	return Pipeline(pipeline);
 }
 
-Res<Pipeline> VulkanRenderBackend::compute_pipeline_create(Shader shader) {
+Res<Pipeline> VulkanDevice::compute_pipeline_create(Shader shader) {
 	VulkanShader* vk_shader = (VulkanShader*)shader;
 	if (!vk_shader) {
 		return make_err<Pipeline>(Error::INVALID_ARGUMENT);
@@ -434,7 +433,7 @@ Res<Pipeline> VulkanRenderBackend::compute_pipeline_create(Shader shader) {
 	return Pipeline(pipeline);
 }
 
-Res<> VulkanRenderBackend::pipeline_free(Pipeline pipeline) {
+Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 	if (!pipeline) {
 		return {};
 	}

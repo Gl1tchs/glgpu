@@ -1,10 +1,10 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include "platform/vulkan/vk_common.h"
 
 namespace gl {
 
-Res<UniformSet> VulkanRenderBackend::uniform_set_create(
+Res<UniformSet> VulkanDevice::uniform_set_create(
 		VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) {
 	const VulkanShader* shader_info = (const VulkanShader*)shader;
 	if (!shader_info) {
@@ -205,7 +205,7 @@ Res<UniformSet> VulkanRenderBackend::uniform_set_create(
 	return UniformSet(usi);
 }
 
-Res<> VulkanRenderBackend::uniform_set_free(UniformSet uniform_set) {
+Res<> VulkanDevice::uniform_set_free(UniformSet uniform_set) {
 	VulkanUniformSet* usi = (VulkanUniformSet*)uniform_set;
 	if (!usi) {
 		return {};
@@ -221,7 +221,7 @@ Res<> VulkanRenderBackend::uniform_set_free(UniformSet uniform_set) {
 	return {};
 }
 
-Res<UniformSet> VulkanRenderBackend::uniform_set_create_bindless(
+Res<UniformSet> VulkanDevice::uniform_set_create_bindless(
 		Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) {
 	VulkanShader* shader_info = (VulkanShader*)shader;
 	if (!shader_info) {
@@ -285,7 +285,7 @@ Res<UniformSet> VulkanRenderBackend::uniform_set_create_bindless(
 	return UniformSet(usi);
 }
 
-Res<> VulkanRenderBackend::uniform_set_update_texture(
+Res<> VulkanDevice::uniform_set_update_texture(
 		UniformSet set, uint32_t binding, uint32_t array_index, Image image, Sampler sampler) {
 	VulkanUniformSet* usi = (VulkanUniformSet*)set;
 	VulkanImage* vk_image = (VulkanImage*)image;
@@ -319,8 +319,7 @@ Res<> VulkanRenderBackend::uniform_set_update_texture(
 
 static const uint32_t MAX_DESCRIPTOR_SETS_PER_POOL = 10;
 
-VkDescriptorPool VulkanRenderBackend::_uniform_pool_find_or_create(
-		const DescriptorSetPoolKey& key) {
+VkDescriptorPool VulkanDevice::_uniform_pool_find_or_create(const DescriptorSetPoolKey& key) {
 	// Try to find existing pool with space
 	auto it = _descriptor_set_pools.find(key);
 	if (it != _descriptor_set_pools.end()) {
@@ -375,7 +374,7 @@ VkDescriptorPool VulkanRenderBackend::_uniform_pool_find_or_create(
 	return vk_pool;
 }
 
-void VulkanRenderBackend::_uniform_pool_unreference(
+void VulkanDevice::_uniform_pool_unreference(
 		const DescriptorSetPoolKey& key, VkDescriptorPool vk_descriptor_pool) {
 	auto pool_sets_it = _descriptor_set_pools.find(key);
 	if (pool_sets_it == _descriptor_set_pools.end()) {

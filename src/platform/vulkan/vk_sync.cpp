@@ -1,8 +1,8 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 namespace gl {
 
-Fence VulkanRenderBackend::fence_create(bool create_signaled) {
+Fence VulkanDevice::fence_create(bool create_signaled) {
 	VkFenceCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	if (create_signaled) {
@@ -15,7 +15,7 @@ Fence VulkanRenderBackend::fence_create(bool create_signaled) {
 	return Fence(vk_fence);
 }
 
-Res<> VulkanRenderBackend::fence_free(Fence fence) {
+Res<> VulkanDevice::fence_free(Fence fence) {
 	if (!fence) {
 		return {};
 	}
@@ -25,7 +25,7 @@ Res<> VulkanRenderBackend::fence_free(Fence fence) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::fence_wait(Fence fence) {
+Res<> VulkanDevice::fence_wait(Fence fence) {
 	VkFence vk_fence = (VkFence)fence;
 	if (!vk_fence) {
 		return Error::INVALID_HANDLE;
@@ -38,7 +38,7 @@ Res<> VulkanRenderBackend::fence_wait(Fence fence) {
 	return {};
 }
 
-Res<> VulkanRenderBackend::fence_reset(Fence fence) {
+Res<> VulkanDevice::fence_reset(Fence fence) {
 	VkFence vk_fence = (VkFence)fence;
 	if (!vk_fence) {
 		return Error::INVALID_HANDLE;
@@ -49,7 +49,7 @@ Res<> VulkanRenderBackend::fence_reset(Fence fence) {
 	return {};
 }
 
-Semaphore VulkanRenderBackend::semaphore_create() {
+Semaphore VulkanDevice::semaphore_create() {
 	VkSemaphoreCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -59,7 +59,7 @@ Semaphore VulkanRenderBackend::semaphore_create() {
 	return Semaphore(vk_semaphore);
 }
 
-Res<> VulkanRenderBackend::semaphore_free(Semaphore semaphore) {
+Res<> VulkanDevice::semaphore_free(Semaphore semaphore) {
 	if (!semaphore) {
 		return {};
 	}

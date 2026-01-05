@@ -1,10 +1,10 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include "platform/vulkan/vk_common.h"
 
 namespace gl {
 
-void VulkanRenderBackend::_swapchain_release(VulkanSwapchain* swapchain) {
+void VulkanDevice::_swapchain_release(VulkanSwapchain* swapchain) {
 	if (!swapchain) {
 		return;
 	}
@@ -28,7 +28,7 @@ void VulkanRenderBackend::_swapchain_release(VulkanSwapchain* swapchain) {
 	swapchain->image_index = UINT32_MAX;
 }
 
-Res<Swapchain> VulkanRenderBackend::swapchain_create() {
+Res<Swapchain> VulkanDevice::swapchain_create() {
 	VulkanSwapchain* swapchain = new VulkanSwapchain();
 	if (!swapchain) {
 		return make_err<Swapchain>(Error::OUT_OF_HOST_MEMORY);
@@ -42,7 +42,7 @@ Res<Swapchain> VulkanRenderBackend::swapchain_create() {
 	return Swapchain(swapchain);
 }
 
-Res<> VulkanRenderBackend::swapchain_resize(
+Res<> VulkanDevice::swapchain_resize(
 		CommandQueue cmd_queue, Swapchain swapchain_handle, Vec2u size, bool vsync) {
 	if (!_surface) {
 		GL_LOG_WARNING("[VULKAN] Headless mode or no surface: skipping swapchain resize.");
@@ -211,7 +211,7 @@ Res<> VulkanRenderBackend::swapchain_resize(
 	return {};
 }
 
-Res<size_t> VulkanRenderBackend::swapchain_get_image_count(Swapchain swapchain) {
+Res<size_t> VulkanDevice::swapchain_get_image_count(Swapchain swapchain) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
 		return make_err<size_t>(Error::INVALID_HANDLE);
@@ -220,7 +220,7 @@ Res<size_t> VulkanRenderBackend::swapchain_get_image_count(Swapchain swapchain) 
 	return vk_swapchain->images.size();
 }
 
-Res<std::vector<Image>> VulkanRenderBackend::swapchain_get_images(Swapchain swapchain) {
+Res<std::vector<Image>> VulkanDevice::swapchain_get_images(Swapchain swapchain) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
 		return make_err<std::vector<Image>>(Error::INVALID_HANDLE);
@@ -235,7 +235,7 @@ Res<std::vector<Image>> VulkanRenderBackend::swapchain_get_images(Swapchain swap
 	return images;
 }
 
-Res<Image> VulkanRenderBackend::swapchain_acquire_image(
+Res<Image> VulkanDevice::swapchain_acquire_image(
 		Swapchain swapchain, Semaphore semaphore, uint32_t* o_image_index) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
@@ -258,7 +258,7 @@ Res<Image> VulkanRenderBackend::swapchain_acquire_image(
 	return Image(&vk_swapchain->images[vk_swapchain->image_index]);
 }
 
-Res<Vec2u> VulkanRenderBackend::swapchain_get_extent(Swapchain swapchain) {
+Res<Vec2u> VulkanDevice::swapchain_get_extent(Swapchain swapchain) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
 		return make_err<Vec2u>(Error::INVALID_HANDLE);
@@ -267,7 +267,7 @@ Res<Vec2u> VulkanRenderBackend::swapchain_get_extent(Swapchain swapchain) {
 	return Vec2u{ vk_swapchain->extent.width, vk_swapchain->extent.height };
 }
 
-Res<DataFormat> VulkanRenderBackend::swapchain_get_format(Swapchain swapchain) {
+Res<DataFormat> VulkanDevice::swapchain_get_format(Swapchain swapchain) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
 		return make_err<DataFormat>(Error::INVALID_HANDLE);
@@ -276,7 +276,7 @@ Res<DataFormat> VulkanRenderBackend::swapchain_get_format(Swapchain swapchain) {
 	return static_cast<DataFormat>(vk_swapchain->format);
 }
 
-Res<> VulkanRenderBackend::swapchain_free(Swapchain swapchain) {
+Res<> VulkanDevice::swapchain_free(Swapchain swapchain) {
 	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
 	if (!vk_swapchain) {
 		return {};

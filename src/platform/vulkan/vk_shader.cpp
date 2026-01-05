@@ -1,4 +1,4 @@
-#include "platform/vulkan/vk_backend.h"
+#include "platform/vulkan/vk_device.h"
 
 #include <spirv_reflect.h>
 #include <vulkan/vulkan_core.h>
@@ -96,7 +96,7 @@ template <typename T> void _hash_combine(std::size_t& seed, const T& value) {
 	seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(VectorView<SpirvEntry> shaders) {
+Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> shaders) {
 	std::vector<VkShaderModule> vk_shaders;
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 	VkPipelineLayout vk_pipeline_layout = VK_NULL_HANDLE;
@@ -350,7 +350,7 @@ Res<Shader> VulkanRenderBackend::shader_create_from_bytecode(VectorView<SpirvEnt
 	return Shader(shader_info);
 }
 
-Res<> VulkanRenderBackend::shader_free(Shader shader) {
+Res<> VulkanDevice::shader_free(Shader shader) {
 	if (!shader) {
 		return {};
 	}
@@ -372,8 +372,7 @@ Res<> VulkanRenderBackend::shader_free(Shader shader) {
 	return {};
 }
 
-Res<std::vector<ShaderInterfaceVariable>> VulkanRenderBackend::shader_get_vertex_inputs(
-		Shader shader) {
+Res<std::vector<ShaderInterfaceVariable>> VulkanDevice::shader_get_vertex_inputs(Shader shader) {
 	if (!shader) {
 		return make_err<std::vector<ShaderInterfaceVariable>>(Error::INVALID_HANDLE);
 	}
