@@ -30,9 +30,11 @@ public:
 
 	Res<> attach_surface(void* connection_handle, void* window_handle) override;
 
-	bool is_swapchain_supported() override;
-
 	uint32_t get_max_msaa_samples() const override;
+
+	uint32_t get_max_bindless_instances() const override;
+
+	bool is_swapchain_supported() override;
 
 	// Command Queue
 	Res<CommandQueue> queue_get(QueueType type) override;

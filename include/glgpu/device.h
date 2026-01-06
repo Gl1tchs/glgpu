@@ -6,8 +6,6 @@
 
 namespace gl {
 
-constexpr size_t MAX_BINDLESS_INSTANCES = 1000;
-
 enum DeviceRequiredFeatureBits : uint32_t {
 	RENDER_BACKEND_FEATURE_NONE = 0x0,
 	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
@@ -41,9 +39,14 @@ public:
 	virtual Res<> device_wait() = 0;
 
 	virtual Res<> attach_surface(void* connection_handle, void* window_handle) = 0;
-	virtual bool is_swapchain_supported() = 0;
-	virtual Res<CommandQueue> queue_get(QueueType type) = 0;
+
 	virtual uint32_t get_max_msaa_samples() const = 0;
+
+	virtual uint32_t get_max_bindless_instances() const = 0;
+
+	virtual bool is_swapchain_supported() = 0;
+
+	virtual Res<CommandQueue> queue_get(QueueType type) = 0;
 
 	// =========================================================================
 	// Swapchain

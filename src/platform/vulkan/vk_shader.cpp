@@ -185,7 +185,7 @@ Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> sha
 							: false;
 
 					if (is_runtime_array || is_explicitly_named) {
-						count = MAX_BINDLESS_INSTANCES;
+						count = get_max_bindless_instances();
 
 						per_binding_flags[descriptor_set->set][binding->binding] =
 								VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |

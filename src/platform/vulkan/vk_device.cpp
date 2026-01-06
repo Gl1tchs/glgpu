@@ -397,8 +397,6 @@ Res<> VulkanDevice::attach_surface(void* connection_handle, void* window_handle)
 	return Error::SURFACE_INVALID_COMPOSITOR;
 }
 
-bool VulkanDevice::is_swapchain_supported() { return _swapchain_supported; }
-
 Res<> VulkanDevice::device_wait() {
 	VK_CHECK_RET(vkDeviceWaitIdle(_device), Error::DEVICE_LOST);
 	return {};
@@ -425,6 +423,10 @@ uint32_t VulkanDevice::get_max_msaa_samples() const {
 
 	return 1;
 }
+
+uint32_t VulkanDevice::get_max_bindless_instances() const { return 1000; }
+
+bool VulkanDevice::is_swapchain_supported() { return _swapchain_supported; }
 
 Res<> VulkanDevice::command_begin_label(CommandBuffer cmd, const char* name, Color color) {
 	if (!cmd) {
