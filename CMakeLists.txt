@@ -66,6 +66,23 @@ if(GL_USE_SIMD_INTRINSICS)
     target_compile_definitions(glgpu PUBLIC GL_USE_SIMD_INTRINSICS)
 endif()
 
+# Shared Library Specific Configuration
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(glgpu PRIVATE GLGPU_BUILD_DLL)
+
+    set_target_properties(glgpu PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+else()
+    target_compile_definitions(glgpu PUBLIC GLGPU_STATIC_BUILD)
+endif()
+
+set_target_properties(glgpu PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
 # ------------------------------------------------------------------------------
 # Includes & Linking
 # ------------------------------------------------------------------------------
@@ -127,7 +144,7 @@ install(EXPORT glgpuTargets
 # Create *Config.cmake files
 write_basic_package_version_file(
     glgpuConfigVersion.cmake
-    VERSION 1.0.1${PROJECT_VERSION}
+    VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 

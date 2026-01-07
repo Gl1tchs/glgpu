@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glgpu/export.h"
+
 namespace gl {
 
 enum class WindowCompositor {
@@ -12,6 +14,6 @@ enum class WindowCompositor {
 /**
  * Get the window compositor the user is on.
  */
-WindowCompositor get_window_compositor();
+GLGPU_API WindowCompositor get_window_compositor();
 
 } //namespace gl

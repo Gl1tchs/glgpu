@@ -1,6 +1,7 @@
 #pragma once
 
 #include "glgpu/color.h"
+#include "glgpu/export.h"
 #include "glgpu/types.h"
 #include "glgpu/vector_view.h"
 
@@ -28,7 +29,7 @@ struct DeviceCreateInfo {
 /**
  * Abstract class responsible for communicating with the GPU.
  */
-class Device {
+class GLGPU_API Device {
 public:
 	virtual ~Device() = default;
 

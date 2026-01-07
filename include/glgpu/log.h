@@ -1,7 +1,10 @@
 #pragma once
 
+#include "export.h"
+
 #include <cstdint>
 #include <format>
+#include <string>
 
 namespace gl {
 
@@ -13,7 +16,7 @@ enum LogLevel : uint8_t {
 	LOG_LEVEL_FATAL,
 };
 
-class Logger {
+class GLGPU_API Logger {
 public:
 	static void log(LogLevel level, const std::string& fmt);
 };
