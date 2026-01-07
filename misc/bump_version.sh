@@ -31,7 +31,7 @@ echo "Created git commit and tag v$NEW_VERSION"
 read -p "Push to origin? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    git push origin main --tags
+    git push origin master --tags
 fi
 
 echo "Done!"
