@@ -2,6 +2,10 @@
 
 #include "platform/vulkan/vk_common.h"
 
+#include <map>
+#include <set>
+#include <vector>
+
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 

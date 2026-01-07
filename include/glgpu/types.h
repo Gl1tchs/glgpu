@@ -4,6 +4,9 @@
 #include "glgpu/result.h"
 #include "glgpu/vector.h"
 
+#include <cstdint>
+#include <vector>
+
 namespace gl {
 
 // -----------------------------------------------------------------------------

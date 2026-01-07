@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 3.15...4.0)
-project(glgpu)
+cmake_minimum_required(VERSION 3.15)
+project(glgpu VERSION 1.0.0 LANGUAGES CXX)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # ------------------------------------------------------------------------------
 # Options
@@ -19,64 +22,114 @@ if (GL_ENABLE_POSITION_INDEPENDENT_CODE)
     set(VK_BOOTSTRAP_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
 endif()
 
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/debug)
-    add_compile_definitions(GL_DEBUG_BUILD)
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/release)
-    add_compile_definitions(GL_RELEASE_BUILD)
-elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/relwithdebinfo)
-    add_compile_definitions(GL_DEBUG_BUILD)
-    add_compile_definitions(GL_RELEASE_BUILD)
-elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-    set(GL_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/bin/dist)
-    add_compile_definitions(GL_RELEASE_BUILD)
-    add_compile_definitions(GL_DIST_BUILD)
-endif()
-
 # ------------------------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------------------------
 find_package(Vulkan REQUIRED)
 
 set(VENDOR_DIR ${CMAKE_CURRENT_LIST_DIR}/external)
-
-set(SPIRV_REFLECT_FILES
-    "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp"
-)
+set(SPIRV_REFLECT_FILES "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp")
 
 # ------------------------------------------------------------------------------
 # Target: glgpu
 # ------------------------------------------------------------------------------
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/include/*.h" "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
+file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS 
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+)
 
 add_library(glgpu ${SOURCE_FILES} ${SPIRV_REFLECT_FILES})
+add_library(glgpu::glgpu ALIAS glgpu)
 
-target_include_directories(glgpu
-    PUBLIC
-    ${CMAKE_CURRENT_LIST_DIR}/include
-    PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/src
-    ${VENDOR_DIR}/SPIRV-Reflect
-    ${VENDOR_DIR}/vma
-    ${Vulkan_INCLUDE_DIRS}
+# ------------------------------------------------------------------------------
+# Configuration & Compile Definitions
+# ------------------------------------------------------------------------------
+
+target_compile_definitions(glgpu PUBLIC
+    $<$<CONFIG:Debug>:GL_DEBUG_BUILD>
+    $<$<CONFIG:Release>:GL_RELEASE_BUILD>
+    $<$<CONFIG:RelWithDebInfo>:GL_DEBUG_BUILD;GL_RELEASE_BUILD>
+    $<$<CONFIG:MinSizeRel>:GL_RELEASE_BUILD;GL_DIST_BUILD>
 )
-
-target_link_libraries(glgpu
-    PRIVATE
-    ${Vulkan_LIBRARIES}
-)
-
-target_precompile_headers(glgpu PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include/pch.h)
 
 if(GL_USE_SIMD_INTRINSICS)
     target_compile_definitions(glgpu PUBLIC GL_USE_SIMD_INTRINSICS)
 endif()
 
 # ------------------------------------------------------------------------------
-# Target: examples, tests
+# Includes & Linking
+# ------------------------------------------------------------------------------
+target_include_directories(glgpu
+    PUBLIC
+        # Headers for the build tree
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        # Headers for the install tree
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${VENDOR_DIR}/SPIRV-Reflect
+        ${VENDOR_DIR}/vma
+)
+
+# Link Vulkan::Vulkan if available, otherwise fallback to libraries
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(glgpu PRIVATE Vulkan::Vulkan)
+else()
+    target_link_libraries(glgpu PRIVATE ${Vulkan_LIBRARIES})
+    target_include_directories(glgpu PRIVATE ${Vulkan_INCLUDE_DIRS})
+endif()
+
+# ------------------------------------------------------------------------------
+# Installation & Exporting
+# ------------------------------------------------------------------------------
+
+# Install the library binary
+install(TARGETS glgpu
+    EXPORT glgpuTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install the headers
+install(DIRECTORY include/ 
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install SDL2 glue
+install(FILES misc/glgpu_sdl2_glue.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} 
+)
+
+#  Create the *Targets.cmake file (allows finding targets)
+install(EXPORT glgpuTargets
+    FILE glgpuTargets.cmake
+    NAMESPACE glgpu::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/glgpu
+)
+
+# Create *Config.cmake files (allows find_package(glgpu))
+write_basic_package_version_file(
+    glgpuConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/glgpuConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/glgpuConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/glgpu
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/glgpuConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/glgpuConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/glgpu
+)
+
+# ------------------------------------------------------------------------------
+# Subdirectories
 # ------------------------------------------------------------------------------
 if(GL_BUILD_EXAMPLES)
     add_subdirectory(examples)

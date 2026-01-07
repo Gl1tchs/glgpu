@@ -2,6 +2,9 @@
 
 #include "glgpu/paged_allocator.h"
 
+#include <algorithm>
+#include <cstdint>
+
 namespace gl {
 
 template <typename... RESOURCE_TYPES> struct VersatileResourceTemplate {

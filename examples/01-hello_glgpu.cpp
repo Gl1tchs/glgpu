@@ -4,7 +4,7 @@
 #include <SDL2/SDL_syswm.h>
 
 #include <glgpu/glgpu.h>
-#include <sdl2_glue.h>
+#include <glgpu_sdl2_glue.h>
 
 constexpr int WINDOW_WIDTH = 800;
 constexpr int WINDOW_HEIGHT = 600;

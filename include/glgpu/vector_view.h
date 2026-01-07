@@ -2,6 +2,9 @@
 
 #include "glgpu/assert.h"
 
+#include <array>
+#include <vector>
+
 namespace gl {
 
 /**

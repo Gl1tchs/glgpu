@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <format>
+
 namespace gl {
 
 enum LogLevel : uint8_t {

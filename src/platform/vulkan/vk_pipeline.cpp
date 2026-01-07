@@ -2,6 +2,9 @@
 
 #include "platform/vulkan/vk_common.h"
 
+#include <filesystem>
+#include <fstream>
+
 namespace gl {
 
 static VkCullModeFlagBits _gl_to_vk_cull_mode(PolygonCullMode cull_mode) {

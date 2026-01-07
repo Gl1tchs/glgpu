@@ -1,5 +1,8 @@
 #include "glgpu/log.h"
 
+#include <chrono>
+#include <iostream>
+
 namespace gl {
 
 constexpr const char* VERBOSITY_TO_COLOR[] = {

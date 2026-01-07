@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Dependencies
+find_dependency(Vulkan REQUIRED)
+
+# Import targets
+include("${CMAKE_CURRENT_LIST_DIR}/glgpuTargets.cmake")
+
+# Consistency check
+check_required_components(glgpu)

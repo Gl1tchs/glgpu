@@ -3,6 +3,9 @@
 #include "glgpu/math.h"
 #include "glgpu/vector.h"
 
+#include <array>
+#include <type_traits>
+
 #ifdef GL_USE_SIMD_INTRINSICS
 #include <immintrin.h>
 #endif

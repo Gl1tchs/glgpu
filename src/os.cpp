@@ -1,5 +1,8 @@
 #include "glgpu/os.h"
 
+#include <cstdlib>
+#include <cstring>
+
 namespace gl {
 
 WindowCompositor get_window_compositor() {

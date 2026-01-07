@@ -2,6 +2,8 @@
 
 #include "glgpu/vector.h"
 
+#include <cmath>
+
 namespace gl {
 
 namespace math {

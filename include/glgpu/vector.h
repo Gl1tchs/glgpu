@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <type_traits>
+
 namespace gl {
 
 template <size_t S, typename T> struct Vec;

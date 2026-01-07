@@ -1,5 +1,9 @@
 #include <glgpu/glgpu.h>
 
+#include <cstdint>
+#include <fstream>
+#include <vector>
+
 std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
 

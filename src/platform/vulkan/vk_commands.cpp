@@ -36,7 +36,6 @@ Res<> VulkanDevice::command_immediate_submit(
 			Error::COMMAND_SUBMISSION_FAILED);
 
 	// Submit
-	// Note: queue_submit returns Res<>
 	CommandQueue target_queue_res = (queue_type == QueueType::TRANSFER)
 			? queue_get(QueueType::TRANSFER).value()
 			: queue_get(QueueType::GRAPHICS).value();

@@ -4,6 +4,9 @@
 #include "glgpu/types.h"
 #include "glgpu/vector_view.h"
 
+#include <functional>
+#include <memory>
+
 namespace gl {
 
 enum DeviceRequiredFeatureBits : uint32_t {

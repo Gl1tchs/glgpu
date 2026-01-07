@@ -7,6 +7,10 @@
 
 #include "platform/vulkan/vk_common.h"
 
+#include <cstring>
+#include <map>
+#include <mutex>
+
 namespace gl {
 
 // Sanity checks

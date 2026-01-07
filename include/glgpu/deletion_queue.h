@@ -1,5 +1,8 @@
 #pragma once
 
+#include <deque>
+#include <functional>
+
 namespace gl {
 
 /**
