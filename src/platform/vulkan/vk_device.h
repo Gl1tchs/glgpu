@@ -426,7 +426,7 @@ private:
 	bool _swapchain_supported;
 
 	// Debug ressources
-	VkDebugUtilsMessengerEXT _debug_messenger;
+	VkDebugUtilsMessengerEXT _debug_messenger = VK_NULL_HANDLE;
 
 	PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;
 	PFN_vkCmdEndDebugUtilsLabelEXT _vkCmdEndDebugUtilsLabelEXT;

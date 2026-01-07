@@ -55,12 +55,11 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		return Error::INITIALIZATION_FAILED;
 	}
 
-#ifdef GL_DEBUG_BUILD
-	if (!_check_validation_layer_support()) {
+	bool use_validation_layers = info.required_features & DEVICE_FEATURE_VALIDATION_LAYERS;
+	if (use_validation_layers && !_check_validation_layer_support()) {
 		GL_LOG_WARNING("[VULKAN] Validation layers requested but not available!");
-		// We don't fail here, just warn
+		use_validation_layers = false;
 	}
-#endif
 
 	VkApplicationInfo app_info = {};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -92,32 +91,32 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 
 	// Validation Layers
 	VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {};
-#ifdef GL_DEBUG_BUILD
-	instance_info.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
-	instance_info.ppEnabledLayerNames = VALIDATION_LAYERS.data();
+	if (use_validation_layers) {
+		instance_info.enabledLayerCount = static_cast<uint32_t>(VALIDATION_LAYERS.size());
+		instance_info.ppEnabledLayerNames = VALIDATION_LAYERS.data();
 
-	debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	debug_create_info.pfnUserCallback = _vk_debug_callback;
+		debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		debug_create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		debug_create_info.pfnUserCallback = _vk_debug_callback;
 
-	instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
-#else
-	instance_info.enabledLayerCount = 0;
-	instance_info.pNext = nullptr;
-#endif
+		instance_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
+	} else {
+		instance_info.enabledLayerCount = 0;
+		instance_info.pNext = nullptr;
+	}
 
 	// Return specific error on failure
 	VK_CHECK_RET(
 			vkCreateInstance(&instance_info, nullptr, &_instance), Error::INITIALIZATION_FAILED);
 
-#ifdef GL_DEBUG_BUILD
-	if (_create_debug_utils_messenger_ext(
-				_instance, &debug_create_info, nullptr, &_debug_messenger) != VK_SUCCESS) {
+	if (use_validation_layers &&
+			_create_debug_utils_messenger_ext(
+					_instance, &debug_create_info, nullptr, &_debug_messenger) != VK_SUCCESS) {
 		GL_LOG_WARNING("[VULKAN] Failed to set up debug messenger!");
 	}
 
@@ -125,16 +124,14 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			_instance, "vkCmdBeginDebugUtilsLabelEXT");
 	_vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(
 			_instance, "vkCmdEndDebugUtilsLabelEXT");
-#endif
 
 	s_initialized = true;
 
-	const bool swapchain_support_required =
-			info.required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT;
+	const bool swapchain_support_required = info.required_features & DEVICE_FEATURE_SWAPCHAIN_BIT;
 	const bool surface_support_required =
-			info.required_features & RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT;
+			info.required_features & DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT;
 	const bool distinct_compute_queue_required =
-			(info.required_features & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT);
+			(info.required_features & DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT);
 
 	// Try to create a surface
 	if (surface_support_required && !info.native_window_handle) {
@@ -291,9 +288,12 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			vkDestroySurfaceKHR(_instance, _surface, nullptr);
 		}
 		vkDestroyDevice(_device, nullptr);
-#ifdef GL_DEBUG_BUILD
-		_destroy_debug_utils_messenger_ext(_instance, _debug_messenger, nullptr);
-#endif
+
+		// Destroy debug messenger if created
+		if (_debug_messenger) {
+			_destroy_debug_utils_messenger_ext(_instance, _debug_messenger, nullptr);
+		}
+
 		vkDestroyInstance(_instance, nullptr);
 	});
 
@@ -498,7 +498,7 @@ uint32_t VulkanDevice::_rate_device_suitability(VkPhysicalDevice physical_device
 	}
 
 	bool swapchain_adequate = false;
-	if (required_features & RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT) {
+	if (required_features & DEVICE_FEATURE_SWAPCHAIN_BIT) {
 		if (surface) {
 			auto cap_res = _check_surface_capabilities(physical_device, surface);
 			if (cap_res.has_value()) {
@@ -559,8 +559,8 @@ uint32_t VulkanDevice::_rate_device_suitability(VkPhysicalDevice physical_device
 
 VulkanDevice::QueueFamilyIndices VulkanDevice::_find_queue_families(
 		VkPhysicalDevice device, DeviceFeatureFlags flags, VkSurfaceKHR surface) {
-	const bool needs_surface = flags & RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT;
-	const bool distinct_compute_queue = flags & RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
+	const bool needs_surface = flags & DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT;
+	const bool distinct_compute_queue = flags & DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT;
 
 	QueueFamilyIndices indices;
 	uint32_t queue_family_count = 0;

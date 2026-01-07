@@ -21,7 +21,7 @@ inline std::shared_ptr<Device> get_test_device() {
 	if (!device) {
 		DeviceCreateInfo info = {};
 		info.api = RenderAPI::VULKAN;
-		info.required_features = RENDER_BACKEND_FEATURE_NONE;
+		info.required_features = DEVICE_FEATURE_VALIDATION_LAYERS;
 		info.native_window_handle = nullptr;
 		info.native_connection_handle = nullptr;
 

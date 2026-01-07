@@ -10,16 +10,17 @@
 namespace gl {
 
 enum DeviceRequiredFeatureBits : uint32_t {
-	RENDER_BACKEND_FEATURE_NONE = 0x0,
-	RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT = 0x1,
-	RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT = 0x2,
-	RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x4,
+	DEVICE_FEATURE_NONE = 0x0,
+	DEVICE_FEATURE_SWAPCHAIN_BIT = 0x1,
+	DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT = 0x2,
+	DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x4,
+	DEVICE_FEATURE_VALIDATION_LAYERS = 0x8,
 };
 typedef uint32_t DeviceFeatureFlags;
 
 struct DeviceCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
-	DeviceFeatureFlags required_features = RENDER_BACKEND_FEATURE_NONE;
+	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
 	void* native_connection_handle = nullptr; // Windows HINSTANCE or X11 Display
 	void* native_window_handle = nullptr; // HWND or XWindow
 };

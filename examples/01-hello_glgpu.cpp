@@ -58,8 +58,8 @@ int main(void) {
 	}
 
 	gl::DeviceCreateInfo info{
-		.required_features = gl::RENDER_BACKEND_FEATURE_SWAPCHAIN_BIT |
-				gl::RENDER_BACKEND_FEATURE_ENSURE_SURFACE_SUPPORT,
+		.required_features = gl::DEVICE_FEATURE_SWAPCHAIN_BIT |
+				gl::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gl::DEVICE_FEATURE_VALIDATION_LAYERS,
 	};
 
 	if (!gl::extract_sdl2_info(info, window)) {

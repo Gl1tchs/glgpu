@@ -34,7 +34,7 @@ std::vector<uint32_t> load_spirv_file(const std::string& filename) {
 
 int main(void) {
 	gl::DeviceCreateInfo info = {
-		.required_features = gl::RENDER_BACKEND_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
+		.required_features = gl::DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
 	auto backend = gl::Device::create(info).value();
