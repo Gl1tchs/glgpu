@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.15)
-project(glgpu VERSION 1.0.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 1.0.0)
+project(glgpu
+    VERSION 1.0.0
+    DESCRIPTION "Low-Level, low dependency rendering interface over the Vulkan API"
+    LANGUAGES CXX
+)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -112,7 +116,7 @@ install(EXPORT glgpuTargets
 # Create *Config.cmake files (allows find_package(glgpu))
 write_basic_package_version_file(
     glgpuConfigVersion.cmake
-    VERSION ${PROJECT_VERSION}
+    VERSION 1.0.0${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
