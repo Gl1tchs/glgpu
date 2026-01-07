@@ -45,9 +45,15 @@ file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS
 add_library(glgpu ${SOURCE_FILES} ${SPIRV_REFLECT_FILES})
 add_library(glgpu::glgpu ALIAS glgpu)
 
-# ------------------------------------------------------------------------------
-# Configuration & Compile Definitions
-# ------------------------------------------------------------------------------
+# Generate and include version header
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/misc/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/glgpu/version.h
+)
+
+target_include_directories(glgpu PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+)
 
 target_compile_definitions(glgpu PUBLIC
     $<$<CONFIG:Debug>:GL_DEBUG_BUILD>
@@ -101,19 +107,24 @@ install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+# Install generated version header
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/glgpu/version.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/glgpu
+)
+
 # Install SDL2 glue
 install(FILES misc/glgpu_sdl2_glue.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} 
 )
 
-#  Create the *Targets.cmake file (allows finding targets)
+#  Create the *Targets.cmake file
 install(EXPORT glgpuTargets
     FILE glgpuTargets.cmake
     NAMESPACE glgpu::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/glgpu
 )
 
-# Create *Config.cmake files (allows find_package(glgpu))
+# Create *Config.cmake files
 write_basic_package_version_file(
     glgpuConfigVersion.cmake
     VERSION 1.0.0${PROJECT_VERSION}
