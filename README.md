@@ -29,7 +29,21 @@ To build the library, examples, and tests from source:
 git clone --recursive https://github.com/Gl1tchs/glgpu.git
 cd glgpu
 cmake --preset release
-cmake --build --preset build-release
+cmake --build --preset release
+```
+
+## Installing
+
+If you are on arch linux you can use AUR to automatically build and install glgpu
+
+```
+yay -S glgpu-git
+```
+
+Or you can use CMake install command
+
+```
+cmake --install build # after building
 ```
 
 ## Examples
