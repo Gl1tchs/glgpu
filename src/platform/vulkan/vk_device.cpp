@@ -74,20 +74,25 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	instance_info.pApplicationInfo = &app_info;
 
 	// Get Extensions
-	std::vector<const char*> extensions;
-	extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+	std::vector<const char*> instance_extensions;
+
+	// Add surface extension if requested
+	if (info.required_features & DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT ||
+			info.native_window_handle != nullptr) {
+		instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(_WIN32)
-	extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+		extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
-	extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
 #endif
+	}
 
-#ifdef GL_DEBUG_BUILD
-	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
+	if (use_validation_layers) {
+		instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
 
-	instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	instance_info.ppEnabledExtensionNames = extensions.data();
+	instance_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
+	instance_info.ppEnabledExtensionNames = instance_extensions.data();
 
 	// Validation Layers
 	VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {};
