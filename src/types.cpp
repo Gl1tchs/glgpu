@@ -1,6 +1,6 @@
-#include "glgpu/types.h"
+#include "gpukit/types.h"
 
-namespace gl {
+namespace gpukit {
 
 size_t get_data_format_size(DataFormat format) {
 	switch (format) {
@@ -120,4 +120,4 @@ bool is_depth_format(DataFormat format) {
 			format == DataFormat::D16_UNORM || format == DataFormat::D32_SFLOAT);
 }
 
-} //namespace gl
+} //namespace gpukitkit

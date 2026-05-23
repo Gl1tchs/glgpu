@@ -1,6 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
-#include "glgpu/os.h"
+#include "gpukit/os.h"
 #include "platform/vulkan/vk_common.h"
 
 #include <map>
@@ -24,7 +24,7 @@
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
-namespace gl {
+namespace gpukit {
 
 const std::vector<const char*> VALIDATION_LAYERS = {
 	"VK_LAYER_KHRONOS_validation",
@@ -39,13 +39,13 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 		VkDebugUtilsMessageTypeFlagsEXT message_type,
 		const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void* user_data) {
 	if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-		GL_LOG_ERROR("[VULKAN] {}", callback_data->pMessage);
+		GPUKIT_LOG_ERROR("[VULKAN] {}", callback_data->pMessage);
 	} else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-		GL_LOG_WARNING("[VULKAN] {}", callback_data->pMessage);
+		GPUKIT_LOG_WARNING("[VULKAN] {}", callback_data->pMessage);
 	} else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
-		GL_LOG_INFO("[VULKAN] {}", callback_data->pMessage);
+		GPUKIT_LOG_INFO("[VULKAN] {}", callback_data->pMessage);
 	} else {
-		GL_LOG_TRACE("[VULKAN] {}", callback_data->pMessage);
+		GPUKIT_LOG_TRACE("[VULKAN] {}", callback_data->pMessage);
 	}
 
 	return VK_FALSE;
@@ -55,13 +55,13 @@ static bool s_initialized = false;
 
 Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	if (s_initialized) {
-		GL_LOG_ERROR("Only one backend can exist at a time.");
+		GPUKIT_LOG_ERROR("Only one backend can exist at a time.");
 		return Error::INITIALIZATION_FAILED;
 	}
 
 	bool use_validation_layers = info.required_features & DEVICE_FEATURE_VALIDATION_LAYERS;
 	if (use_validation_layers && !_check_validation_layer_support()) {
-		GL_LOG_WARNING("[VULKAN] Validation layers requested but not available!");
+		GPUKIT_LOG_WARNING("[VULKAN] Validation layers requested but not available!");
 		use_validation_layers = false;
 	}
 
@@ -130,7 +130,7 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	if (use_validation_layers &&
 			_create_debug_utils_messenger_ext(
 					_instance, &debug_create_info, nullptr, &_debug_messenger) != VK_SUCCESS) {
-		GL_LOG_WARNING("[VULKAN] Failed to set up debug messenger!");
+		GPUKIT_LOG_WARNING("[VULKAN] Failed to set up debug messenger!");
 	}
 
 	_vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(
@@ -150,7 +150,7 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 
 	// Try to create a surface
 	if (surface_support_required && !info.native_window_handle) {
-		GL_LOG_ERROR("Surface support required but no window provided.");
+		GPUKIT_LOG_ERROR("Surface support required but no window provided.");
 		return Error::INVALID_ARGUMENT;
 	}
 
@@ -357,7 +357,7 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
         // Print VMA Stats
         char* stats_str;
         vmaBuildStatsString(_allocator, &stats_str, true);
-        GL_LOG_TRACE("[VMA] Stats: {}", stats_str);
+        GPUKIT_LOG_TRACE("[VMA] Stats: {}", stats_str);
         vmaFreeStatsString(_allocator, stats_str);
 #endif
 		// Destroy custom allocation pools
@@ -413,10 +413,10 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		command_pool_free(_imm_graphics.command_pool);
 	});
 
-#ifndef GL_DIST_BUILD
-	GL_LOG_INFO("[VULKAN] Vulkan Initialized:");
-	GL_LOG_INFO("[VULKAN] Device: {}", _physical_device_properties.deviceName);
-	GL_LOG_INFO("[VULKAN] API: {}.{}.{}", VK_VERSION_MAJOR(_physical_device_properties.apiVersion),
+#ifndef GPUKIT_DIST_BUILD
+	GPUKIT_LOG_INFO("[VULKAN] Vulkan Initialized:");
+	GPUKIT_LOG_INFO("[VULKAN] Device: {}", _physical_device_properties.deviceName);
+	GPUKIT_LOG_INFO("[VULKAN] API: {}.{}.{}", VK_VERSION_MAJOR(_physical_device_properties.apiVersion),
 			VK_VERSION_MINOR(_physical_device_properties.apiVersion),
 			VK_VERSION_PATCH(_physical_device_properties.apiVersion));
 #endif
@@ -883,4 +883,4 @@ RenderAPI VulkanDevice::get_api() const {
 	return RenderAPI::VULKAN;
 }
 
-} //namespace gl
+} //namespace gpukitkit

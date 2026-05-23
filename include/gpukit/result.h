@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cassert>
 
-namespace gl {
+namespace gpukit {
 
 /**
  * Class encapsulating an union of type T and E
@@ -173,4 +173,4 @@ template <typename T, typename E> constexpr Result<T, E> make_err(E p_err) {
 	return Result<T, E>(std::forward<E>(p_err), typename Result<T, E>::ErrorTag{});
 }
 
-} //namespace gl
+} //namespace gpukitkit

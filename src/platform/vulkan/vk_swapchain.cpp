@@ -2,7 +2,7 @@
 
 #include "platform/vulkan/vk_common.h"
 
-namespace gl {
+namespace gpukit {
 
 void VulkanDevice::_swapchain_release(VulkanSwapchain* swapchain) {
 	if (!swapchain) {
@@ -45,7 +45,7 @@ Res<Swapchain> VulkanDevice::swapchain_create() {
 Res<> VulkanDevice::swapchain_resize(
 		CommandQueue cmd_queue, Swapchain swapchain_handle, Vec2u size, bool vsync) {
 	if (!_surface) {
-		GL_LOG_WARNING("[VULKAN] Headless mode or no surface: skipping swapchain resize.");
+		GPUKIT_LOG_WARNING("[VULKAN] Headless mode or no surface: skipping swapchain resize.");
 		return Error::SURFACE_LOST;
 	}
 
@@ -288,4 +288,4 @@ Res<> VulkanDevice::swapchain_free(Swapchain swapchain) {
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

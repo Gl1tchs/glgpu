@@ -1,19 +1,19 @@
 #pragma once
 
-#include "glgpu/math.h"
-#include "glgpu/vector.h"
+#include "gpukit/math.h"
+#include "gpukit/vector.h"
 
 #include <array>
 
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 #include <immintrin.h>
 #endif
 
-namespace gl {
+namespace gpukit {
 
 template <size_t TCols, size_t TRows> struct Mat;
 
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 inline __m128 load_vec3(const float* ptr) {
 	__m128 xy = _mm_castpd_ps(_mm_load_sd(reinterpret_cast<const double*>(ptr)));
 	__m128 z = _mm_load_ss(ptr + 2);
@@ -53,7 +53,7 @@ template <size_t N> struct Mat<N, N> {
 	const Vec<N, float>& operator[](size_t col_idx) const { return cols[col_idx]; }
 
 	Mat operator+(const Mat& other) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		if constexpr (N == 2) {
 			__m128 a = _mm_loadu_ps(&cols[0].x);
 			__m128 b = _mm_loadu_ps(&other.cols[0].x);
@@ -73,7 +73,7 @@ template <size_t N> struct Mat<N, N> {
 	}
 
 	Mat operator-(const Mat& other) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		if constexpr (N == 2) {
 			__m128 a = _mm_loadu_ps(&cols[0].x);
 			__m128 b = _mm_loadu_ps(&other.cols[0].x);
@@ -93,7 +93,7 @@ template <size_t N> struct Mat<N, N> {
 	}
 
 	Mat operator*(const Mat& other) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		if constexpr (N == 2) {
 			__m128 Col0 =
 					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[0].x));
@@ -130,7 +130,7 @@ template <size_t N> struct Mat<N, N> {
 	}
 
 	Vec<N, float> operator*(const Vec<N, float>& v) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		if constexpr (N == 2) {
 			__m128 Col0 =
 					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[0].x));
@@ -198,7 +198,7 @@ template <> struct Mat<3, 3> {
 
 	Mat operator+(const Mat& other) const {
 		Mat res;
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		for (int i = 0; i < 3; ++i) {
 			__m128 a = load_vec3(&cols[i].x);
 			__m128 b = load_vec3(&other.cols[i].x);
@@ -217,7 +217,7 @@ template <> struct Mat<3, 3> {
 
 	Mat operator-(const Mat& other) const {
 		Mat res;
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		for (int i = 0; i < 3; ++i) {
 			__m128 a = load_vec3(&cols[i].x);
 			__m128 b = load_vec3(&other.cols[i].x);
@@ -236,7 +236,7 @@ template <> struct Mat<3, 3> {
 
 	Mat operator*(const Mat& other) const {
 		Mat res = Mat::empty();
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		__m128 Col0 = load_vec3(&cols[0].x);
 		__m128 Col1 = load_vec3(&cols[1].x);
 		__m128 Col2 = load_vec3(&cols[2].x);
@@ -268,7 +268,7 @@ template <> struct Mat<3, 3> {
 	}
 
 	Vec3f operator*(const Vec3f& v) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		__m128 Col0 = load_vec3(&cols[0].x);
 		__m128 Col1 = load_vec3(&cols[1].x);
 		__m128 Col2 = load_vec3(&cols[2].x);
@@ -369,7 +369,7 @@ template <> struct Mat<4, 4> {
 
 	Mat operator+(const Mat& other) const {
 		Mat res;
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		// Load, Add, Store for each column
 		for (int i = 0; i < 4; ++i) {
 			// Unaligned loads are safe and fast on modern CPUs
@@ -390,7 +390,7 @@ template <> struct Mat<4, 4> {
 
 	Mat operator-(const Mat& other) const {
 		Mat res;
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		for (int i = 0; i < 4; ++i) {
 			__m128 a = _mm_loadu_ps(&cols[i].x);
 			__m128 b = _mm_loadu_ps(&other.cols[i].x);
@@ -409,7 +409,7 @@ template <> struct Mat<4, 4> {
 
 	Mat operator*(const Mat& other) const {
 		Mat res;
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		// Load columns of 'this' matrix into registers
 		__m128 Col0 = _mm_loadu_ps(&cols[0].x);
 		__m128 Col1 = _mm_loadu_ps(&cols[1].x);
@@ -453,7 +453,7 @@ template <> struct Mat<4, 4> {
 
 	// Matrix * Vector multiplication
 	Vec4f operator*(const Vec4f& v) const {
-#ifdef GL_USE_SIMD_INTRINSICS
+#ifdef GPUKIT_USE_SIMD_INTRINSICS
 		// Load columns of matrix
 		__m128 Col0 = _mm_loadu_ps(&cols[0].x);
 		__m128 Col1 = _mm_loadu_ps(&cols[1].x);
@@ -682,4 +682,4 @@ typedef Mat<2, 2> Mat2;
 typedef Mat<3, 3> Mat3;
 typedef Mat<4, 4> Mat4;
 
-}; //namespace gl
+}; //namespace gpukit

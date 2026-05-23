@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <fstream>
 
-namespace gl {
+namespace gpukit {
 
 static VkCullModeFlagBits _gl_to_vk_cull_mode(PolygonCullMode cull_mode) {
 	switch (cull_mode) {
@@ -78,11 +78,11 @@ static Res<VkPipelineCache> _load_pipeline_cache(VkDevice device, const std::fil
 					cache_create_info.pInitialData =
 							cache_buffer.data() + sizeof(PipelineCacheHeader);
 				} else {
-					GL_LOG_WARNING("[VULKAN] Pipeline cache invalid or outdated, creating new.");
+					GPUKIT_LOG_WARNING("[VULKAN] Pipeline cache invalid or outdated, creating new.");
 				}
 			}
 		} else {
-			GL_LOG_ERROR("[VULKAN] Unable to read pipeline cache at '{}'", path.string());
+			GPUKIT_LOG_ERROR("[VULKAN] Unable to read pipeline cache at '{}'", path.string());
 		}
 	}
 
@@ -464,7 +464,7 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 					std::error_code ec;
 					std::filesystem::create_directories(path.parent_path(), ec);
 					if (ec) {
-						GL_LOG_ERROR("Failed to create cache directory: {}", ec.message());
+						GPUKIT_LOG_ERROR("Failed to create cache directory: {}", ec.message());
 					}
 				}
 
@@ -482,7 +482,7 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 					file.write((const char*)&header, sizeof(PipelineCacheHeader));
 					file.write(cache_data.data(), cache_size);
 				} else {
-					GL_LOG_ERROR("[VULKAN] Unable to write pipeline cache data to file!");
+					GPUKIT_LOG_ERROR("[VULKAN] Unable to write pipeline cache data to file!");
 				}
 			}
 		}
@@ -496,4 +496,4 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

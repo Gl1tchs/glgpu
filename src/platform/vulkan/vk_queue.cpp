@@ -1,6 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
-namespace gl {
+namespace gpukit {
 
 Res<CommandQueue> VulkanDevice::queue_get(QueueType type) {
 	VulkanQueue* queue = nullptr;
@@ -122,9 +122,9 @@ Res<> VulkanDevice::queue_present(
 	} else if (res == VK_SUBOPTIMAL_KHR) {
 		return Error::SWAPCHAIN_SUBOPTIMAL;
 	} else {
-		GL_LOG_ERROR("[VULKAN] Queue present failed: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR("[VULKAN] Queue present failed: {}", vk_result_to_string(res));
 		return Error::PRESENTATION_FAILED;
 	}
 }
 
-} //namespace gl
+} //namespace gpukitkit

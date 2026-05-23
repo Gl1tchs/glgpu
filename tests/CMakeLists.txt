@@ -18,13 +18,13 @@ include(Catch)
 # Add Test Executable
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
-add_executable(glgpu_tests ${TEST_SOURCES})
+add_executable(gpukit_tests ${TEST_SOURCES})
 
 # Link Dependencies
-target_link_libraries(glgpu_tests 
+target_link_libraries(gpukit_tests
     PRIVATE
-        glgpu::glgpu 
+        gpukit::gpukit
         Catch2::Catch2
 )
 
-catch_discover_tests(glgpu_tests)
+catch_discover_tests(gpukit_tests)

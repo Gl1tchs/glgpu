@@ -3,7 +3,7 @@
 #include <deque>
 #include <functional>
 
-namespace gl {
+namespace gpukit {
 
 /**
  * Struct representing a queue which deletor functions can be assigned into and
@@ -23,4 +23,4 @@ struct DeletionQueue {
 	}
 };
 
-} //namespace gl
+} //namespace gpukitkit

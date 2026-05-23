@@ -2,7 +2,7 @@
 
 #include <vector>
 
-namespace gl {
+namespace gpukit {
 
 /**
  * Class representing a dynamic allocator that will grow when
@@ -43,4 +43,4 @@ private:
 	}
 };
 
-} //namespace gl
+} //namespace gpukitkit

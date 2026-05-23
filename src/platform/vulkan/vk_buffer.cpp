@@ -2,7 +2,7 @@
 
 #include "platform/vulkan/vk_common.h"
 
-namespace gl {
+namespace gpukit {
 
 Res<Buffer> VulkanDevice::buffer_create(
 		uint64_t size, BufferUsageFlags usage, MemoryAllocationType allocation_type) {
@@ -177,7 +177,7 @@ VmaPool VulkanDevice::_find_or_create_small_allocs_pool(uint32_t mem_type_index)
 	VkResult res = vmaCreatePool(_allocator, &pci, &pool);
 
 	if (res != VK_SUCCESS) {
-		GL_LOG_ERROR("[VMA] Failed to create small alloc pool: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR("[VMA] Failed to create small alloc pool: {}", vk_result_to_string(res));
 		return VK_NULL_HANDLE;
 	}
 

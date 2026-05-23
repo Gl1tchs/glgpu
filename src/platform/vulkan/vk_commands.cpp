@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 
-namespace gl {
+namespace gpukit {
 
 Res<> VulkanDevice::command_immediate_submit(
 		std::function<void(CommandBuffer cmd)>&& function, QueueType queue_type) {
@@ -910,4 +910,4 @@ Res<> VulkanDevice::command_transition_image(CommandBuffer cmd, Image image,
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

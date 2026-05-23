@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
 	// Initialize the RenderBackend globally
 	std::cout << "[Test Entry] Initializing RenderBackend..." << std::endl;
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 
 	if (!device) {
 		std::cerr << "[Test Entry] Failed to create backend. Aborting." << std::endl;
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
 	// Cleanup
 	std::cout << "[Test Entry] Destroying RenderBackend..." << std::endl;
-	gl::test::destroy_test_device();
+	gpukit::test::destroy_test_device();
 
 	return num_failed;
 }

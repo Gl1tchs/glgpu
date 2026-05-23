@@ -2,9 +2,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "glgpu/device.h"
+#include "gpukit/device.h"
 
-namespace gl::test {
+namespace gpukit::test {
 
 // Internal storage for the singleton
 inline std::unique_ptr<Device>& _get_device_storage() {
@@ -44,4 +44,4 @@ inline Device* get_test_device() {
  */
 inline void destroy_test_device() { _get_device_storage().reset(); }
 
-} // namespace gl::test
+} // namespace gpukit::test

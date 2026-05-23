@@ -1,14 +1,14 @@
 #pragma once
 
-#include "glgpu/color.h"
-#include "glgpu/export.h"
-#include "glgpu/types.h"
-#include "glgpu/vector_view.h"
+#include "gpukit/color.h"
+#include "gpukit/export.h"
+#include "gpukit/types.h"
+#include "gpukit/vector_view.h"
 
 #include <functional>
 #include <memory>
 
-namespace gl {
+namespace gpukit {
 
 enum DeviceRequiredFeatureBits : uint32_t {
 	DEVICE_FEATURE_NONE = 0x0,
@@ -28,7 +28,7 @@ struct DeviceCreateInfo {
 };
 
 /**
- * Opaque bag of raw backend handles for use by glue code (e.g. glgpu_imgui_glue.h).
+ * Opaque bag of raw backend handles for use by glue code (e.g. gpukit_imgui_glue.h).
  * Fields are cast to the appropriate backend types at the point of use.
  * Do NOT depend on this struct in general application code.
  */
@@ -43,7 +43,7 @@ struct NativeContext {
 /**
  * Abstract class responsible for communicating with the GPU.
  */
-class GLGPU_API Device {
+class GPUKIT_API Device {
 public:
 	virtual ~Device() = default;
 
@@ -314,4 +314,4 @@ public:
 	virtual Res<> set_debug_name(ObjectType type, void* handle, const char* name) = 0;
 };
 
-} // namespace gl
+} // namespace gpukit

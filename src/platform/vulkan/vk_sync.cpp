@@ -1,6 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
-namespace gl {
+namespace gpukit {
 
 Fence VulkanDevice::fence_create(bool create_signaled) {
 	VkFenceCreateInfo create_info = {};
@@ -69,4 +69,4 @@ Res<> VulkanDevice::semaphore_free(Semaphore semaphore) {
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

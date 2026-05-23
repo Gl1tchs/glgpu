@@ -10,10 +10,10 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-#include "glgpu/device.h"
-#include "glgpu/os.h"
+#include "gpukit/device.h"
+#include "gpukit/os.h"
 
-namespace gl {
+namespace gpukit {
 
 inline bool extract_glfw_info(DeviceCreateInfo& info, GLFWwindow* window) {
 #if defined(_WIN32)

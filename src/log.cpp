@@ -1,10 +1,10 @@
-#include "glgpu/log.h"
+#include "gpukit/log.h"
 
 #include <chrono>
 #include <iomanip>
 #include <iostream>
 
-namespace gl {
+namespace gpukit {
 
 constexpr const char* VERBOSITY_TO_COLOR[] = {
 	[LOG_LEVEL_TRACE] = "\x1B[1m", // None
@@ -36,4 +36,4 @@ void Logger::log(LogLevel level, const std::string& fmt) {
 			  << "\x1B[0m\n";
 }
 
-} //namespace gl
+} //namespace gpukitkit

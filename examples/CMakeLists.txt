@@ -36,7 +36,7 @@ macro(add_example example_name source_file)
 
     target_link_libraries(${example_name}
         PRIVATE
-            glgpu::glgpu
+            gpukit::gpukit
             SDL2::SDL2
     )
 
@@ -51,7 +51,7 @@ macro(add_imgui_example example_name source_file)
 
     target_link_libraries(${example_name}
         PRIVATE
-            glgpu::glgpu
+            gpukit::gpukit
             SDL2::SDL2
             imgui
     )
@@ -63,15 +63,15 @@ macro(add_imgui_example example_name source_file)
 
     target_compile_definitions(${example_name}
         PRIVATE
-            GLGPU_IMGUI_BACKEND_VULKAN
-            GLGPU_IMGUI_BACKEND_SDL2
+            GPUKIT_IMGUI_BACKEND_VULKAN
+            GPUKIT_IMGUI_BACKEND_SDL2
     )
 endmacro()
 
 # ---------------------------------------------------------------------------
 # Examples
 # ---------------------------------------------------------------------------
-add_example(01_hello_glgpu "01-hello_glgpu.cpp")
+add_example(01_hello_gpukit "01-hello_gpukit.cpp")
 add_example(02_compute_example "02-compute_example.cpp")
 add_imgui_example(03_imgui_example "03-imgui_example.cpp")
 add_example(04_hello_triangle "04-hello_triangle.cpp")

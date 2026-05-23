@@ -4,27 +4,27 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include <glgpu/glgpu.h>
-#include <glgpu_sdl2_glue.h>
+#include <gpukit/gpukit.h>
+#include <gpukit_sdl2_glue.h>
 
 constexpr int WINDOW_WIDTH = 800;
 constexpr int WINDOW_HEIGHT = 600;
 
 // Struct to hold per-frame resources for buffering
 struct FrameData {
-	gl::CommandPool cmd_pool;
-	gl::CommandBuffer cmd;
-	gl::Semaphore image_available_sem;
-	gl::Fence frame_fence;
+	gpukit::CommandPool cmd_pool;
+	gpukit::CommandBuffer cmd;
+	gpukit::Semaphore image_available_sem;
+	gpukit::Fence frame_fence;
 
-	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
+	void init(gpukit::Device* device, gpukit::CommandQueue graphics_queue) {
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
 		image_available_sem = device->semaphore_create();
 		frame_fence = device->fence_create();
 	}
 
-	void destroy(gl::Device* device) {
+	void destroy(gpukit::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
 		device->command_pool_free(cmd_pool);
@@ -37,7 +37,7 @@ struct Vertex {
 	int tex_index;
 };
 
-gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, uint32_t b) {
+gpukit::Image create_checkered_texture(gpukit::Device* device, uint32_t r, uint32_t g, uint32_t b) {
 	const uint32_t width = 16;
 	const uint32_t height = 16;
 	std::vector<uint32_t> pixels(width * height);
@@ -49,19 +49,19 @@ gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, u
 		}
 	}
 
-	gl::ImageCreateInfo img_info = {};
+	gpukit::ImageCreateInfo img_info = {};
 	img_info.size = { width, height };
-	img_info.format = gl::DataFormat::R8G8B8A8_UNORM;
-	img_info.usage = gl::IMAGE_USAGE_SAMPLED_BIT | gl::IMAGE_USAGE_TRANSFER_DST_BIT;
+	img_info.format = gpukit::DataFormat::R8G8B8A8_UNORM;
+	img_info.usage = gpukit::IMAGE_USAGE_SAMPLED_BIT | gpukit::IMAGE_USAGE_TRANSFER_DST_BIT;
 	img_info.mipmapped = false;
 	img_info.samples = 1;
 
-	gl::Image img = device->image_create(img_info).value();
+	gpukit::Image img = device->image_create(img_info).value();
 
 	// Create a staging buffer
 	uint64_t buffer_size = width * height * 4;
-	gl::Buffer staging = device->buffer_create(buffer_size, gl::BUFFER_USAGE_TRANSFER_SRC_BIT,
-									   gl::MemoryAllocationType::CPU)
+	gpukit::Buffer staging = device->buffer_create(buffer_size, gpukit::BUFFER_USAGE_TRANSFER_SRC_BIT,
+									   gpukit::MemoryAllocationType::CPU)
 								 .value();
 
 	void* mapped = device->buffer_map(staging).value();
@@ -71,16 +71,16 @@ gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, u
 
 	// Copy from staging buffer to image
 	device->command_immediate_submit(
-			[&](gl::CommandBuffer cmd) {
+			[&](gpukit::CommandBuffer cmd) {
 				// Transition image to TRANSFER_DST_OPTIMAL
-				device->command_transition_image(cmd, img, gl::ImageLayout::UNDEFINED,
-						gl::ImageLayout::TRANSFER_DST_OPTIMAL);
+				device->command_transition_image(cmd, img, gpukit::ImageLayout::UNDEFINED,
+						gpukit::ImageLayout::TRANSFER_DST_OPTIMAL);
 
-				gl::BufferImageCopyRegion copy_region = {};
+				gpukit::BufferImageCopyRegion copy_region = {};
 				copy_region.buffer_offset = 0;
 				copy_region.buffer_row_length = width;
 				copy_region.buffer_image_height = height;
-				copy_region.image_subresource = { .aspect_mask = gl::IMAGE_ASPECT_COLOR_BIT,
+				copy_region.image_subresource = { .aspect_mask = gpukit::IMAGE_ASPECT_COLOR_BIT,
 					.mip_level = 0,
 					.base_array_layer = 0,
 					.layer_count = 1 };
@@ -90,10 +90,10 @@ gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, u
 				device->command_copy_buffer_to_image(cmd, staging, img, { &copy_region, 1 });
 
 				// Transition image to SHADER_READ_ONLY_OPTIMAL
-				device->command_transition_image(cmd, img, gl::ImageLayout::TRANSFER_DST_OPTIMAL,
-						gl::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+				device->command_transition_image(cmd, img, gpukit::ImageLayout::TRANSFER_DST_OPTIMAL,
+						gpukit::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 			},
-			gl::QueueType::TRANSFER);
+			gpukit::QueueType::TRANSFER);
 
 	device->buffer_free(staging);
 
@@ -102,34 +102,34 @@ gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, u
 
 int main(void) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		GL_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow("GLGPU Bindless Resource Example",
+	SDL_Window* window = SDL_CreateWindow("GPUKit Bindless Resource Example",
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	if (!window) {
-		GL_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
 		return 1;
 	}
 
-	gl::DeviceCreateInfo info{
-		.required_features = gl::DEVICE_FEATURE_SWAPCHAIN_BIT |
-				gl::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gl::DEVICE_FEATURE_VALIDATION_LAYERS,
+	gpukit::DeviceCreateInfo info{
+		.required_features = gpukit::DEVICE_FEATURE_SWAPCHAIN_BIT |
+				gpukit::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gpukit::DEVICE_FEATURE_VALIDATION_LAYERS,
 	};
 
-	if (!gl::extract_sdl2_info(info, window)) {
-		GL_ASSERT(false, "Only X11 and windows is supported.");
+	if (!gpukit::extract_sdl2_info(info, window)) {
+		GPUKIT_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
-	auto device = gl::Device::create(info).own();
+	auto device = gpukit::Device::create(info).own();
 
-	gl::CommandQueue graphics_queue = device->queue_get(gl::QueueType::GRAPHICS).value();
-	gl::CommandQueue present_queue = device->queue_get(gl::QueueType::PRESENT).value();
+	gpukit::CommandQueue graphics_queue = device->queue_get(gpukit::QueueType::GRAPHICS).value();
+	gpukit::CommandQueue present_queue = device->queue_get(gpukit::QueueType::PRESENT).value();
 
-	gl::Swapchain swapchain = device->swapchain_create().value();
+	gpukit::Swapchain swapchain = device->swapchain_create().value();
 	device->swapchain_resize(
 			graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true /* vsync */);
 
@@ -141,46 +141,46 @@ int main(void) {
 		frame.init(device.get(), graphics_queue);
 	}
 
-	std::vector<gl::Semaphore> render_finished_sems(image_count);
+	std::vector<gpukit::Semaphore> render_finished_sems(image_count);
 	for (uint32_t i = 0; i < image_count; i++) {
 		render_finished_sems[i] = device->semaphore_create();
 	}
 
 	// Load shaders using the new clean file-based API
-	gl::Shader shader =
+	gpukit::Shader shader =
 			device->shader_create("examples/assets/bindless.vert", "examples/assets/bindless.frag")
 					.value();
-	device->set_debug_name(gl::ObjectType::SHADER, shader, "Bindless Shader");
+	device->set_debug_name(gpukit::ObjectType::SHADER, shader, "Bindless Shader");
 
 	// Pipeline creation
-	gl::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
+	gpukit::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
 
-	gl::GraphicsPipelineCreateInfo pipeline_info{ .shader = shader,
-		.primitive = gl::RenderPrimitive::TRIANGLE_LIST,
+	gpukit::GraphicsPipelineCreateInfo pipeline_info{ .shader = shader,
+		.primitive = gpukit::RenderPrimitive::TRIANGLE_LIST,
 		.vertex_input_state = { .stride = sizeof(Vertex) },
-		.color_blend_state = gl::PipelineColorBlendState::create_disabled(1),
+		.color_blend_state = gpukit::PipelineColorBlendState::create_disabled(1),
 		.rendering_info = { .color_attachments = { swapchain_format },
-				.depth_attachment = gl::DataFormat::UNDEFINED } };
+				.depth_attachment = gpukit::DataFormat::UNDEFINED } };
 
-	gl::Pipeline pipeline = device->graphics_pipeline_create(pipeline_info).value();
+	gpukit::Pipeline pipeline = device->graphics_pipeline_create(pipeline_info).value();
 
 	// Create checkered textures of 4 different colors
-	gl::Image texture0 = create_checkered_texture(device.get(), 255, 0, 0); // Red
-	gl::Image texture1 = create_checkered_texture(device.get(), 0, 255, 0); // Green
-	gl::Image texture2 = create_checkered_texture(device.get(), 0, 0, 255); // Blue
-	gl::Image texture3 = create_checkered_texture(device.get(), 255, 255, 0); // Yellow
+	gpukit::Image texture0 = create_checkered_texture(device.get(), 255, 0, 0); // Red
+	gpukit::Image texture1 = create_checkered_texture(device.get(), 0, 255, 0); // Green
+	gpukit::Image texture2 = create_checkered_texture(device.get(), 0, 0, 255); // Blue
+	gpukit::Image texture3 = create_checkered_texture(device.get(), 255, 255, 0); // Yellow
 
 	// Create sampler
-	gl::SamplerCreateInfo sampler_info{};
-	sampler_info.min_filter = gl::ImageFiltering::LINEAR;
-	sampler_info.mag_filter = gl::ImageFiltering::LINEAR;
-	sampler_info.wrap_u = gl::ImageWrappingMode::CLAMP_TO_EDGE;
-	sampler_info.wrap_v = gl::ImageWrappingMode::CLAMP_TO_EDGE;
-	gl::Sampler sampler = device->sampler_create(sampler_info).value();
+	gpukit::SamplerCreateInfo sampler_info{};
+	sampler_info.min_filter = gpukit::ImageFiltering::LINEAR;
+	sampler_info.mag_filter = gpukit::ImageFiltering::LINEAR;
+	sampler_info.wrap_u = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
+	sampler_info.wrap_v = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
+	gpukit::Sampler sampler = device->sampler_create(sampler_info).value();
 
 	// Create the bindless uniform set.
 	// Binding is at set 0, binding 0. Max count is 1000.
-	gl::UniformSet bindless_set = device->uniform_set_create_bindless(shader, 0, 0, 1000).value();
+	gpukit::UniformSet bindless_set = device->uniform_set_create_bindless(shader, 0, 0, 1000).value();
 
 	// Update the bindless set
 	device->uniform_set_update_texture(bindless_set, 0, 0, texture0, sampler);
@@ -223,9 +223,9 @@ int main(void) {
 		{ { 0.1f, -0.75f }, { 0.0f, 1.0f }, 3 },
 	};
 
-	gl::Buffer vertex_buffer =
-			device->buffer_create(sizeof(vertices), gl::BUFFER_USAGE_VERTEX_BUFFER_BIT,
-						  gl::MemoryAllocationType::CPU)
+	gpukit::Buffer vertex_buffer =
+			device->buffer_create(sizeof(vertices), gpukit::BUFFER_USAGE_VERTEX_BUFFER_BIT,
+						  gpukit::MemoryAllocationType::CPU)
 					.value();
 
 	void* raw_data = device->buffer_map(vertex_buffer).value();
@@ -233,7 +233,7 @@ int main(void) {
 		std::memcpy(raw_data, vertices, sizeof(vertices));
 		device->buffer_unmap(vertex_buffer);
 	} else {
-		GL_LOG_FATAL("Failed to map vertex buffer!");
+		GPUKIT_LOG_FATAL("Failed to map vertex buffer!");
 		return 1;
 	}
 
@@ -286,24 +286,24 @@ int main(void) {
 		if (!acquire_result)
 			continue;
 
-		gl::Image swapchain_image = *acquire_result;
+		gpukit::Image swapchain_image = *acquire_result;
 
 		device->command_reset(frame.cmd);
 		device->command_begin(frame.cmd);
 
 		// Transition layout for rendering
-		device->command_transition_image(frame.cmd, swapchain_image, gl::ImageLayout::UNDEFINED,
-				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+		device->command_transition_image(frame.cmd, swapchain_image, gpukit::ImageLayout::UNDEFINED,
+				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
-		gl::RenderingAttachment color_attachment{
+		gpukit::RenderingAttachment color_attachment{
 			.image = swapchain_image,
-			.layout = gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-			.load_op = gl::AttachmentLoadOp::CLEAR,
-			.store_op = gl::AttachmentStoreOp::STORE,
+			.layout = gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+			.load_op = gpukit::AttachmentLoadOp::CLEAR,
+			.store_op = gpukit::AttachmentStoreOp::STORE,
 			.clear_color = { 0.15f, 0.15f, 0.15f, 1.0f },
 		};
 
-		gl::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
+		gpukit::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
 		device->command_begin_rendering(frame.cmd, draw_extent, { &color_attachment, 1 });
 
 		device->command_set_viewport(frame.cmd, draw_extent);
@@ -311,14 +311,14 @@ int main(void) {
 
 		device->command_bind_graphics_pipeline(frame.cmd, pipeline);
 
-		std::vector<gl::Buffer> vertex_buffers = { vertex_buffer };
+		std::vector<gpukit::Buffer> vertex_buffers = { vertex_buffer };
 		std::vector<uint64_t> offsets = { 0 };
 		device->command_bind_vertex_buffers(frame.cmd, 0, vertex_buffers, offsets);
 
 		// Bind the bindless uniform set
-		std::vector<gl::UniformSet> uniform_sets = { bindless_set };
+		std::vector<gpukit::UniformSet> uniform_sets = { bindless_set };
 		device->command_bind_uniform_sets(
-				frame.cmd, shader, 0, uniform_sets, gl::PipelineType::GRAPHICS);
+				frame.cmd, shader, 0, uniform_sets, gpukit::PipelineType::GRAPHICS);
 
 		device->command_draw(frame.cmd, 24);
 
@@ -326,7 +326,7 @@ int main(void) {
 
 		// Transition layout for presentation
 		device->command_transition_image(frame.cmd, swapchain_image,
-				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gl::ImageLayout::PRESENT_SRC);
+				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gpukit::ImageLayout::PRESENT_SRC);
 
 		device->command_end(frame.cmd);
 

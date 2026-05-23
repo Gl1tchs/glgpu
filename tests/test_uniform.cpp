@@ -4,10 +4,10 @@
 
 #include <vector>
 
-using namespace gl;
+using namespace gpukit;
 
 TEST_CASE("Bindless Uniform Management", "[uniform]") {
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 	REQUIRE(device != nullptr);
 
 	// Load bindless shaders
@@ -78,7 +78,7 @@ TEST_CASE("Bindless Uniform Management", "[uniform]") {
 }
 
 TEST_CASE("Automatic Shader Reflection & Empty Uniform Sets", "[uniform][reflection]") {
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 	REQUIRE(device != nullptr);
 
 	// Load bindless shaders

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "glgpu/deletion_queue.h"
-#include "glgpu/device.h"
-#include "glgpu/types.h"
-#include "glgpu/versatile_resource.h"
+#include "gpukit/deletion_queue.h"
+#include "gpukit/device.h"
+#include "gpukit/types.h"
+#include "gpukit/versatile_resource.h"
 
 #include "platform/vulkan/vk_common.h"
 
@@ -13,7 +13,7 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace gl {
+namespace gpukit {
 
 // Sanity checks
 static_assert(sizeof(ImageSubresourceLayers) == sizeof(VkImageSubresourceLayers));

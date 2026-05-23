@@ -1,10 +1,11 @@
 #pragma once
 
-#include "glgpu/matrix.h"
-#include "glgpu/vector.h"
+#include "gpukit/matrix.h"
+#include "gpukit/vector.h"
+
 #include <cmath>
 
-namespace gl {
+namespace gpukit {
 
 struct Quat {
 	// components: x, y, z (vector part) and w (scalar/real part)
@@ -212,4 +213,4 @@ struct Quat {
 	}
 };
 
-} // namespace gl
+} // namespace gpukit

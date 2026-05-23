@@ -5,27 +5,27 @@
 
 #include <imgui.h>
 
-#include <glgpu/glgpu.h>
-#include <glgpu_imgui_glue.h>
-#include <glgpu_sdl2_glue.h>
+#include <gpukit/gpukit.h>
+#include <gpukit_imgui_glue.h>
+#include <gpukit_sdl2_glue.h>
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 
 struct FrameData {
-	gl::CommandPool cmd_pool;
-	gl::CommandBuffer cmd;
-	gl::Semaphore image_available_sem;
-	gl::Fence frame_fence;
+	gpukit::CommandPool cmd_pool;
+	gpukit::CommandBuffer cmd;
+	gpukit::Semaphore image_available_sem;
+	gpukit::Fence frame_fence;
 
-	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
+	void init(gpukit::Device* device, gpukit::CommandQueue graphics_queue) {
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
 		image_available_sem = device->semaphore_create();
 		frame_fence = device->fence_create();
 	}
 
-	void destroy(gl::Device* device) {
+	void destroy(gpukit::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
 		device->command_pool_free(cmd_pool);
@@ -34,16 +34,16 @@ struct FrameData {
 
 int main(void) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		GL_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow("GLGPU + ImGui Example", SDL_WINDOWPOS_UNDEFINED,
+	SDL_Window* window = SDL_CreateWindow("GPUKit + ImGui Example", SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
 
 	if (!window) {
-		GL_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
 		SDL_Quit();
 		return 1;
 	}
@@ -51,25 +51,25 @@ int main(void) {
 	// -------------------------------------------------------------------------
 	// Device
 	// -------------------------------------------------------------------------
-	gl::DeviceCreateInfo device_info{
-		.required_features = gl::DEVICE_FEATURE_SWAPCHAIN_BIT |
-				gl::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gl::DEVICE_FEATURE_VALIDATION_LAYERS,
+	gpukit::DeviceCreateInfo device_info{
+		.required_features = gpukit::DEVICE_FEATURE_SWAPCHAIN_BIT |
+				gpukit::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gpukit::DEVICE_FEATURE_VALIDATION_LAYERS,
 	};
 
-	if (!gl::extract_sdl2_info(device_info, window)) {
-		GL_ASSERT(false, "Failed to extract SDL2 window info.");
+	if (!gpukit::extract_sdl2_info(device_info, window)) {
+		GPUKIT_ASSERT(false, "Failed to extract SDL2 window info.");
 	}
 
-	auto device = gl::Device::create(device_info).own();
+	auto device = gpukit::Device::create(device_info).own();
 
-	gl::CommandQueue graphics_queue = device->queue_get(gl::QueueType::GRAPHICS).value();
-	gl::CommandQueue present_queue = device->queue_get(gl::QueueType::PRESENT).value();
+	gpukit::CommandQueue graphics_queue = device->queue_get(gpukit::QueueType::GRAPHICS).value();
+	gpukit::CommandQueue present_queue = device->queue_get(gpukit::QueueType::PRESENT).value();
 
-	gl::Swapchain swapchain = device->swapchain_create().value();
+	gpukit::Swapchain swapchain = device->swapchain_create().value();
 	device->swapchain_resize(graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true);
 
 	const uint32_t image_count = device->swapchain_get_image_count(swapchain).value();
-	const gl::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
+	const gpukit::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
 
 	// -------------------------------------------------------------------------
 	// Per-frame resources
@@ -79,7 +79,7 @@ int main(void) {
 		frame.init(device.get(), graphics_queue);
 	}
 
-	std::vector<gl::Semaphore> render_finished_sems(image_count);
+	std::vector<gpukit::Semaphore> render_finished_sems(image_count);
 	for (uint32_t i = 0; i < image_count; i++) {
 		render_finished_sems[i] = device->semaphore_create();
 	}
@@ -96,13 +96,13 @@ int main(void) {
 
 	ImGui::StyleColorsDark();
 
-	// gl::imgui_init handles both the Vulkan and SDL2 backend initialization.
-	gl::ImGuiGlueInfo imgui_info{
+	// gpukit::imgui_init handles both the Vulkan and SDL2 backend initialization.
+	gpukit::ImGuiGlueInfo imgui_info{
 		.image_count = image_count,
 		.color_attachment_format = swapchain_format,
 		.min_image_count = image_count,
 	};
-	gl::ImGuiGlueState imgui = gl::imgui_init(device.get(), imgui_info, (void*)window);
+	gpukit::ImGuiGlueState imgui = gpukit::imgui_init(device.get(), imgui_info, (void*)window);
 
 	// -------------------------------------------------------------------------
 	// Main loop
@@ -162,10 +162,10 @@ int main(void) {
 			continue;
 		}
 
-		gl::Image swapchain_image = *acquire_result;
+		gpukit::Image swapchain_image = *acquire_result;
 
-		// gl::imgui_new_frame calls both ImGui_ImplVulkan_NewFrame and ImGui_ImplSDL2_NewFrame.
-		gl::imgui_new_frame(device.get());
+		// gpukit::imgui_new_frame calls both ImGui_ImplVulkan_NewFrame and ImGui_ImplSDL2_NewFrame.
+		gpukit::imgui_new_frame(device.get());
 		ImGui::NewFrame();
 
 		// --- ImGui UI ---
@@ -173,8 +173,8 @@ int main(void) {
 			ImGui::ShowDemoWindow(&show_demo_window);
 		}
 
-		ImGui::Begin("glgpu + ImGui");
-		ImGui::Text("Rendering with glgpu's Vulkan backend.");
+		ImGui::Begin("gpukit + ImGui");
+		ImGui::Text("Rendering with gpukit's Vulkan backend.");
 		ImGui::Separator();
 		ImGui::ColorEdit3("Clear color", (float*)&clear_color);
 		if (ImGui::Button("Counter++")) {
@@ -191,26 +191,26 @@ int main(void) {
 		device->command_reset(frame.cmd);
 		device->command_begin(frame.cmd);
 
-		device->command_transition_image(frame.cmd, swapchain_image, gl::ImageLayout::UNDEFINED,
-				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+		device->command_transition_image(frame.cmd, swapchain_image, gpukit::ImageLayout::UNDEFINED,
+				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
-		gl::RenderingAttachment color_attachment{
+		gpukit::RenderingAttachment color_attachment{
 			.image = swapchain_image,
-			.layout = gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-			.load_op = gl::AttachmentLoadOp::CLEAR,
-			.store_op = gl::AttachmentStoreOp::STORE,
+			.layout = gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+			.load_op = gpukit::AttachmentLoadOp::CLEAR,
+			.store_op = gpukit::AttachmentStoreOp::STORE,
 			.clear_color = { clear_color.x, clear_color.y, clear_color.z, clear_color.w },
 		};
 
-		gl::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
+		gpukit::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
 		device->command_begin_rendering(frame.cmd, draw_extent, { &color_attachment, 1 });
 
-		gl::imgui_render(device.get(), frame.cmd);
+		gpukit::imgui_render(device.get(), frame.cmd);
 
 		device->command_end_rendering(frame.cmd);
 
 		device->command_transition_image(frame.cmd, swapchain_image,
-				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gl::ImageLayout::PRESENT_SRC);
+				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gpukit::ImageLayout::PRESENT_SRC);
 
 		device->command_end(frame.cmd);
 
@@ -227,8 +227,8 @@ int main(void) {
 	// -------------------------------------------------------------------------
 	device->device_wait();
 
-	// gl::imgui_shutdown handles ImGui_ImplVulkan_Shutdown + ImGui_ImplSDL2_Shutdown.
-	gl::imgui_shutdown(device.get(), imgui);
+	// gpukit::imgui_shutdown handles ImGui_ImplVulkan_Shutdown + ImGui_ImplSDL2_Shutdown.
+	gpukit::imgui_shutdown(device.get(), imgui);
 	ImGui::DestroyContext();
 
 	for (auto& frame : frames) {

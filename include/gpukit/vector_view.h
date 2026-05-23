@@ -1,11 +1,11 @@
 #pragma once
 
-#include "glgpu/assert.h"
+#include "gpukit/assert.h"
 
 #include <array>
 #include <vector>
 
-namespace gl {
+namespace gpukit {
 
 /**
  * A very light weight span-like vector abstraction.
@@ -30,7 +30,7 @@ public:
 	[[nodiscard]] constexpr const T* data() const { return _ptr; }
 
 	const T& operator[](size_t p_index) const {
-		GL_ASSERT(p_index < _count);
+		GPUKIT_ASSERT(p_index < _count);
 		return _ptr[p_index];
 	}
 
@@ -45,4 +45,4 @@ private:
 	size_t _count = 0;
 };
 
-} //namespace gl
+} //namespace gpukitkit

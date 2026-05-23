@@ -1,15 +1,15 @@
-#include <glgpu/glgpu.h>
+#include <gpukit/gpukit.h>
 
 #include <cstdint>
 #include <vector>
 
 int main(void) {
-	gl::DeviceCreateInfo info = {
-		.required_features = gl::DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
+	gpukit::DeviceCreateInfo info = {
+		.required_features = gpukit::DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
-	auto device = gl::Device::create(info).own();
-	GL_LOG_INFO("Headless backend initialized.");
+	auto device = gpukit::Device::create(info).own();
+	GPUKIT_LOG_INFO("Headless backend initialized.");
 
 	// We will process 1024 floats
 	const uint32_t element_count = 1024;
@@ -20,9 +20,9 @@ int main(void) {
 	// purposes we are going to be using the same buffer in the GPU. Normally you would create
 	// another buffer with BUFFER_USAGE_STORAGE_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT as
 	// MemoryAllocationType::GPUs
-	gl::Buffer storage_buffer =
-			device->buffer_create(buffer_size, gl::BUFFER_USAGE_STORAGE_BUFFER_BIT,
-						  gl::MemoryAllocationType::CPU)
+	gpukit::Buffer storage_buffer =
+			device->buffer_create(buffer_size, gpukit::BUFFER_USAGE_STORAGE_BUFFER_BIT,
+						  gpukit::MemoryAllocationType::CPU)
 					.value();
 
 	float* raw_data = (float*)device->buffer_map(storage_buffer).value();
@@ -32,33 +32,33 @@ int main(void) {
 		}
 		device->buffer_unmap(storage_buffer);
 	} else {
-		GL_LOG_FATAL("Failed to map buffer!");
+		GPUKIT_LOG_FATAL("Failed to map buffer!");
 		return 1;
 	}
 
-	gl::Shader compute_shader = device->shader_create("examples/assets/compute.comp").value();
+	gpukit::Shader compute_shader = device->shader_create("examples/assets/compute.comp").value();
 
-	gl::Pipeline compute_pipeline = device->compute_pipeline_create(compute_shader).value();
+	gpukit::Pipeline compute_pipeline = device->compute_pipeline_create(compute_shader).value();
 
 	// We need to tell the shader that binding 0 is our 'storage_buffer'
 
 	// Construct the uniform definition
 	// Note: Assuming 'ShaderUniform' struct structure based on common usage
-	gl::ShaderUniform buffer_uniform;
+	gpukit::ShaderUniform buffer_uniform;
 	buffer_uniform.binding = 0;
-	buffer_uniform.type = gl::ShaderUniformType::STORAGE_BUFFER;
+	buffer_uniform.type = gpukit::ShaderUniformType::STORAGE_BUFFER;
 	buffer_uniform.data.push_back(storage_buffer);
 
 	// Create the set (set index 0)
-	gl::UniformSet uniform_set =
+	gpukit::UniformSet uniform_set =
 			device->uniform_set_create(buffer_uniform, compute_shader, 0).value();
 
 	// Commands
-	gl::CommandQueue compute_queue = device->queue_get(gl::QueueType::GRAPHICS).value();
-	gl::CommandPool cmd_pool = device->command_pool_create(compute_queue).value();
-	gl::CommandBuffer cmd = device->command_pool_allocate(cmd_pool).value();
+	gpukit::CommandQueue compute_queue = device->queue_get(gpukit::QueueType::GRAPHICS).value();
+	gpukit::CommandPool cmd_pool = device->command_pool_create(compute_queue).value();
+	gpukit::CommandBuffer cmd = device->command_pool_allocate(cmd_pool).value();
 
-	gl::Fence fence = device->fence_create(false);
+	gpukit::Fence fence = device->fence_create(false);
 
 	device->command_begin(cmd);
 
@@ -67,7 +67,7 @@ int main(void) {
 
 	// Bind Data
 	device->command_bind_uniform_sets(
-			cmd, compute_shader, 0, uniform_set, gl::PipelineType::COMPUTE);
+			cmd, compute_shader, 0, uniform_set, gpukit::PipelineType::COMPUTE);
 
 	// Dispatch
 	// Local size is 64 (defined in slang), so we need 1024 / 64 = 16 groups.
@@ -76,7 +76,7 @@ int main(void) {
 	device->command_end(cmd);
 
 	// Execution
-	GL_LOG_INFO("Dispatching compute shader...");
+	GPUKIT_LOG_INFO("Dispatching compute shader...");
 
 	device->queue_submit(compute_queue, cmd, fence);
 
@@ -84,7 +84,7 @@ int main(void) {
 	device->fence_wait(fence);
 
 	// Readback and Verify ---
-	GL_LOG_INFO("Compute finished. Verifying results...");
+	GPUKIT_LOG_INFO("Compute finished. Verifying results...");
 
 	device->buffer_invalidate(storage_buffer);
 
@@ -97,16 +97,16 @@ int main(void) {
 		float actual = raw_data[i];
 
 		if (std::abs(actual - expected) > 0.001f) {
-			GL_LOG_ERROR("Mismatch at index {}: Expected {}, Got {}", i, expected, actual);
+			GPUKIT_LOG_ERROR("Mismatch at index {}: Expected {}, Got {}", i, expected, actual);
 			success = false;
 			break;
 		}
 	}
 
 	if (success) {
-		GL_LOG_INFO("SUCCESS! All {} values were squared correctly on the GPU.", element_count);
+		GPUKIT_LOG_INFO("SUCCESS! All {} values were squared correctly on the GPU.", element_count);
 	} else {
-		GL_LOG_ERROR("FAILURE! Compute results were incorrect.");
+		GPUKIT_LOG_ERROR("FAILURE! Compute results were incorrect.");
 	}
 
 	device->buffer_unmap(storage_buffer);

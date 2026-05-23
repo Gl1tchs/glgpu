@@ -1,12 +1,12 @@
-#include "glgpu/device.h"
+#include "gpukit/device.h"
 
-#include "glgpu/version.h"
+#include "gpukit/version.h"
 #include "platform/vulkan/vk_device.h"
 
-namespace gl {
+namespace gpukit {
 
 Res<std::unique_ptr<Device>> Device::create(const DeviceCreateInfo& info) {
-	GL_LOG_INFO("[GLGPU] Version {}", GLGPU_VERSION_STR);
+	GPUKIT_LOG_INFO("[GPUKit] Version {}", GPUKIT_VERSION_STR);
 
 	std::unique_ptr<Device> backend = std::make_unique<VulkanDevice>();
 	if (auto r = backend->init(info); !r) {
@@ -16,4 +16,4 @@ Res<std::unique_ptr<Device>> Device::create(const DeviceCreateInfo& info) {
 	return backend;
 }
 
-} //namespace gl
+} //namespace gpukitkit
