@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(glgpu VERSION 1.0.5
+project(glgpu VERSION 1.0.6
     DESCRIPTION "Low-Level, low dependency rendering interface over the Vulkan API"
     LANGUAGES CXX
 )
