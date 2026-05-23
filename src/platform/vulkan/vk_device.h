@@ -9,7 +9,9 @@
 
 #include <cstring>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <unordered_map>
 
 namespace gl {
 
@@ -501,6 +503,14 @@ private:
 	std::mutex _imm_cmd_graphics_mutex;
 
 	DeletionQueue _deletion_queue;
+
+	std::shared_ptr<std::mutex> _get_pool_mutex(VkCommandPool pool);
+	std::shared_ptr<std::mutex> _get_pool_mutex_from_cmd(VkCommandBuffer cmd);
+
+	// Thread safety for command pools and command buffers
+	std::mutex _command_pools_mutex;
+	std::unordered_map<VkCommandPool, std::shared_ptr<std::mutex>> _command_pools;
+	std::unordered_map<VkCommandBuffer, VkCommandPool> _command_buffer_parents;
 };
 
 } // namespace gl

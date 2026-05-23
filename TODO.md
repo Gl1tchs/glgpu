@@ -5,6 +5,6 @@
 - [x] Fix vkQueueSubmit2(): pSubmits[0].pSignalSemaphoreInfos[0].semaphore (VkSemaphore 0x180000000018) is being signaled by VkQueue 0x565046f04120, but it may still be in use by VkSwapchainKHR 0x70000000007.
 - [x] Taking too long to initialize
 - [x] Bindless Resources (Textures, Buffers, etc...)
-- [ ] Multithreading
+- [x] Multithreading
 - [x] Full automatic shader reflection
 - [x] Runtime shader compilation & hot-reload

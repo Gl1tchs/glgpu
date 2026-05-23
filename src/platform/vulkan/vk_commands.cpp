@@ -51,6 +51,27 @@ Res<> VulkanDevice::command_immediate_submit(
 	return {};
 }
 
+std::shared_ptr<std::mutex> VulkanDevice::_get_pool_mutex(VkCommandPool pool) {
+	std::lock_guard<std::mutex> lock(_command_pools_mutex);
+	auto it = _command_pools.find(pool);
+	if (it != _command_pools.end()) {
+		return it->second;
+	}
+	return nullptr;
+}
+
+std::shared_ptr<std::mutex> VulkanDevice::_get_pool_mutex_from_cmd(VkCommandBuffer cmd) {
+	std::lock_guard<std::mutex> lock(_command_pools_mutex);
+	auto it = _command_buffer_parents.find(cmd);
+	if (it != _command_buffer_parents.end()) {
+		auto pool_it = _command_pools.find(it->second);
+		if (pool_it != _command_pools.end()) {
+			return pool_it->second;
+		}
+	}
+	return nullptr;
+}
+
 Res<CommandPool> VulkanDevice::command_pool_create(CommandQueue queue) {
 	VulkanQueue* vk_queue = (VulkanQueue*)queue;
 	if (!vk_queue) {
@@ -66,6 +87,11 @@ Res<CommandPool> VulkanDevice::command_pool_create(CommandQueue queue) {
 	VK_CHECK_RET(vkCreateCommandPool(_device, &create_info, nullptr, &vk_command_pool),
 			make_err<CommandPool>(Error::INITIALIZATION_FAILED));
 
+	{
+		std::lock_guard<std::mutex> lock(_command_pools_mutex);
+		_command_pools[vk_command_pool] = std::make_shared<std::mutex>();
+	}
+
 	return CommandPool(vk_command_pool);
 }
 
@@ -75,7 +101,26 @@ Res<> VulkanDevice::command_pool_free(CommandPool command_pool) {
 	}
 
 	VkCommandPool vk_pool = (VkCommandPool)command_pool;
-	vkDestroyCommandPool(_device, vk_pool, nullptr);
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex(vk_pool);
+
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		vkDestroyCommandPool(_device, vk_pool, nullptr);
+	} else {
+		vkDestroyCommandPool(_device, vk_pool, nullptr);
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(_command_pools_mutex);
+		_command_pools.erase(vk_pool);
+		for (auto cb_it = _command_buffer_parents.begin(); cb_it != _command_buffer_parents.end(); ) {
+			if (cb_it->second == vk_pool) {
+				cb_it = _command_buffer_parents.erase(cb_it);
+			} else {
+				++cb_it;
+			}
+		}
+	}
 
 	return {};
 }
@@ -86,6 +131,11 @@ Res<CommandBuffer> VulkanDevice::command_pool_allocate(CommandPool command_pool)
 		return make_err<CommandBuffer>(Error::INVALID_HANDLE);
 	}
 
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex(vk_pool);
+
+	VkCommandBuffer vk_command_buffer = VK_NULL_HANDLE;
+	VkResult res = VK_SUCCESS;
+
 	VkCommandBufferAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.pNext = nullptr;
@@ -93,9 +143,21 @@ Res<CommandBuffer> VulkanDevice::command_pool_allocate(CommandPool command_pool)
 	alloc_info.commandBufferCount = 1;
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-	VkCommandBuffer vk_command_buffer = VK_NULL_HANDLE;
-	VK_CHECK_RET(vkAllocateCommandBuffers(_device, &alloc_info, &vk_command_buffer),
-			make_err<CommandBuffer>(Error::OUT_OF_HOST_MEMORY));
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkAllocateCommandBuffers(_device, &alloc_info, &vk_command_buffer);
+	} else {
+		res = vkAllocateCommandBuffers(_device, &alloc_info, &vk_command_buffer);
+	}
+
+	if (res == VK_SUCCESS && vk_command_buffer != VK_NULL_HANDLE) {
+		std::lock_guard<std::mutex> lock(_command_pools_mutex);
+		_command_buffer_parents[vk_command_buffer] = vk_pool;
+	}
+
+	if (res != VK_SUCCESS) {
+		return make_err<CommandBuffer>(Error::OUT_OF_HOST_MEMORY);
+	}
 
 	return CommandBuffer(vk_command_buffer);
 }
@@ -107,6 +169,8 @@ Res<std::vector<CommandBuffer>> VulkanDevice::command_pool_allocate(
 		return make_err<std::vector<CommandBuffer>>(Error::INVALID_HANDLE);
 	}
 
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex(vk_pool);
+
 	VkCommandBufferAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.pNext = nullptr;
@@ -114,12 +178,34 @@ Res<std::vector<CommandBuffer>> VulkanDevice::command_pool_allocate(
 	alloc_info.commandBufferCount = count;
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-	std::vector<CommandBuffer> command_buffers(count);
-	VK_CHECK_RET(vkAllocateCommandBuffers(
-						 _device, &alloc_info, (VkCommandBuffer*)command_buffers.data()),
-			make_err<std::vector<CommandBuffer>>(Error::OUT_OF_HOST_MEMORY));
+	std::vector<VkCommandBuffer> vk_command_buffers(count, VK_NULL_HANDLE);
+	VkResult res = VK_SUCCESS;
 
-	return command_buffers;
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkAllocateCommandBuffers(_device, &alloc_info, vk_command_buffers.data());
+	} else {
+		res = vkAllocateCommandBuffers(_device, &alloc_info, vk_command_buffers.data());
+	}
+
+	if (res == VK_SUCCESS) {
+		std::lock_guard<std::mutex> lock(_command_pools_mutex);
+		for (auto cb : vk_command_buffers) {
+			if (cb != VK_NULL_HANDLE) {
+				_command_buffer_parents[cb] = vk_pool;
+			}
+		}
+	}
+
+	if (res != VK_SUCCESS) {
+		return make_err<std::vector<CommandBuffer>>(Error::OUT_OF_HOST_MEMORY);
+	}
+
+	std::vector<CommandBuffer> result(count);
+	for (uint32_t i = 0; i < count; i++) {
+		result[i] = CommandBuffer(vk_command_buffers[i]);
+	}
+	return result;
 }
 
 Res<> VulkanDevice::command_pool_reset(CommandPool command_pool) {
@@ -127,9 +213,20 @@ Res<> VulkanDevice::command_pool_reset(CommandPool command_pool) {
 		return Error::INVALID_HANDLE;
 	}
 
-	VK_CHECK_RET(vkResetCommandPool(_device, (VkCommandPool)command_pool,
-						 VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM),
-			Error::INVALID_OPERATION);
+	VkCommandPool vk_pool = (VkCommandPool)command_pool;
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex(vk_pool);
+
+	VkResult res = VK_SUCCESS;
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkResetCommandPool(_device, vk_pool, VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM);
+	} else {
+		res = vkResetCommandPool(_device, vk_pool, VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM);
+	}
+
+	if (res != VK_SUCCESS) {
+		return Error::INVALID_OPERATION;
+	}
 
 	return {};
 }
@@ -139,14 +236,26 @@ Res<> VulkanDevice::command_begin(CommandBuffer cmd) {
 		return Error::INVALID_HANDLE;
 	}
 
+	VkCommandBuffer vk_cmd = (VkCommandBuffer)cmd;
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex_from_cmd(vk_cmd);
+
 	VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.pNext = nullptr;
 	begin_info.pInheritanceInfo = nullptr;
 	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	VK_CHECK_RET(vkBeginCommandBuffer((VkCommandBuffer)cmd, &begin_info),
-			Error::COMMAND_SUBMISSION_FAILED);
+	VkResult res = VK_SUCCESS;
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkBeginCommandBuffer(vk_cmd, &begin_info);
+	} else {
+		res = vkBeginCommandBuffer(vk_cmd, &begin_info);
+	}
+
+	if (res != VK_SUCCESS) {
+		return Error::COMMAND_SUBMISSION_FAILED;
+	}
 
 	return {};
 }
@@ -156,7 +265,20 @@ Res<> VulkanDevice::command_end(CommandBuffer cmd) {
 		return Error::INVALID_HANDLE;
 	}
 
-	VK_CHECK_RET(vkEndCommandBuffer((VkCommandBuffer)cmd), Error::COMMAND_SUBMISSION_FAILED);
+	VkCommandBuffer vk_cmd = (VkCommandBuffer)cmd;
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex_from_cmd(vk_cmd);
+
+	VkResult res = VK_SUCCESS;
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkEndCommandBuffer(vk_cmd);
+	} else {
+		res = vkEndCommandBuffer(vk_cmd);
+	}
+
+	if (res != VK_SUCCESS) {
+		return Error::COMMAND_SUBMISSION_FAILED;
+	}
 
 	return {};
 }
@@ -166,7 +288,20 @@ Res<> VulkanDevice::command_reset(CommandBuffer cmd) {
 		return Error::INVALID_HANDLE;
 	}
 
-	VK_CHECK_RET(vkResetCommandBuffer((VkCommandBuffer)cmd, 0), Error::INVALID_OPERATION);
+	VkCommandBuffer vk_cmd = (VkCommandBuffer)cmd;
+	std::shared_ptr<std::mutex> pool_mutex = _get_pool_mutex_from_cmd(vk_cmd);
+
+	VkResult res = VK_SUCCESS;
+	if (pool_mutex) {
+		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
+		res = vkResetCommandBuffer(vk_cmd, 0);
+	} else {
+		res = vkResetCommandBuffer(vk_cmd, 0);
+	}
+
+	if (res != VK_SUCCESS) {
+		return Error::INVALID_OPERATION;
+	}
 
 	return {};
 }
