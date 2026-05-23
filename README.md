@@ -51,4 +51,4 @@ cmake --install build # after building
 
 The `examples/` directory contains reference implementations demonstrating API usage.
 
-If `GL_BUILD_EXAMPLES` is enabled, binaries for these examples will be generated in the build output directory.
+If `GPUKIT_BUILD_EXAMPLES` is enabled, binaries for these examples will be generated in the build output directory.
