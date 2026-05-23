@@ -36,7 +36,7 @@ int main(void) {
 		return 1;
 	}
 
-	gl::Shader compute_shader = device->shader_create("examples/assets/compute.glsl").value();
+	gl::Shader compute_shader = device->shader_create("examples/assets/compute.comp").value();
 
 	gl::Pipeline compute_pipeline = device->compute_pipeline_create(compute_shader).value();
 
