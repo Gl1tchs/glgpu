@@ -282,9 +282,15 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	// Retrieve Queues
 	vkGetDeviceQueue(_device, selected_indices.graphics_family.value(), 0, &_graphics_queue.queue);
 	_graphics_queue.queue_family = selected_indices.graphics_family.value();
+	_graphics_queue.mutex = std::make_shared<std::mutex>();
 
 	vkGetDeviceQueue(_device, selected_indices.transfer_family.value(), 0, &_transfer_queue.queue);
 	_transfer_queue.queue_family = selected_indices.transfer_family.value();
+	if (_transfer_queue.queue == _graphics_queue.queue) {
+		_transfer_queue.mutex = _graphics_queue.mutex;
+	} else {
+		_transfer_queue.mutex = std::make_shared<std::mutex>();
+	}
 
 	if (selected_indices.compute_family) {
 		vkGetDeviceQueue(_device, *selected_indices.compute_family, 0, &_compute_queue.queue);
@@ -294,12 +300,30 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		_compute_queue.queue_family = _graphics_queue.queue_family;
 	}
 
+	if (_compute_queue.queue == _graphics_queue.queue) {
+		_compute_queue.mutex = _graphics_queue.mutex;
+	} else if (_compute_queue.queue == _transfer_queue.queue) {
+		_compute_queue.mutex = _transfer_queue.mutex;
+	} else {
+		_compute_queue.mutex = std::make_shared<std::mutex>();
+	}
+
 	if (selected_indices.present_family) {
 		vkGetDeviceQueue(_device, *selected_indices.present_family, 0, &_present_queue.queue);
 		_present_queue.queue_family = *selected_indices.present_family;
 	} else {
 		_present_queue.queue = _graphics_queue.queue;
 		_present_queue.queue_family = _graphics_queue.queue_family;
+	}
+
+	if (_present_queue.queue == _graphics_queue.queue) {
+		_present_queue.mutex = _graphics_queue.mutex;
+	} else if (_present_queue.queue == _transfer_queue.queue) {
+		_present_queue.mutex = _transfer_queue.mutex;
+	} else if (_present_queue.queue == _compute_queue.queue) {
+		_present_queue.mutex = _compute_queue.mutex;
+	} else {
+		_present_queue.mutex = std::make_shared<std::mutex>();
 	}
 
 	// Cleanup

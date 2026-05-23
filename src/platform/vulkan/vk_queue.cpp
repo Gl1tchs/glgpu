@@ -74,11 +74,15 @@ Res<> VulkanDevice::queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fe
 
 	VulkanQueue* vk_queue = (VulkanQueue*)queue;
 
-	// Lock queue for thread safe access
-	std::lock_guard<std::mutex> lock(vk_queue->mutex);
-
-	VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
-			Error::COMMAND_SUBMISSION_FAILED);
+	if (vk_queue->mutex) {
+		// Lock queue for thread safe access
+		std::lock_guard<std::mutex> lock(*vk_queue->mutex);
+		VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
+				Error::COMMAND_SUBMISSION_FAILED);
+	} else {
+		VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
+				Error::COMMAND_SUBMISSION_FAILED);
+	}
 
 	return {};
 }
@@ -102,10 +106,14 @@ Res<> VulkanDevice::queue_present(
 	present_info.pSwapchains = &vk_swapchain->vk_swapchain;
 	present_info.pImageIndices = &vk_swapchain->image_index;
 
-	// Lock queue for thread safe access
-	std::lock_guard<std::mutex> lock(vk_queue->mutex);
-
-	VkResult res = vkQueuePresentKHR(vk_queue->queue, &present_info);
+	VkResult res;
+	if (vk_queue->mutex) {
+		// Lock queue for thread safe access
+		std::lock_guard<std::mutex> lock(*vk_queue->mutex);
+		res = vkQueuePresentKHR(vk_queue->queue, &present_info);
+	} else {
+		res = vkQueuePresentKHR(vk_queue->queue, &present_info);
+	}
 
 	if (res == VK_SUCCESS) {
 		return {};

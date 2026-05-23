@@ -281,7 +281,7 @@ public:
 	struct VulkanQueue {
 		VkQueue queue;
 		uint32_t queue_family;
-		std::mutex mutex;
+		std::shared_ptr<std::mutex> mutex;
 	};
 
 	Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence = GL_NULL_HANDLE,
