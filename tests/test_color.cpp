@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "glgpu/color.h"
+#include "gpukit/color.h"
 
-using namespace gl;
+using namespace gpukit;
 
 TEST_CASE("Color Default Constructor", "[Color]") {
 	Color color;

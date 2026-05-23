@@ -1,9 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include "glgpu/math.h"
+#include "gpukit/math.h"
 
-using namespace gl;
+using namespace gpukit;
 
 // Helper macro for verifying floating point vectors with a margin
 // Using Catch2's WithinRel for relative comparison is robust for math::pow()

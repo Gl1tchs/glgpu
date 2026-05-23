@@ -2,10 +2,10 @@
 
 #include "test_common.h"
 
-using namespace gl;
+using namespace gpukit;
 
 TEST_CASE("Image Management", "[image]") {
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 
 	SECTION("Create 2D Texture") {
 		ImageCreateInfo img_info = {};

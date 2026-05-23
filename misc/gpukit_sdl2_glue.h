@@ -3,9 +3,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include "glgpu/device.h"
+#include "gpukit/device.h"
 
-namespace gl {
+namespace gpukit {
 
 inline bool extract_sdl2_info(DeviceCreateInfo& info, SDL_Window* window) {
 	SDL_SysWMinfo wmInfo;

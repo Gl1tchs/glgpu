@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <fstream>
 
-namespace gl {
+namespace gpukit {
 
 static bool _is_safe_path(const std::string& path) {
 	for (char c : path) {
@@ -23,13 +23,13 @@ static bool _is_safe_path(const std::string& path) {
 static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 		const std::string& source_path, ShaderStageFlags stage) {
 	if (!_is_safe_path(source_path)) {
-		GL_LOG_ERROR("[GLGPU] Unsafe characters in shader path: {}", source_path);
+		GPUKIT_LOG_ERROR("[GPUKit] Unsafe characters in shader path: {}", source_path);
 		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
 	}
 
 	std::error_code ec;
 	if (!std::filesystem::exists(source_path, ec)) {
-		GL_LOG_ERROR("[GLGPU] Shader source not found: {}", source_path);
+		GPUKIT_LOG_ERROR("[GPUKit] Shader source not found: {}", source_path);
 		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
 	}
 
@@ -50,7 +50,7 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 		std::string cmd = "glslc \"" + source_path + "\" -o \"" + spv_path + "\"";
 		int ret = std::system(cmd.c_str());
 		if (ret != 0) {
-			GL_LOG_ERROR("[GLGPU] Shader compilation failed for: {}", source_path);
+			GPUKIT_LOG_ERROR("[GPUKit] Shader compilation failed for: {}", source_path);
 			return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
 		}
 	}
@@ -559,4 +559,4 @@ Res<std::vector<ShaderResourceInfo>> VulkanDevice::shader_get_resources(Shader s
 	return resources;
 }
 
-} //namespace gl
+} //namespace gpukitkit

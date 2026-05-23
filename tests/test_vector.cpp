@@ -1,9 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include "glgpu/vector.h"
+#include "gpukit/vector.h"
 
-using namespace gl;
+using namespace gpukit;
 
 // Helper for floating point comparison with margin
 bool close_enough(float a, float b, float epsilon = 1e-5f) { return std::abs(a - b) < epsilon; }

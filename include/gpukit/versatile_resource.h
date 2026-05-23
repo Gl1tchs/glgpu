@@ -1,11 +1,11 @@
 #pragma once
 
-#include "glgpu/paged_allocator.h"
+#include "gpukit/paged_allocator.h"
 
 #include <algorithm>
 #include <cstdint>
 
-namespace gl {
+namespace gpukit {
 
 template <typename... RESOURCE_TYPES> struct VersatileResourceTemplate {
 	static constexpr size_t RESOURCE_SIZES[] = { sizeof(RESOURCE_TYPES)... };
@@ -24,4 +24,4 @@ template <typename... RESOURCE_TYPES> struct VersatileResourceTemplate {
 	}
 };
 
-} //namespace gl
+} //namespace gpukitkit

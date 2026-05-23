@@ -2,10 +2,10 @@
 
 #include "test_common.h"
 
-using namespace gl;
+using namespace gpukit;
 
 TEST_CASE("Debug Utils Operations", "[debug]") {
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 	REQUIRE(device != nullptr);
 
 	SECTION("Setting Debug Name on Buffer") {

@@ -1,9 +1,9 @@
-#include "glgpu/os.h"
+#include "gpukit/os.h"
 
 #include <cstdlib>
 #include <cstring>
 
-namespace gl {
+namespace gpukit {
 
 WindowCompositor get_window_compositor() {
 #if defined(_WIN32)
@@ -39,4 +39,4 @@ WindowCompositor get_window_compositor() {
 #endif
 }
 
-} //namespace gl
+} //namespace gpukitkit

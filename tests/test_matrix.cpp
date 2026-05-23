@@ -2,9 +2,9 @@
 
 // #define GL_USE_SIMD_INTRINSICS
 
-#include "glgpu/matrix.h"
+#include "gpukit/matrix.h"
 
-using namespace gl;
+using namespace gpukit;
 
 const float PI = 3.14159265359f;
 

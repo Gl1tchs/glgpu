@@ -1,10 +1,10 @@
 #pragma once
 
-#include "glgpu/vector.h"
+#include "gpukit/vector.h"
 
 #include <cmath>
 
-namespace gl {
+namespace gpukit {
 
 namespace math {
 
@@ -55,4 +55,4 @@ inline constexpr Vec<S, T> clamp(const Vec<S, T>& v, T lower, T upper) {
 
 } //namespace math
 
-} //namespace gl
+} //namespace gpukitkit

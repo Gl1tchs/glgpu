@@ -3,20 +3,20 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-#include <glgpu/glgpu.h>
-#include <glgpu_sdl2_glue.h>
+#include <gpukit/gpukit.h>
+#include <gpukit_sdl2_glue.h>
 
 constexpr int WINDOW_WIDTH = 800;
 constexpr int WINDOW_HEIGHT = 600;
 
 // Struct to hold per-frame resources for buffering
 struct FrameData {
-	gl::CommandPool cmd_pool;
-	gl::CommandBuffer cmd;
-	gl::Semaphore image_available_sem;
-	gl::Fence frame_fence;
+	gpukit::CommandPool cmd_pool;
+	gpukit::CommandBuffer cmd;
+	gpukit::Semaphore image_available_sem;
+	gpukit::Fence frame_fence;
 
-	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
+	void init(gpukit::Device* device, gpukit::CommandQueue graphics_queue) {
 		// Create Command Pool and Buffer for this specific frame
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
@@ -29,7 +29,7 @@ struct FrameData {
 		frame_fence = device->fence_create();
 	}
 
-	void destroy(gl::Device* device) {
+	void destroy(gpukit::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
 
@@ -40,35 +40,35 @@ struct FrameData {
 
 int main(void) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		GL_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("SDL could not initialize! SDL_Error: {}", SDL_GetError());
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow("GLGPU Clear Screen Test", SDL_WINDOWPOS_UNDEFINED,
+	SDL_Window* window = SDL_CreateWindow("GPUKit Clear Screen Test", SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	if (window == nullptr) {
-		GL_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
+		GPUKIT_LOG_ERROR("Window could not be created! SDL_Error: {}", SDL_GetError());
 		SDL_Quit();
 		return 1;
 	}
 
-	gl::DeviceCreateInfo info{
-		.required_features = gl::DEVICE_FEATURE_SWAPCHAIN_BIT |
-				gl::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gl::DEVICE_FEATURE_VALIDATION_LAYERS,
+	gpukit::DeviceCreateInfo info{
+		.required_features = gpukit::DEVICE_FEATURE_SWAPCHAIN_BIT |
+				gpukit::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gpukit::DEVICE_FEATURE_VALIDATION_LAYERS,
 	};
 
-	if (!gl::extract_sdl2_info(info, window)) {
-		GL_ASSERT(false, "Only X11 and windows is supported.");
+	if (!gpukit::extract_sdl2_info(info, window)) {
+		GPUKIT_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
-	auto device = gl::Device::create(info).own();
+	auto device = gpukit::Device::create(info).own();
 
-	gl::CommandQueue graphics_queue = device->queue_get(gl::QueueType::GRAPHICS).value();
-	gl::CommandQueue present_queue = device->queue_get(gl::QueueType::PRESENT).value();
+	gpukit::CommandQueue graphics_queue = device->queue_get(gpukit::QueueType::GRAPHICS).value();
+	gpukit::CommandQueue present_queue = device->queue_get(gpukit::QueueType::PRESENT).value();
 
-	gl::Swapchain swapchain = device->swapchain_create().value();
+	gpukit::Swapchain swapchain = device->swapchain_create().value();
 	device->swapchain_resize(
 			graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true /* vsync */);
 
@@ -80,7 +80,7 @@ int main(void) {
 		frame.init(device.get(), graphics_queue);
 	}
 
-	std::vector<gl::Semaphore> render_finished_sems(image_count);
+	std::vector<gpukit::Semaphore> render_finished_sems(image_count);
 	for (uint32_t i = 0; i < image_count; i++) {
 		render_finished_sems[i] = device->semaphore_create();
 	}
@@ -142,7 +142,7 @@ int main(void) {
 		if (!acquire_result)
 			continue;
 
-		gl::Image swapchain_image = *acquire_result;
+		gpukit::Image swapchain_image = *acquire_result;
 
 		// Record Commands
 		device->command_reset(frame.cmd);
@@ -152,24 +152,24 @@ int main(void) {
 		// Images coming from the swapchain are usually in an UNDEFINED state.
 		// command_clear_color requires the image to be in ImageLayout::GENERAL.
 		device->command_transition_image(
-				frame.cmd, swapchain_image, gl::ImageLayout::UNDEFINED, gl::ImageLayout::GENERAL);
+				frame.cmd, swapchain_image, gpukit::ImageLayout::UNDEFINED, gpukit::ImageLayout::GENERAL);
 
-		device->command_begin_label(frame.cmd, "HELLO WORLD", gl::COLOR_RED);
+		device->command_begin_label(frame.cmd, "HELLO WORLD", gpukit::COLOR_RED);
 
 		// Clear the Screen
 		// Calculate a color based on time
 		time += 0.01f;
-		gl::Color clear_color = { (float)std::abs(sin(time)), (float)std::abs(cos(time)), 0.2f,
+		gpukit::Color clear_color = { (float)std::abs(sin(time)), (float)std::abs(cos(time)), 0.2f,
 			1.0f };
 
 		device->command_clear_color(frame.cmd, swapchain_image, clear_color);
 
 		device->command_end_label(frame.cmd);
 
-		// Transition gl::Image Layout for Presentation
+		// Transition gpukit::Image Layout for Presentation
 		// The presentation engine requires the image to be in PRESENT_SRC layout.
 		device->command_transition_image(
-				frame.cmd, swapchain_image, gl::ImageLayout::GENERAL, gl::ImageLayout::PRESENT_SRC);
+				frame.cmd, swapchain_image, gpukit::ImageLayout::GENERAL, gpukit::ImageLayout::PRESENT_SRC);
 
 		device->command_end(frame.cmd);
 

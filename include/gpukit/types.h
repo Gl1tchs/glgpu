@@ -1,14 +1,14 @@
 #pragma once
 
-#include "glgpu/color.h"
-#include "glgpu/result.h"
-#include "glgpu/vector.h"
+#include "gpukit/color.h"
+#include "gpukit/result.h"
+#include "gpukit/vector.h"
 
 #include <cstdint>
 #include <vector>
 #include <string>
 
-namespace gl {
+namespace gpukit {
 
 // -----------------------------------------------------------------------------
 // Handles & Macros
@@ -732,4 +732,4 @@ struct RenderingAttachment {
 enum class QueueType { GRAPHICS, PRESENT, TRANSFER, COMPUTE };
 enum class IndexType : uint32_t { UINT16 = 1, UINT32 = 2 };
 
-} // namespace gl
+} // namespace gpukit

@@ -2,10 +2,10 @@
 
 #include "test_common.h"
 
-using namespace gl;
+using namespace gpukit;
 
 TEST_CASE("Buffer Operations", "[buffer]") {
-	auto device = gl::test::get_test_device();
+	auto device = gpukit::test::get_test_device();
 
 	SECTION("CPU Buffer Creation & Mapping") {
 		uint64_t size = 1024;

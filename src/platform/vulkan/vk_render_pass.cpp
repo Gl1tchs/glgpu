@@ -2,7 +2,7 @@
 
 #include "platform/vulkan/vk_common.h"
 
-namespace gl {
+namespace gpukit {
 
 Res<RenderPass> VulkanDevice::render_pass_create(
 		VectorView<RenderPassAttachment> attachments, VectorView<SubpassInfo> subpasses) {
@@ -176,4 +176,4 @@ Res<> VulkanDevice::frame_buffer_destroy(FrameBuffer frame_buffer) {
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

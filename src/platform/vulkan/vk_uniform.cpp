@@ -2,7 +2,7 @@
 
 #include "platform/vulkan/vk_common.h"
 
-namespace gl {
+namespace gpukit {
 
 static VkDescriptorType _resolve_descriptor_type(
 		VulkanDevice::VulkanUniformSet* usi, uint32_t binding, VkDescriptorType default_type) {
@@ -155,7 +155,7 @@ Res<UniformSet> VulkanDevice::uniform_set_create(
 		// Update pool key
 		const uint32_t type_int = static_cast<uint32_t>(uniform.type);
 		if (pool_key.uniform_type[type_int] + num_descriptors > MAX_UNIFORM_POOL_ELEMENT) {
-			GL_LOG_ERROR("[VULKAN] Uniform set descriptor limit exceeded.");
+			GPUKIT_LOG_ERROR("[VULKAN] Uniform set descriptor limit exceeded.");
 			return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
 		}
 
@@ -180,7 +180,7 @@ Res<UniformSet> VulkanDevice::uniform_set_create(
 
 	if (res != VK_SUCCESS) {
 		_uniform_pool_unreference(pool_key, vk_pool);
-		GL_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
 		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
 	}
 
@@ -280,7 +280,7 @@ Res<UniformSet> VulkanDevice::uniform_set_create(Shader shader, uint32_t set_ind
 
 	if (res != VK_SUCCESS) {
 		_uniform_pool_unreference(pool_key, vk_pool);
-		GL_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
 		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
 	}
 
@@ -589,4 +589,4 @@ void VulkanDevice::_uniform_pool_unreference(
 	}
 }
 
-} //namespace gl
+} //namespace gpukitkit

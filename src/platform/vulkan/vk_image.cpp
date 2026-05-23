@@ -1,6 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
-namespace gl {
+namespace gpukit {
 
 static VkImageUsageFlags _gl_to_vk_image_usage_flags(ImageUsageFlags usage) {
 	VkImageUsageFlags vk_usage = 0;
@@ -59,7 +59,7 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 
 	if (vmaCreateImage(_allocator, &img_info, &alloc_info, &vk_image, &vma_allocation, nullptr) !=
 			VK_SUCCESS) {
-		GL_LOG_ERROR("[VULKAN] Failed to create image via VMA");
+		GPUKIT_LOG_ERROR("[VULKAN] Failed to create image via VMA");
 		return nullptr;
 	}
 
@@ -84,7 +84,7 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 
 	VkImageView vk_image_view = VK_NULL_HANDLE;
 	if (vkCreateImageView(_device, &view_info, nullptr, &vk_image_view) != VK_SUCCESS) {
-		GL_LOG_ERROR("[VULKAN] Failed to create image view");
+		GPUKIT_LOG_ERROR("[VULKAN] Failed to create image view");
 		vmaDestroyImage(_allocator, vk_image, vma_allocation);
 		return nullptr;
 	}
@@ -318,4 +318,4 @@ Res<> VulkanDevice::sampler_free(Sampler sampler) {
 	return {};
 }
 
-} //namespace gl
+} //namespace gpukitkit

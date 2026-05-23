@@ -1,6 +1,6 @@
-# GLGPU
+# GPUKit
 
-GLGPU is a high-performance rendering interface that abstracts the Vulkan API. It is designed to provide a low-overhead development environment for real-time graphics applications.
+GPUKit is a high-performance rendering interface that abstracts the Vulkan API. It is designed to provide a low-overhead development environment for real-time graphics applications.
 
 ## Features
 
@@ -13,7 +13,7 @@ GLGPU is a high-performance rendering interface that abstracts the Vulkan API. I
 
 ## Prerequisites
 
-To build GLGPU, ensure the following dependencies are installed:
+To build GPUKit, ensure the following dependencies are installed:
 
 - **CMake** (3.20 or higher)
 - **C++20 Compiler** (Preferably Clang)
@@ -27,18 +27,18 @@ To build GLGPU, ensure the following dependencies are installed:
 To build the library, examples, and tests from source:
 
 ```bash
-git clone --recursive https://github.com/Gl1tchs/glgpu.git
-cd glgpu
+git clone --recursive https://github.com/Gl1tchs/gpukit.git
+cd gpukit
 cmake --preset release
 cmake --build --preset release
 ```
 
 ## Installing
 
-If you are on arch linux you can use AUR to automatically build and install glgpu
+If you are on arch linux you can use AUR to automatically build and install gpukit
 
 ```
-yay -S glgpu-git
+yay -S gpukit-git
 ```
 
 Or you can use CMake install command

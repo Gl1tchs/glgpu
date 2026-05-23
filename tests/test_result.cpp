@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "glgpu/result.h"
+#include "gpukit/result.h"
 
-using namespace gl;
+using namespace gpukit;
 
 // Helper enum for simple error testing
 enum class NetworkError { Timeout, Disconnected, Unknown };

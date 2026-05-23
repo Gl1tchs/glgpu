@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace gl {
+namespace gpukit {
 
 template <size_t S, typename T> struct Vec;
 
@@ -368,4 +368,4 @@ using Vec4d = Vec<4, double>;
 using Vec4i = Vec<4, int>;
 using Vec4u = Vec<4, uint32_t>;
 
-} // namespace gl
+} // namespace gpukit

@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace gl {
+namespace gpukit {
 
 /**
  * Color representing Red,Green,Blue,Alpha values in 32-bit floats.
@@ -68,11 +68,11 @@ constexpr Color COLOR_GRAY(0.5f, 0.5f, 0.5f, 1.0f);
 constexpr Color COLOR_ORANGE(1.0f, 0.5f, 0.0f, 1.0f);
 constexpr Color COLOR_TRANSPARENT(0.0f, 0.0f, 0.0f, 0.0f);
 
-} //namespace gl
+} //namespace gpukitkit
 
 namespace std {
-template <> struct hash<gl::Color> {
-	size_t operator()(const gl::Color& c) const noexcept {
+template <> struct hash<gpukit::Color> {
+	size_t operator()(const gpukit::Color& c) const noexcept {
 		return std::hash<uint32_t>{}(c.as_uint());
 	}
 };

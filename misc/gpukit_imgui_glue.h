@@ -1,17 +1,17 @@
 /**
- * glgpu_imgui_glue.h
+ * gpukit_imgui_glue.h
  *
- * Header-only bridge between glgpu and Dear ImGui.
+ * Header-only bridge between gpukit and Dear ImGui.
  *
  * Backend selection — define before including this header (or via CMake):
- *   GLGPU_IMGUI_BACKEND_VULKAN   — enables the Vulkan rendering backend
- *   GLGPU_IMGUI_BACKEND_SDL2     — enables the SDL2 windowing backend
+ *   GPUKIT_IMGUI_BACKEND_VULKAN   — enables the Vulkan rendering backend
+ *   GPUKIT_IMGUI_BACKEND_SDL2     — enables the SDL2 windowing backend
  *
  * Usage:
- *   #define GLGPU_IMGUI_BACKEND_VULKAN
- *   #define GLGPU_IMGUI_BACKEND_SDL2
+ *   #define GPUKIT_IMGUI_BACKEND_VULKAN
+ *   #define GPUKIT_IMGUI_BACKEND_SDL2
  *   #include <imgui.h>
- *   #include <glgpu_imgui_glue.h>
+ *   #include <gpukit_imgui_glue.h>
  *
  *   gl::ImGuiGlueState imgui = gl::imgui_init(device.get(), info, window);
  *   // per-frame:
@@ -26,31 +26,31 @@
 
 #include <imgui.h>
 
-#include "glgpu/device.h"
+#include "gpukit/device.h"
 
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 #include <backends/imgui_impl_vulkan.h>
 #endif
 
-#if defined(GLGPU_IMGUI_BACKEND_SDL2)
+#if defined(GPUKIT_IMGUI_BACKEND_SDL2)
 #include <backends/imgui_impl_sdl2.h>
 #endif
 
-#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+#if defined(GPUKIT_IMGUI_BACKEND_GLFW)
 #include <backends/imgui_impl_glfw.h>
 #endif
 
-namespace gl {
+namespace gpukit {
 
 /**
  * Info required to initialize the rendering backend.
- * Only meaningful when GLGPU_IMGUI_BACKEND_VULKAN is defined.
+ * Only meaningful when GPUKIT_IMGUI_BACKEND_VULKAN is defined.
  */
 struct ImGuiGlueInfo {
 	// Number of in-flight frames — must match swapchain image count.
 	uint32_t image_count = 2;
 
-	// Swapchain color format. glgpu DataFormat values match VkFormat numerically.
+	// Swapchain color format. gpukit DataFormat values match VkFormat numerically.
 	DataFormat color_attachment_format = DataFormat::B8G8R8A8_UNORM;
 
 	// Minimum image count hint forwarded to ImGui.
@@ -69,12 +69,12 @@ struct ImGuiGlueState {
  * Initialize all ImGui backends for the given device and native window.
  *
  * Selects rendering backend at compile time:
- *   GLGPU_IMGUI_BACKEND_VULKAN  → ImGui_ImplVulkan_Init
+ *   GPUKIT_IMGUI_BACKEND_VULKAN  → ImGui_ImplVulkan_Init
  *
  * Selects windowing backend at compile time:
- *   GLGPU_IMGUI_BACKEND_SDL2    → ImGui_ImplSDL2_InitFor*
+ *   GPUKIT_IMGUI_BACKEND_SDL2    → ImGui_ImplSDL2_InitFor*
  *
- * @param device  The active glgpu device.
+ * @param device  The active gpukit device.
  * @param info    Rendering backend parameters.
  * @param window  Native window handle (e.g. SDL_Window*). Cast internally.
  * @return Opaque state — pass to imgui_shutdown() on teardown.
@@ -83,7 +83,7 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
 	ImGuiGlueState state;
 
 	if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 		const NativeContext ctx = device->get_native_context();
 
 		const VkDescriptorPoolSize pool_sizes[] = {
@@ -123,15 +123,15 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
 		init_info.PipelineInfoMain.PipelineRenderingCreateInfo = pipeline_rendering_info;
 
 		ImGui_ImplVulkan_Init(&init_info);
-#endif // GLGPU_IMGUI_BACKEND_VULKAN
+#endif // GPUKIT_IMGUI_BACKEND_VULKAN
 	}
 
-#if defined(GLGPU_IMGUI_BACKEND_SDL2)
+#if defined(GPUKIT_IMGUI_BACKEND_SDL2)
 	{
 		auto* sdl_window = static_cast<SDL_Window*>(window);
 
 		if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 			ImGui_ImplSDL2_InitForVulkan(sdl_window);
 #else
 			ImGui_ImplSDL2_InitForOther(sdl_window);
@@ -140,14 +140,14 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
 			ImGui_ImplSDL2_InitForOther(sdl_window);
 		}
 	}
-#endif // GLGPU_IMGUI_BACKEND_SDL2
+#endif // GPUKIT_IMGUI_BACKEND_SDL2
 
-#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+#if defined(GPUKIT_IMGUI_BACKEND_GLFW)
 	{
 		auto* glfw_window = static_cast<GLFWwindow*>(window);
 
 		if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 			ImGui_ImplGlfw_InitForVulkan(glfw_window, true);
 #else
 			ImGui_ImplGlfw_InitForOther(glfw_window, true);
@@ -156,7 +156,7 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
 			ImGui_ImplGlfw_InitForOther(glfw_window, true);
 		}
 	}
-#endif // GLGPU_IMGUI_BACKEND_GLFW
+#endif // GPUKIT_IMGUI_BACKEND_GLFW
 
 	return state;
 }
@@ -167,14 +167,14 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
  */
 inline void imgui_new_frame(Device* device) {
 	if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 		ImGui_ImplVulkan_NewFrame();
 #endif
 	}
-#if defined(GLGPU_IMGUI_BACKEND_SDL2)
+#if defined(GPUKIT_IMGUI_BACKEND_SDL2)
 	ImGui_ImplSDL2_NewFrame();
 #endif
-#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+#if defined(GPUKIT_IMGUI_BACKEND_GLFW)
 	ImGui_ImplGlfw_NewFrame();
 #endif
 }
@@ -183,12 +183,12 @@ inline void imgui_new_frame(Device* device) {
  * Record ImGui draw commands into cmd.
  * Must be called inside an active dynamic rendering pass.
  *
- * @param cmd  The glgpu command buffer currently recording.
+ * @param cmd  The gpukit command buffer currently recording.
  */
 inline void imgui_render(Device* device, CommandBuffer cmd) {
 	ImGui::Render();
 	if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), (VkCommandBuffer)cmd);
 #endif
 	}
@@ -196,20 +196,20 @@ inline void imgui_render(Device* device, CommandBuffer cmd) {
 
 /**
  * Shut down all ImGui backends and release internal resources.
- * Call before destroying the glgpu device.
+ * Call before destroying the gpukit device.
  *
- * @param device  The active glgpu device.
+ * @param device  The active gpukit device.
  * @param state   The state returned by imgui_init().
  */
 inline void imgui_shutdown(Device* device, const ImGuiGlueState& state) {
-#if defined(GLGPU_IMGUI_BACKEND_SDL2)
+#if defined(GPUKIT_IMGUI_BACKEND_SDL2)
 	ImGui_ImplSDL2_Shutdown();
 #endif
-#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+#if defined(GPUKIT_IMGUI_BACKEND_GLFW)
 	ImGui_ImplGlfw_Shutdown();
 #endif
 	if (device->get_api() == RenderAPI::VULKAN) {
-#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
 		ImGui_ImplVulkan_Shutdown();
 		if (state.pool) {
 			const NativeContext ctx = device->get_native_context();
