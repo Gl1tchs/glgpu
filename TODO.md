@@ -4,7 +4,7 @@
 - [x] Pipeline barriers
 - [x] Fix vkQueueSubmit2(): pSubmits[0].pSignalSemaphoreInfos[0].semaphore (VkSemaphore 0x180000000018) is being signaled by VkQueue 0x565046f04120, but it may still be in use by VkSwapchainKHR 0x70000000007.
 - [ ] Taking too long to initialize
-- [ ] Bindless Resources (Textures, Buffers, etc...)
+- [x] Bindless Resources (Textures, Buffers, etc...)
 - [ ] Multithreading
-- [ ] Full automatic shader reflection
+- [x] Full automatic shader reflection
 - [ ] Runtime shader compilation & hot-reload

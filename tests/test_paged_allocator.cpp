@@ -1,8 +1,8 @@
-#include <set>
-
 #include <catch2/catch_test_macros.hpp>
 
 #include "glgpu/paged_allocator.h"
+
+#include <set>
 
 using namespace gl;
 

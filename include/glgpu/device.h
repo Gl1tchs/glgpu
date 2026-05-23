@@ -22,8 +22,9 @@ typedef uint32_t DeviceFeatureFlags;
 struct DeviceCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
 	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
-	void* native_connection_handle = nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display*
-	void* native_window_handle = nullptr;     // Win32: HWND      | X11: Window   | Wayland: wl_surface*
+	void* native_connection_handle =
+			nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display*
+	void* native_window_handle = nullptr; // Win32: HWND      | X11: Window   | Wayland: wl_surface*
 };
 
 /**
@@ -32,10 +33,10 @@ struct DeviceCreateInfo {
  * Do NOT depend on this struct in general application code.
  */
 struct NativeContext {
-	void* instance        = nullptr; // VkInstance
+	void* instance = nullptr; // VkInstance
 	void* physical_device = nullptr; // VkPhysicalDevice
-	void* device          = nullptr; // VkDevice
-	void* graphics_queue  = nullptr; // VkQueue
+	void* device = nullptr; // VkDevice
+	void* graphics_queue = nullptr; // VkQueue
 	uint32_t graphics_queue_family = 0;
 };
 
@@ -125,9 +126,18 @@ public:
 	// Shader & Pipelines
 	// =========================================================================
 
-	virtual Res<Shader> shader_create_from_bytecode(VectorView<SpirvEntry> shaders) = 0;
+	// Create and compile shader from spirv bytecode
+	virtual Res<Shader> shader_create(VectorView<SpirvEntry> shaders) = 0;
+
+	// Create and compile shader from glsl files
+	virtual Res<Shader> shader_create(
+			const char* vertex_filepath, const char* fragment_filepath) = 0;
+
+	// Create and compile shader from glsl files
+	virtual Res<Shader> shader_create(const char* compute_filepath) = 0;
 	virtual Res<> shader_free(Shader shader) = 0;
 	virtual Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader) = 0;
+	virtual Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shader) = 0;
 
 	// Pipeline Creation using the new consolidated struct
 
@@ -139,29 +149,24 @@ public:
 
 	virtual Res<UniformSet> uniform_set_create(
 			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) = 0;
+	// Create an empty uniform set
+	virtual Res<UniformSet> uniform_set_create(Shader shader, uint32_t set_index) = 0;
 	virtual Res<> uniform_set_free(UniformSet uniform_set) = 0;
 
 	virtual Res<UniformSet> uniform_set_create_bindless(
 			Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) = 0;
 
-	/**
-	 * Update bindless uniform set texture at given index
-	 *
-	 * NOTE: Since SPIRV does not support reflection on non uniform types,
-	 * user must add 'h_' prefix to the uniform for engine to recognize
-	 * the binding as 'bindless'
-	 */
 	virtual Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
 			Image image, Sampler sampler) = 0;
 
-	virtual Res<> uniform_set_update_sampled_image(UniformSet set, uint32_t binding, uint32_t array_index,
-			Image image) = 0;
+	virtual Res<> uniform_set_update_sampled_image(
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image) = 0;
 
-	virtual Res<> uniform_set_update_storage_image(UniformSet set, uint32_t binding, uint32_t array_index,
-			Image image) = 0;
+	virtual Res<> uniform_set_update_storage_image(
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image) = 0;
 
-	virtual Res<> uniform_set_update_buffer(UniformSet set, uint32_t binding, uint32_t array_index,
-			Buffer buffer) = 0;
+	virtual Res<> uniform_set_update_buffer(
+			UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer) = 0;
 
 	// =========================================================================
 	// Render Pass & Framebuffer (Legacy)
@@ -288,8 +293,7 @@ public:
 			BufferUsageFlags dst_usage, Buffer buffer) = 0;
 
 	virtual Res<> command_pipeline_barrier(CommandBuffer cmd,
-			VectorView<BufferBarrier> buffer_barriers,
-			VectorView<ImageBarrier> image_barriers) = 0;
+			VectorView<BufferBarrier> buffer_barriers, VectorView<ImageBarrier> image_barriers) = 0;
 
 	virtual Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
 			Image dst_image, VectorView<BufferImageCopyRegion> regions) = 0;

@@ -1,5 +1,4 @@
 #include <cstring>
-#include <fstream>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -37,28 +36,6 @@ struct Vertex {
 	float uv[2];
 	int tex_index;
 };
-
-std::vector<uint32_t> load_spirv_file(const std::string& filename) {
-	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
-
-	if (!file.is_open()) {
-		GL_LOG_ERROR("Unable to open SPIRV file at path: '{}'.", filename);
-		return {};
-	}
-
-	size_t file_size = static_cast<size_t>(file.tellg());
-
-	if (file_size % sizeof(uint32_t) != 0) {
-		GL_LOG_ERROR("SPIRV file size is not a multiple of 4 (corrupted?): '{}'.", filename);
-		return {};
-	}
-
-	std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
-	file.seekg(0);
-	file.read(reinterpret_cast<char*>(buffer.data()), file_size);
-
-	return buffer;
-}
 
 gl::Image create_checkered_texture(gl::Device* device, uint32_t r, uint32_t g, uint32_t b) {
 	const uint32_t width = 16;
@@ -169,25 +146,10 @@ int main(void) {
 		render_finished_sems[i] = device->semaphore_create();
 	}
 
-	// Load shaders
-	std::vector<uint32_t> vert_code = load_spirv_file("examples/assets/bindless_vert.spv");
-	std::vector<uint32_t> frag_code = load_spirv_file("examples/assets/bindless_frag.spv");
-
-	if (vert_code.empty() || frag_code.empty()) {
-		GL_LOG_FATAL("Could not load shaders. Did you compile the slang/glsl files?");
-		return 1;
-	}
-
-	gl::SpirvEntry vert_entry;
-	vert_entry.byte_code = vert_code;
-	vert_entry.stage = gl::SHADER_STAGE_VERTEX_BIT;
-
-	gl::SpirvEntry frag_entry;
-	frag_entry.byte_code = frag_code;
-	frag_entry.stage = gl::SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<gl::SpirvEntry> entries = { vert_entry, frag_entry };
-	gl::Shader shader = device->shader_create_from_bytecode(entries).value();
+	// Load shaders using the new clean file-based API
+	gl::Shader shader =
+			device->shader_create("examples/assets/bindless.vert", "examples/assets/bindless.frag")
+					.value();
 	device->set_debug_name(gl::ObjectType::SHADER, shader, "Bindless Shader");
 
 	// Pipeline creation

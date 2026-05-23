@@ -18,6 +18,7 @@ To build GLGPU, ensure the following dependencies are installed:
 - **CMake** (3.20 or higher)
 - **C++20 Compiler** (Preferably Clang)
 - **Vulkan SDK** (1.3 or higher)
+- **glslc** For runtime SPIRV compilation
 
 ## Building
 

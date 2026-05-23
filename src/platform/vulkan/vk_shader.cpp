@@ -2,8 +2,55 @@
 
 #include <spirv_reflect.h>
 #include <vulkan/vulkan_core.h>
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
 
 namespace gl {
+
+static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
+		const std::string& source_path, ShaderStageFlags stage) {
+	// Generate a temporary spv filename in the same directory
+	std::string spv_path = source_path + ".spv";
+
+	// Call glslc
+	std::string cmd = "glslc \"" + source_path + "\" -o \"" + spv_path + "\"";
+	int ret = std::system(cmd.c_str());
+	if (ret != 0) {
+		GL_LOG_ERROR("[GLGPU] Shader compilation failed for: {}", source_path);
+		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	}
+
+	// Load compiled spv
+	std::ifstream spv_file(spv_path, std::ios::binary | std::ios::ate);
+	if (!spv_file.is_open()) {
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+	}
+	size_t size = spv_file.tellg();
+	std::vector<uint32_t> buffer(size / 4);
+	spv_file.seekg(0);
+	spv_file.read(reinterpret_cast<char*>(buffer.data()), size);
+	spv_file.close();
+
+	return buffer;
+}
+
+static Res<std::vector<uint32_t>> load_or_compile_shader(
+		const std::string& filepath, ShaderStageFlags stage) {
+	if (filepath.ends_with(".spv")) {
+		std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+		if (!file.is_open()) {
+			return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+		}
+		size_t size = file.tellg();
+		std::vector<uint32_t> buffer(size / 4);
+		file.seekg(0);
+		file.read(reinterpret_cast<char*>(buffer.data()), size);
+		return buffer;
+	} else {
+		return _compile_glsl_to_spirv(filepath, stage);
+	}
+}
 
 static VkDescriptorType _spv_reflect_descriptor_type_to_vk(SpvReflectDescriptorType type) {
 	switch (type) {
@@ -96,7 +143,7 @@ template <typename T> void _hash_combine(std::size_t& seed, const T& value) {
 	seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> shaders) {
+Res<Shader> VulkanDevice::shader_create(VectorView<SpirvEntry> shaders) {
 	std::vector<VkShaderModule> vk_shaders;
 	std::vector<VkDescriptorSetLayout> descriptor_set_layouts;
 	VkPipelineLayout vk_pipeline_layout = VK_NULL_HANDLE;
@@ -117,6 +164,7 @@ Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> sha
 	std::map<uint32_t, std::vector<VkDescriptorSetLayoutBinding>> set_bindings;
 	// Track which bindings need bindless flags
 	std::map<uint32_t, std::map<uint32_t, VkDescriptorBindingFlags>> per_binding_flags;
+	std::map<uint32_t, std::map<uint32_t, VulkanDevice::ReflectedBinding>> reflected_bindings;
 
 	std::vector<VkPushConstantRange> push_constant_ranges;
 	std::vector<ShaderInterfaceVariable> vertex_input_variables;
@@ -196,6 +244,14 @@ Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> sha
 							binding->binding,
 							_spv_reflect_descriptor_type_to_vk(binding->descriptor_type), count,
 							shader.stage, set_bindings);
+
+					VulkanDevice::ReflectedBinding reflected = {};
+					reflected.binding = binding->binding;
+					reflected.type = _spv_reflect_descriptor_type_to_vk(binding->descriptor_type);
+					reflected.count = count;
+					reflected.name = binding->name ? binding->name : "";
+
+					reflected_bindings[descriptor_set->set][binding->binding] = reflected;
 				}
 			}
 		}
@@ -346,6 +402,7 @@ Res<Shader> VulkanDevice::shader_create_from_bytecode(VectorView<SpirvEntry> sha
 	shader_info->pipeline_layout = vk_pipeline_layout;
 	shader_info->vertex_input_variables = vertex_input_variables;
 	shader_info->shader_hash = shader_hash;
+	shader_info->reflected_bindings = reflected_bindings;
 
 	return Shader(shader_info);
 }
@@ -379,6 +436,94 @@ Res<std::vector<ShaderInterfaceVariable>> VulkanDevice::shader_get_vertex_inputs
 
 	VulkanShader* shader_info = (VulkanShader*)shader;
 	return shader_info->vertex_input_variables;
+}
+
+Res<Shader> VulkanDevice::shader_create(
+		const char* vertex_filepath, const char* fragment_filepath) {
+	if (!vertex_filepath || !fragment_filepath) {
+		return make_err<Shader>(Error::INVALID_ARGUMENT);
+	}
+
+	auto vert_bytecode_res = load_or_compile_shader(vertex_filepath, SHADER_STAGE_VERTEX_BIT);
+	if (vert_bytecode_res.is_error()) {
+		return make_err<Shader>(vert_bytecode_res.error());
+	}
+
+	auto frag_bytecode_res = load_or_compile_shader(fragment_filepath, SHADER_STAGE_FRAGMENT_BIT);
+	if (frag_bytecode_res.is_error()) {
+		return make_err<Shader>(frag_bytecode_res.error());
+	}
+
+	SpirvEntry vert_entry{ .byte_code = vert_bytecode_res.value(),
+		.stage = SHADER_STAGE_VERTEX_BIT };
+
+	SpirvEntry frag_entry{ .byte_code = frag_bytecode_res.value(),
+		.stage = SHADER_STAGE_FRAGMENT_BIT };
+
+	std::vector<SpirvEntry> entries = { vert_entry, frag_entry };
+	return shader_create(entries);
+}
+
+Res<Shader> VulkanDevice::shader_create(const char* compute_filepath) {
+	if (!compute_filepath) {
+		return make_err<Shader>(Error::INVALID_ARGUMENT);
+	}
+
+	auto comp_bytecode_res = load_or_compile_shader(compute_filepath, SHADER_STAGE_COMPUTE_BIT);
+	if (comp_bytecode_res.is_error()) {
+		return make_err<Shader>(comp_bytecode_res.error());
+	}
+
+	SpirvEntry comp_entry{ .byte_code = comp_bytecode_res.value(),
+		.stage = SHADER_STAGE_COMPUTE_BIT };
+
+	std::vector<SpirvEntry> entries = { comp_entry };
+	return shader_create(entries);
+}
+
+Res<std::vector<ShaderResourceInfo>> VulkanDevice::shader_get_resources(Shader shader) {
+	if (!shader) {
+		return make_err<std::vector<ShaderResourceInfo>>(Error::INVALID_HANDLE);
+	}
+
+	VulkanShader* shader_info = (VulkanShader*)shader;
+	std::vector<ShaderResourceInfo> resources;
+
+	for (auto& [set_index, bindings] : shader_info->reflected_bindings) {
+		for (auto& [binding_index, binding] : bindings) {
+			ShaderResourceInfo info = {};
+			info.set = set_index;
+			info.binding = binding.binding;
+			info.name = binding.name;
+			info.count = binding.count;
+
+			switch (binding.type) {
+				case VK_DESCRIPTOR_TYPE_SAMPLER:
+					info.type = ShaderUniformType::SAMPLER;
+					break;
+				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+					info.type = ShaderUniformType::SAMPLER_WITH_TEXTURE;
+					break;
+				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+					info.type = ShaderUniformType::TEXTURE;
+					break;
+				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+					info.type = ShaderUniformType::IMAGE;
+					break;
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+					info.type = ShaderUniformType::UNIFORM_BUFFER;
+					break;
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+					info.type = ShaderUniformType::STORAGE_BUFFER;
+					break;
+				default:
+					continue;
+			}
+			resources.push_back(info);
+		}
+	}
+
+	return resources;
 }
 
 } //namespace gl

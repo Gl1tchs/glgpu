@@ -8,6 +8,4 @@ layout(location = 0) out vec4 out_color;
 
 layout(set = 0, binding = 0) uniform sampler2D h_textures[];
 
-void main() {
-    out_color = texture(h_textures[nonuniformEXT(out_tex_index)], out_uv);
-}
+void main() { out_color = texture(h_textures[nonuniformEXT(out_tex_index)], out_uv); }

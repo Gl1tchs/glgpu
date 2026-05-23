@@ -2,13 +2,12 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-layout(set = 0, binding = 0, std430) buffer BufferData {
-    float data[];
-} buffer_data;
+layout(set = 0, binding = 0, std430) buffer BufferData { float data[]; }
+buffer_data;
 
 void main() {
-    uint index = gl_GlobalInvocationID.x;
+	uint index = gl_GlobalInvocationID.x;
 
-    float value = buffer_data.data[index];
-    buffer_data.data[index] = value * value;
+	float value = buffer_data.data[index];
+	buffer_data.data[index] = value * value;
 }

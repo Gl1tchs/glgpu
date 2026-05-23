@@ -1,5 +1,4 @@
 #include <cstring>
-#include <fstream>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -36,28 +35,6 @@ struct Vertex {
 	float pos[2];
 	float col[3];
 };
-
-std::vector<uint32_t> load_spirv_file(const std::string& filename) {
-	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
-
-	if (!file.is_open()) {
-		GL_LOG_ERROR("Unable to open SPIRV file at path: '{}'.", filename);
-		return {};
-	}
-
-	size_t file_size = static_cast<size_t>(file.tellg());
-
-	if (file_size % sizeof(uint32_t) != 0) {
-		GL_LOG_ERROR("SPIRV file size is not a multiple of 4 (corrupted?): '{}'.", filename);
-		return {};
-	}
-
-	std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
-	file.seekg(0);
-	file.read(reinterpret_cast<char*>(buffer.data()), file_size);
-
-	return buffer;
-}
 
 int main(void) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -107,35 +84,23 @@ int main(void) {
 	}
 
 	// Load shaders
-	std::vector<uint32_t> vert_code = load_spirv_file("examples/assets/triangle_vert.spv");
-	std::vector<uint32_t> frag_code = load_spirv_file("examples/assets/triangle_frag.spv");
-
-	if (vert_code.empty() || frag_code.empty()) {
-		GL_LOG_FATAL("Could not load shaders. Did you compile the slang/glsl files?");
-		return 1;
-	}
-
-	gl::SpirvEntry vert_entry;
-	vert_entry.byte_code = vert_code;
-	vert_entry.stage = gl::SHADER_STAGE_VERTEX_BIT;
-
-	gl::SpirvEntry frag_entry;
-	frag_entry.byte_code = frag_code;
-	frag_entry.stage = gl::SHADER_STAGE_FRAGMENT_BIT;
-
-	std::vector<gl::SpirvEntry> entries = { vert_entry, frag_entry };
-	gl::Shader shader = device->shader_create_from_bytecode(entries).value();
+	// Load shaders using the overloaded file-based shader API
+	gl::Shader shader =
+			device->shader_create("examples/assets/triangle.vert", "examples/assets/triangle.frag")
+					.value();
 	device->set_debug_name(gl::ObjectType::SHADER, shader, "My Shader");
 
 	// Pipeline creation
 	gl::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
 
-	gl::GraphicsPipelineCreateInfo pipeline_info{ .shader = shader,
+	gl::GraphicsPipelineCreateInfo pipeline_info{
+		.shader = shader,
 		.primitive = gl::RenderPrimitive::TRIANGLE_LIST,
 		.vertex_input_state = { .stride = sizeof(Vertex) },
 		.color_blend_state = gl::PipelineColorBlendState::create_disabled(1),
 		.rendering_info = { .color_attachments = { swapchain_format },
-				.depth_attachment = gl::DataFormat::UNDEFINED } };
+				.depth_attachment = gl::DataFormat::UNDEFINED },
+	};
 
 	gl::Pipeline pipeline = device->graphics_pipeline_create(pipeline_info).value();
 

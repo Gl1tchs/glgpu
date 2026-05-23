@@ -110,6 +110,13 @@ public:
 	// =========================================================================
 
 	// Shader
+	struct ReflectedBinding {
+		uint32_t binding;
+		VkDescriptorType type;
+		uint32_t count;
+		std::string name;
+	};
+
 	struct VulkanShader {
 		std::vector<VkPipelineShaderStageCreateInfo> stage_create_infos;
 		uint32_t push_constant_stages = 0;
@@ -118,13 +125,21 @@ public:
 
 		std::vector<ShaderInterfaceVariable> vertex_input_variables;
 		size_t shader_hash;
+
+		std::map<uint32_t, std::map<uint32_t, ReflectedBinding>> reflected_bindings;
 	};
 
-	Res<Shader> shader_create_from_bytecode(VectorView<SpirvEntry> shaders) override;
+	Res<Shader> shader_create(VectorView<SpirvEntry> shaders) override;
+
+	Res<Shader> shader_create(const char* vertex_filepath, const char* fragment_filepath) override;
+
+	Res<Shader> shader_create(const char* compute_filepath) override;
 
 	Res<> shader_free(Shader shader) override;
 
 	Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader) override;
+
+	Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shader) override;
 
 	// Pipeline
 	struct VulkanPipeline {
@@ -160,10 +175,16 @@ public:
 
 		// Bindless resources
 		bool bindless = false;
+
+		// Reflection metadata
+		VulkanShader* shader = nullptr;
+		uint32_t set_index = 0;
 	};
 
 	Res<UniformSet> uniform_set_create(
 			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
+
+	Res<UniformSet> uniform_set_create(Shader shader, uint32_t set_index) override;
 
 	Res<> uniform_set_free(UniformSet uniform_set) override;
 
@@ -173,14 +194,14 @@ public:
 	Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
 			Image image, Sampler sampler) override;
 
-	Res<> uniform_set_update_sampled_image(UniformSet set, uint32_t binding, uint32_t array_index,
-			Image image) override;
+	Res<> uniform_set_update_sampled_image(
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image) override;
 
-	Res<> uniform_set_update_storage_image(UniformSet set, uint32_t binding, uint32_t array_index,
-			Image image) override;
+	Res<> uniform_set_update_storage_image(
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image) override;
 
-	Res<> uniform_set_update_buffer(UniformSet set, uint32_t binding, uint32_t array_index,
-			Buffer buffer) override;
+	Res<> uniform_set_update_buffer(
+			UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer) override;
 
 	// =========================================================================
 	// Render Pass & Framebuffer
@@ -345,8 +366,7 @@ public:
 	Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
 			BufferUsageFlags dst_usage, Buffer buffer) override;
 
-	Res<> command_pipeline_barrier(CommandBuffer cmd,
-			VectorView<BufferBarrier> buffer_barriers,
+	Res<> command_pipeline_barrier(CommandBuffer cmd, VectorView<BufferBarrier> buffer_barriers,
 			VectorView<ImageBarrier> image_barriers) override;
 
 	Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,

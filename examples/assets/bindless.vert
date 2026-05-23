@@ -8,7 +8,7 @@ layout(location = 0) out vec2 out_uv;
 layout(location = 1) flat out int out_tex_index;
 
 void main() {
-    gl_Position = vec4(in_pos, 0.0, 1.0);
-    out_uv = in_uv;
-    out_tex_index = in_tex_index;
+	gl_Position = vec4(in_pos, 0.0, 1.0);
+	out_uv = in_uv;
+	out_tex_index = in_tex_index;
 }

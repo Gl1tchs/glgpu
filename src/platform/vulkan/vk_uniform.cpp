@@ -4,6 +4,20 @@
 
 namespace gl {
 
+static VkDescriptorType _resolve_descriptor_type(
+		VulkanDevice::VulkanUniformSet* usi, uint32_t binding, VkDescriptorType default_type) {
+	if (usi && usi->shader) {
+		auto set_it = usi->shader->reflected_bindings.find(usi->set_index);
+		if (set_it != usi->shader->reflected_bindings.end()) {
+			auto binding_it = set_it->second.find(binding);
+			if (binding_it != set_it->second.end()) {
+				return binding_it->second.type;
+			}
+		}
+	}
+	return default_type;
+}
+
 Res<UniformSet> VulkanDevice::uniform_set_create(
 		VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) {
 	const VulkanShader* shader_info = (const VulkanShader*)shader;
@@ -201,6 +215,87 @@ Res<UniformSet> VulkanDevice::uniform_set_create(
 	usi->vk_descriptor_set = vk_descriptor_set;
 	usi->vk_descriptor_pool = vk_pool;
 	usi->pool_key = pool_key;
+	usi->shader = const_cast<VulkanShader*>(shader_info);
+	usi->set_index = set_index;
+
+	return UniformSet(usi);
+}
+
+Res<UniformSet> VulkanDevice::uniform_set_create(Shader shader, uint32_t set_index) {
+	const VulkanShader* shader_info = (const VulkanShader*)shader;
+	if (!shader_info) {
+		return make_err<UniformSet>(Error::INVALID_HANDLE);
+	}
+
+	if (set_index >= shader_info->descriptor_set_layouts.size()) {
+		return make_err<UniformSet>(Error::UNIFORM_SET_INVALID_SET_INDEX);
+	}
+
+	DescriptorSetPoolKey pool_key = {};
+	auto set_it = shader_info->reflected_bindings.find(set_index);
+	if (set_it != shader_info->reflected_bindings.end()) {
+		for (auto& [binding_index, binding] : set_it->second) {
+			ShaderUniformType uniform_type;
+			switch (binding.type) {
+				case VK_DESCRIPTOR_TYPE_SAMPLER:
+					uniform_type = ShaderUniformType::SAMPLER;
+					break;
+				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+					uniform_type = ShaderUniformType::SAMPLER_WITH_TEXTURE;
+					break;
+				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+					uniform_type = ShaderUniformType::TEXTURE;
+					break;
+				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+					uniform_type = ShaderUniformType::IMAGE;
+					break;
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+					uniform_type = ShaderUniformType::UNIFORM_BUFFER;
+					break;
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+					uniform_type = ShaderUniformType::STORAGE_BUFFER;
+					break;
+				default:
+					continue;
+			}
+			uint32_t type_int = static_cast<uint32_t>(uniform_type);
+			pool_key.uniform_type[type_int] += static_cast<uint16_t>(binding.count);
+		}
+	}
+
+	VkDescriptorPool vk_pool = _uniform_pool_find_or_create(pool_key);
+	if (vk_pool == VK_NULL_HANDLE) {
+		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
+	}
+
+	VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {};
+	descriptor_set_allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptor_set_allocate_info.descriptorPool = vk_pool;
+	descriptor_set_allocate_info.descriptorSetCount = 1;
+	descriptor_set_allocate_info.pSetLayouts = &shader_info->descriptor_set_layouts[set_index];
+
+	VkDescriptorSet vk_descriptor_set = VK_NULL_HANDLE;
+	VkResult res =
+			vkAllocateDescriptorSets(_device, &descriptor_set_allocate_info, &vk_descriptor_set);
+
+	if (res != VK_SUCCESS) {
+		_uniform_pool_unreference(pool_key, vk_pool);
+		GL_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
+		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
+	}
+
+	VulkanUniformSet* usi = VersatileResource::allocate<VulkanUniformSet>(_resources_allocator);
+	if (!usi) {
+		vkFreeDescriptorSets(_device, vk_pool, 1, &vk_descriptor_set);
+		_uniform_pool_unreference(pool_key, vk_pool);
+		return make_err<UniformSet>(Error::OUT_OF_HOST_MEMORY);
+	}
+
+	usi->vk_descriptor_set = vk_descriptor_set;
+	usi->vk_descriptor_pool = vk_pool;
+	usi->pool_key = pool_key;
+	usi->shader = const_cast<VulkanShader*>(shader_info);
+	usi->set_index = set_index;
 
 	return UniformSet(usi);
 }
@@ -279,6 +374,8 @@ Res<UniformSet> VulkanDevice::uniform_set_create_bindless(
 	usi->vk_descriptor_set = vk_set;
 	usi->vk_descriptor_pool = vk_pool;
 	usi->bindless = true;
+	usi->shader = shader_info;
+	usi->set_index = set_index;
 
 	// Store a dummy key so the freeing logic doesn't crash,
 	// though we might want to manually manage this pool's lifecycle
@@ -300,9 +397,8 @@ Res<> VulkanDevice::uniform_set_update_texture(
 		return Error::INVALID_HANDLE;
 	}
 
-	if (!usi->bindless) {
-		return Error::UNIFORM_SET_MISMATCH;
-	}
+	VkDescriptorType descriptor_type =
+			_resolve_descriptor_type(usi, binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
 	VkDescriptorImageInfo image_info = {};
 	image_info.imageView = vk_image->vk_image_view;
@@ -313,8 +409,8 @@ Res<> VulkanDevice::uniform_set_update_texture(
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write.dstSet = usi->vk_descriptor_set;
 	write.dstBinding = binding;
-	write.dstArrayElement = array_index; // Update specific index
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	write.dstArrayElement = array_index;
+	write.descriptorType = descriptor_type;
 	write.descriptorCount = 1;
 	write.pImageInfo = &image_info;
 
@@ -331,9 +427,8 @@ Res<> VulkanDevice::uniform_set_update_sampled_image(
 		return Error::INVALID_HANDLE;
 	}
 
-	if (!usi->bindless) {
-		return Error::UNIFORM_SET_MISMATCH;
-	}
+	VkDescriptorType descriptor_type =
+			_resolve_descriptor_type(usi, binding, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
 	VkDescriptorImageInfo image_info = {};
 	image_info.imageView = vk_image->vk_image_view;
@@ -345,7 +440,7 @@ Res<> VulkanDevice::uniform_set_update_sampled_image(
 	write.dstSet = usi->vk_descriptor_set;
 	write.dstBinding = binding;
 	write.dstArrayElement = array_index;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	write.descriptorType = descriptor_type;
 	write.descriptorCount = 1;
 	write.pImageInfo = &image_info;
 
@@ -362,9 +457,8 @@ Res<> VulkanDevice::uniform_set_update_storage_image(
 		return Error::INVALID_HANDLE;
 	}
 
-	if (!usi->bindless) {
-		return Error::UNIFORM_SET_MISMATCH;
-	}
+	VkDescriptorType descriptor_type =
+			_resolve_descriptor_type(usi, binding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
 	VkDescriptorImageInfo image_info = {};
 	image_info.imageView = vk_image->vk_image_view;
@@ -376,7 +470,7 @@ Res<> VulkanDevice::uniform_set_update_storage_image(
 	write.dstSet = usi->vk_descriptor_set;
 	write.dstBinding = binding;
 	write.dstArrayElement = array_index;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	write.descriptorType = descriptor_type;
 	write.descriptorCount = 1;
 	write.pImageInfo = &image_info;
 
@@ -393,9 +487,8 @@ Res<> VulkanDevice::uniform_set_update_buffer(
 		return Error::INVALID_HANDLE;
 	}
 
-	if (!usi->bindless) {
-		return Error::UNIFORM_SET_MISMATCH;
-	}
+	VkDescriptorType descriptor_type =
+			_resolve_descriptor_type(usi, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
 	VkDescriptorBufferInfo buffer_info = {};
 	buffer_info.buffer = vk_buffer->vk_buffer;
@@ -407,7 +500,7 @@ Res<> VulkanDevice::uniform_set_update_buffer(
 	write.dstSet = usi->vk_descriptor_set;
 	write.dstBinding = binding;
 	write.dstArrayElement = array_index;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	write.descriptorType = descriptor_type;
 	write.descriptorCount = 1;
 	write.pBufferInfo = &buffer_info;
 
@@ -457,7 +550,8 @@ VkDescriptorPool VulkanDevice::_uniform_pool_find_or_create(const DescriptorSetP
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
+			VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 	pool_info.maxSets = MAX_DESCRIPTOR_SETS_PER_POOL;
 	pool_info.poolSizeCount = static_cast<uint32_t>(vk_sizes.size());
 	pool_info.pPoolSizes = vk_sizes.data();

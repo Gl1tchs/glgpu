@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 namespace gl {
 
@@ -430,6 +431,14 @@ struct ShaderUniform {
 	ShaderUniformType type = ShaderUniformType::MAX;
 	uint32_t binding = 0xffffffff;
 	std::vector<void*> data;
+};
+
+struct ShaderResourceInfo {
+	uint32_t set;
+	uint32_t binding;
+	std::string name;
+	ShaderUniformType type;
+	uint32_t count;
 };
 
 // -----------------------------------------------------------------------------
