@@ -190,5 +190,6 @@ if(GL_BUILD_EXAMPLES)
 endif()
 
 if(GL_BUILD_TESTS)
+    enable_testing()
     add_subdirectory(tests)
 endif()

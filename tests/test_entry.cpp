@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch_session.hpp>
@@ -11,6 +12,20 @@ int main(int argc, char* argv[]) {
 	int code = session.applyCommandLine(argc, argv);
 	if (code != 0) {
 		return code;
+	}
+
+	bool is_listing = false;
+	for (int i = 1; i < argc; ++i) {
+		std::string arg = argv[i];
+		if (arg == "--list-tests" || arg == "--list-tags" || arg == "--list-reporters" ||
+				arg == "--list-listeners" || arg == "-h" || arg == "--help" || arg == "-?") {
+			is_listing = true;
+			break;
+		}
+	}
+
+	if (is_listing) {
+		return session.run();
 	}
 
 	// Initialize the RenderBackend globally
