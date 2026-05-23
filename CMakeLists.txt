@@ -146,6 +146,11 @@ install(FILES misc/glgpu_sdl2_glue.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} 
 )
 
+# Install GLFW glue
+install(FILES misc/glgpu_glfw_glue.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
 # Install ImGui glue
 install(FILES misc/glgpu_imgui_glue.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}

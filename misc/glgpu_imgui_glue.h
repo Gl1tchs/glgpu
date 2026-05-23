@@ -36,6 +36,10 @@
 #include <backends/imgui_impl_sdl2.h>
 #endif
 
+#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+#include <backends/imgui_impl_glfw.h>
+#endif
+
 namespace gl {
 
 /**
@@ -138,6 +142,22 @@ inline ImGuiGlueState imgui_init(Device* device, const ImGuiGlueInfo& info, void
 	}
 #endif // GLGPU_IMGUI_BACKEND_SDL2
 
+#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+	{
+		auto* glfw_window = static_cast<GLFWwindow*>(window);
+
+		if (device->get_api() == RenderAPI::VULKAN) {
+#if defined(GLGPU_IMGUI_BACKEND_VULKAN)
+			ImGui_ImplGlfw_InitForVulkan(glfw_window, true);
+#else
+			ImGui_ImplGlfw_InitForOther(glfw_window, true);
+#endif
+		} else {
+			ImGui_ImplGlfw_InitForOther(glfw_window, true);
+		}
+	}
+#endif // GLGPU_IMGUI_BACKEND_GLFW
+
 	return state;
 }
 
@@ -153,6 +173,9 @@ inline void imgui_new_frame(Device* device) {
 	}
 #if defined(GLGPU_IMGUI_BACKEND_SDL2)
 	ImGui_ImplSDL2_NewFrame();
+#endif
+#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+	ImGui_ImplGlfw_NewFrame();
 #endif
 }
 
@@ -181,6 +204,9 @@ inline void imgui_render(Device* device, CommandBuffer cmd) {
 inline void imgui_shutdown(Device* device, const ImGuiGlueState& state) {
 #if defined(GLGPU_IMGUI_BACKEND_SDL2)
 	ImGui_ImplSDL2_Shutdown();
+#endif
+#if defined(GLGPU_IMGUI_BACKEND_GLFW)
+	ImGui_ImplGlfw_Shutdown();
 #endif
 	if (device->get_api() == RenderAPI::VULKAN) {
 #if defined(GLGPU_IMGUI_BACKEND_VULKAN)
