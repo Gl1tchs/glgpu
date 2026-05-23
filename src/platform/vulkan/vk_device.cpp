@@ -230,23 +230,28 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	}
 
 	// Prepare Features Chain
-	VkPhysicalDeviceVulkan13Features features_13 = {
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-		.shaderDemoteToHelperInvocation = VK_TRUE,
-		.synchronization2 = VK_TRUE,
-		.dynamicRendering = VK_TRUE,
-	};
+	VkPhysicalDeviceVulkan13Features features_13 = {};
+	features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+	features_13.shaderDemoteToHelperInvocation = VK_TRUE;
+	features_13.synchronization2 = VK_TRUE;
+	features_13.dynamicRendering = VK_TRUE;
 
-	VkPhysicalDeviceVulkan12Features features_12 = {
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-		.pNext = &features_13,
-		.descriptorIndexing = VK_TRUE,
-		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-		.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-		.descriptorBindingPartiallyBound = VK_TRUE,
-		.runtimeDescriptorArray = VK_TRUE,
-		.bufferDeviceAddress = VK_TRUE,
-	};
+	VkPhysicalDeviceVulkan12Features features_12 = {};
+	features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	features_12.pNext = &features_13;
+	features_12.descriptorIndexing = VK_TRUE;
+	features_12.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
+	features_12.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+	features_12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	features_12.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+	features_12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+	features_12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+	features_12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+	features_12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+	features_12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+	features_12.descriptorBindingPartiallyBound = VK_TRUE;
+	features_12.runtimeDescriptorArray = VK_TRUE;
+	features_12.bufferDeviceAddress = VK_TRUE;
 
 	VkPhysicalDeviceFeatures2 device_features2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,

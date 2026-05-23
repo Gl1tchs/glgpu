@@ -154,6 +154,15 @@ public:
 	virtual Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
 			Image image, Sampler sampler) = 0;
 
+	virtual Res<> uniform_set_update_sampled_image(UniformSet set, uint32_t binding, uint32_t array_index,
+			Image image) = 0;
+
+	virtual Res<> uniform_set_update_storage_image(UniformSet set, uint32_t binding, uint32_t array_index,
+			Image image) = 0;
+
+	virtual Res<> uniform_set_update_buffer(UniformSet set, uint32_t binding, uint32_t array_index,
+			Buffer buffer) = 0;
+
 	// =========================================================================
 	// Render Pass & Framebuffer (Legacy)
 	// =========================================================================

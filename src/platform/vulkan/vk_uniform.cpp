@@ -234,17 +234,23 @@ Res<UniformSet> VulkanDevice::uniform_set_create_bindless(
 
 	// NOTE: We need a dedicated pool with the UPDATE_AFTER_BIND flag.
 	// This allows us to update the descriptor set while it is bound to a command buffer in flight.
-	VkDescriptorPoolSize pool_size = {};
-	pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_size.descriptorCount = max_count;
+	// We populate the pool with support for all bindless types we want to use.
+	std::vector<VkDescriptorPoolSize> pool_sizes = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, max_count },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, max_count },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, max_count },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, max_count },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, max_count },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, max_count },
+	};
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
 			VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 	pool_info.maxSets = 1;
-	pool_info.poolSizeCount = 1;
-	pool_info.pPoolSizes = &pool_size;
+	pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+	pool_info.pPoolSizes = pool_sizes.data();
 
 	VkDescriptorPool vk_pool = VK_NULL_HANDLE;
 	if (vkCreateDescriptorPool(_device, &pool_info, nullptr, &vk_pool) != VK_SUCCESS) {
@@ -311,6 +317,99 @@ Res<> VulkanDevice::uniform_set_update_texture(
 	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	write.descriptorCount = 1;
 	write.pImageInfo = &image_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
+
+	return {};
+}
+
+Res<> VulkanDevice::uniform_set_update_sampled_image(
+		UniformSet set, uint32_t binding, uint32_t array_index, Image image) {
+	VulkanUniformSet* usi = (VulkanUniformSet*)set;
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!usi || !vk_image) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!usi->bindless) {
+		return Error::UNIFORM_SET_MISMATCH;
+	}
+
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageView = vk_image->vk_image_view;
+	image_info.sampler = VK_NULL_HANDLE;
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = usi->vk_descriptor_set;
+	write.dstBinding = binding;
+	write.dstArrayElement = array_index;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	write.descriptorCount = 1;
+	write.pImageInfo = &image_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
+
+	return {};
+}
+
+Res<> VulkanDevice::uniform_set_update_storage_image(
+		UniformSet set, uint32_t binding, uint32_t array_index, Image image) {
+	VulkanUniformSet* usi = (VulkanUniformSet*)set;
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!usi || !vk_image) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!usi->bindless) {
+		return Error::UNIFORM_SET_MISMATCH;
+	}
+
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageView = vk_image->vk_image_view;
+	image_info.sampler = VK_NULL_HANDLE;
+	image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = usi->vk_descriptor_set;
+	write.dstBinding = binding;
+	write.dstArrayElement = array_index;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	write.descriptorCount = 1;
+	write.pImageInfo = &image_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
+
+	return {};
+}
+
+Res<> VulkanDevice::uniform_set_update_buffer(
+		UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer) {
+	VulkanUniformSet* usi = (VulkanUniformSet*)set;
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!usi || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!usi->bindless) {
+		return Error::UNIFORM_SET_MISMATCH;
+	}
+
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = vk_buffer->vk_buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = vk_buffer->size;
+
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = usi->vk_descriptor_set;
+	write.dstBinding = binding;
+	write.dstArrayElement = array_index;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	write.descriptorCount = 1;
+	write.pBufferInfo = &buffer_info;
 
 	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
 
