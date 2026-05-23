@@ -1,4 +1,4 @@
 - [ ] Dynamically handle imgui backend selection
 - [x] Quaternions
 - [x] Debug utils
-- [ ] Pipeline barriers
+- [x] Pipeline barriers

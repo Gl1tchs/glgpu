@@ -336,6 +336,10 @@ public:
 	Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
 			BufferUsageFlags dst_usage, Buffer buffer) override;
 
+	Res<> command_pipeline_barrier(CommandBuffer cmd,
+			VectorView<BufferBarrier> buffer_barriers,
+			VectorView<ImageBarrier> image_barriers) override;
+
 	Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
 			VectorView<BufferCopyRegion> regions) override;
 

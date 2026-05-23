@@ -255,10 +255,6 @@ struct BufferCopyRegion {
 	uint64_t size;
 };
 
-// -----------------------------------------------------------------------------
-// Images & Samplers
-// -----------------------------------------------------------------------------
-
 enum class ImageLayout : uint32_t {
 	UNDEFINED = 0,
 	GENERAL = 1,
@@ -270,6 +266,67 @@ enum class ImageLayout : uint32_t {
 	TRANSFER_DST_OPTIMAL = 7,
 	PRESENT_SRC = 1000001002,
 };
+
+enum PipelineStageBits : uint32_t {
+	PIPELINE_STAGE_TOP_OF_PIPE_BIT = 0x00000001,
+	PIPELINE_STAGE_DRAW_INDIRECT_BIT = 0x00000002,
+	PIPELINE_STAGE_VERTEX_INPUT_BIT = 0x00000004,
+	PIPELINE_STAGE_VERTEX_SHADER_BIT = 0x00000008,
+	PIPELINE_STAGE_FRAGMENT_SHADER_BIT = 0x00000080,
+	PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT = 0x00000400,
+	PIPELINE_STAGE_COMPUTE_SHADER_BIT = 0x00000800,
+	PIPELINE_STAGE_TRANSFER_BIT = 0x00001000,
+	PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT = 0x00002000,
+	PIPELINE_STAGE_ALL_GRAPHICS_BIT = 0x00008000,
+	PIPELINE_STAGE_ALL_COMMANDS_BIT = 0x00010000,
+};
+typedef uint32_t PipelineStageFlags;
+
+enum AccessBits : uint32_t {
+	ACCESS_INDIRECT_COMMAND_READ_BIT = 0x00000001,
+	ACCESS_INDEX_READ_BIT = 0x00000002,
+	ACCESS_VERTEX_ATTRIBUTE_READ_BIT = 0x00000004,
+	ACCESS_UNIFORM_READ_BIT = 0x00000008,
+	ACCESS_SHADER_READ_BIT = 0x00000020,
+	ACCESS_SHADER_WRITE_BIT = 0x00000040,
+	ACCESS_COLOR_ATTACHMENT_READ_BIT = 0x00000080,
+	ACCESS_COLOR_ATTACHMENT_WRITE_BIT = 0x00010000,
+	ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT = 0x00000200,
+	ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT = 0x00000400,
+	ACCESS_TRANSFER_READ_BIT = 0x00000800,
+	ACCESS_TRANSFER_WRITE_BIT = 0x00001000,
+	ACCESS_HOST_READ_BIT = 0x00002000,
+	ACCESS_HOST_WRITE_BIT = 0x00004000,
+	ACCESS_MEMORY_READ_BIT = 0x00008000,
+	ACCESS_MEMORY_WRITE_BIT = 0x00010000,
+};
+typedef uint32_t AccessFlags;
+
+struct BufferBarrier {
+	Buffer buffer = nullptr;
+	PipelineStageFlags src_stage = 0;
+	PipelineStageFlags dst_stage = 0;
+	AccessFlags src_access = 0;
+	AccessFlags dst_access = 0;
+	uint64_t offset = 0;
+	uint64_t size = ~0ULL;
+};
+
+struct ImageBarrier {
+	Image image = nullptr;
+	PipelineStageFlags src_stage = 0;
+	PipelineStageFlags dst_stage = 0;
+	AccessFlags src_access = 0;
+	AccessFlags dst_access = 0;
+	ImageLayout old_layout = ImageLayout::UNDEFINED;
+	ImageLayout new_layout = ImageLayout::UNDEFINED;
+	uint32_t base_mip_level = 0;
+	uint32_t level_count = ~0U;
+};
+
+// -----------------------------------------------------------------------------
+// Images & Samplers
+// -----------------------------------------------------------------------------
 
 enum class ImageFiltering { NEAREST, LINEAR };
 

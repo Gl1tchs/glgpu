@@ -278,6 +278,10 @@ public:
 	virtual Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
 			BufferUsageFlags dst_usage, Buffer buffer) = 0;
 
+	virtual Res<> command_pipeline_barrier(CommandBuffer cmd,
+			VectorView<BufferBarrier> buffer_barriers,
+			VectorView<ImageBarrier> image_barriers) = 0;
+
 	virtual Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer,
 			Image dst_image, VectorView<BufferImageCopyRegion> regions) = 0;
 

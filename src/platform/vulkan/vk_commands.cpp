@@ -544,6 +544,102 @@ Res<> VulkanDevice::command_buffer_memory_barrier(
 	return {};
 }
 
+Res<> VulkanDevice::command_pipeline_barrier(CommandBuffer cmd,
+		VectorView<BufferBarrier> buffer_barriers,
+		VectorView<ImageBarrier> image_barriers) {
+	if (!cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VkPipelineStageFlags global_src_stages = 0;
+	VkPipelineStageFlags global_dst_stages = 0;
+
+	std::vector<VkBufferMemoryBarrier> vk_buffer_barriers;
+	vk_buffer_barriers.reserve(buffer_barriers.size());
+
+	for (const auto& barrier : buffer_barriers) {
+		if (!barrier.buffer) {
+			return Error::INVALID_HANDLE;
+		}
+		VulkanBuffer* vk_buf = (VulkanBuffer*)barrier.buffer;
+
+		VkBufferMemoryBarrier vk_barrier = {};
+		vk_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		vk_barrier.pNext = nullptr;
+		vk_barrier.srcAccessMask = static_cast<VkAccessFlags>(barrier.src_access);
+		vk_barrier.dstAccessMask = static_cast<VkAccessFlags>(barrier.dst_access);
+		vk_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		vk_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		vk_barrier.buffer = vk_buf->vk_buffer;
+		vk_barrier.offset = barrier.offset;
+		vk_barrier.size = (barrier.size == ~0ULL)
+				? (vk_buf->allocation.size != UINT64_MAX ? vk_buf->allocation.size : VK_WHOLE_SIZE)
+				: barrier.size;
+
+		vk_buffer_barriers.push_back(vk_barrier);
+
+		global_src_stages |= static_cast<VkPipelineStageFlags>(barrier.src_stage);
+		global_dst_stages |= static_cast<VkPipelineStageFlags>(barrier.dst_stage);
+	}
+
+	std::vector<VkImageMemoryBarrier> vk_image_barriers;
+	vk_image_barriers.reserve(image_barriers.size());
+
+	for (const auto& barrier : image_barriers) {
+		if (!barrier.image) {
+			return Error::INVALID_HANDLE;
+		}
+		VulkanImage* vk_img = (VulkanImage*)barrier.image;
+
+		VkImageAspectFlags aspect_mask =
+				(barrier.old_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+						barrier.new_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+						is_depth_format(static_cast<DataFormat>(vk_img->image_format)))
+				? VK_IMAGE_ASPECT_DEPTH_BIT
+				: VK_IMAGE_ASPECT_COLOR_BIT;
+
+		VkImageMemoryBarrier vk_barrier = {};
+		vk_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_barrier.pNext = nullptr;
+		vk_barrier.srcAccessMask = static_cast<VkAccessFlags>(barrier.src_access);
+		vk_barrier.dstAccessMask = static_cast<VkAccessFlags>(barrier.dst_access);
+		vk_barrier.oldLayout = static_cast<VkImageLayout>(barrier.old_layout);
+		vk_barrier.newLayout = static_cast<VkImageLayout>(barrier.new_layout);
+		vk_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		vk_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		vk_barrier.image = vk_img->vk_image;
+		vk_barrier.subresourceRange.aspectMask = aspect_mask;
+		vk_barrier.subresourceRange.baseMipLevel = barrier.base_mip_level;
+		vk_barrier.subresourceRange.levelCount = barrier.level_count;
+		vk_barrier.subresourceRange.baseArrayLayer = 0;
+		vk_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+		vk_image_barriers.push_back(vk_barrier);
+
+		global_src_stages |= static_cast<VkPipelineStageFlags>(barrier.src_stage);
+		global_dst_stages |= static_cast<VkPipelineStageFlags>(barrier.dst_stage);
+	}
+
+	// If no barriers were provided, or stages are 0, default to TOP_OF_PIPE/BOTTOM_OF_PIPE or do nothing.
+	if (global_src_stages == 0) {
+		global_src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	}
+	if (global_dst_stages == 0) {
+		global_dst_stages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	}
+
+	vkCmdPipelineBarrier((VkCommandBuffer)cmd,
+			global_src_stages,
+			global_dst_stages,
+			0,
+			0, nullptr,
+			static_cast<uint32_t>(vk_buffer_barriers.size()), vk_buffer_barriers.data(),
+			static_cast<uint32_t>(vk_image_barriers.size()), vk_image_barriers.data());
+
+	return {};
+}
+
+
 Res<> VulkanDevice::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
 		VectorView<BufferCopyRegion> regions) {
 	VulkanBuffer* vk_src = (VulkanBuffer*)src_buffer;
