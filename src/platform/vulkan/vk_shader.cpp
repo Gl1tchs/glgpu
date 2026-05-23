@@ -4,21 +4,55 @@
 #include <vulkan/vulkan_core.h>
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 
 namespace gl {
 
+static bool _is_safe_path(const std::string& path) {
+	for (char c : path) {
+		// Allow only alphanumeric, spaces, and standard path characters
+		if (!std::isalnum(c) && c != ' ' && c != '.' && c != '_' && c != '-' && c != '/' &&
+				c != '\\' && c != ':') {
+			return false;
+		}
+	}
+	return !path.empty();
+}
+
 static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 		const std::string& source_path, ShaderStageFlags stage) {
-	// Generate a temporary spv filename in the same directory
-	std::string spv_path = source_path + ".spv";
+	if (!_is_safe_path(source_path)) {
+		GL_LOG_ERROR("[GLGPU] Unsafe characters in shader path: {}", source_path);
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+	}
 
-	// Call glslc
-	std::string cmd = "glslc \"" + source_path + "\" -o \"" + spv_path + "\"";
-	int ret = std::system(cmd.c_str());
-	if (ret != 0) {
-		GL_LOG_ERROR("[GLGPU] Shader compilation failed for: {}", source_path);
-		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	std::error_code ec;
+	if (!std::filesystem::exists(source_path, ec)) {
+		GL_LOG_ERROR("[GLGPU] Shader source not found: {}", source_path);
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+	}
+
+	std::string spv_path = source_path + ".spv";
+	bool need_compile = true;
+
+	auto source_time = std::filesystem::last_write_time(source_path, ec);
+	if (!ec) {
+		if (std::filesystem::exists(spv_path, ec)) {
+			auto spv_time = std::filesystem::last_write_time(spv_path, ec);
+			if (!ec && spv_time >= source_time) {
+				need_compile = false;
+			}
+		}
+	}
+
+	if (need_compile) {
+		std::string cmd = "glslc \"" + source_path + "\" -o \"" + spv_path + "\"";
+		int ret = std::system(cmd.c_str());
+		if (ret != 0) {
+			GL_LOG_ERROR("[GLGPU] Shader compilation failed for: {}", source_path);
+			return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+		}
 	}
 
 	// Load compiled spv
@@ -27,10 +61,9 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
 	}
 	size_t size = spv_file.tellg();
-	std::vector<uint32_t> buffer(size / 4);
+	std::vector<uint32_t> buffer(size / sizeof(uint32_t));
 	spv_file.seekg(0);
 	spv_file.read(reinterpret_cast<char*>(buffer.data()), size);
-	spv_file.close();
 
 	return buffer;
 }
