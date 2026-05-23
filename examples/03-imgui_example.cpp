@@ -16,21 +16,18 @@ struct FrameData {
 	gl::CommandPool cmd_pool;
 	gl::CommandBuffer cmd;
 	gl::Semaphore image_available_sem;
-	gl::Semaphore render_finished_sem;
 	gl::Fence frame_fence;
 
 	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
 		image_available_sem = device->semaphore_create();
-		render_finished_sem = device->semaphore_create();
 		frame_fence = device->fence_create();
 	}
 
 	void destroy(gl::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
-		device->semaphore_free(render_finished_sem);
 		device->command_pool_free(cmd_pool);
 	}
 };
@@ -82,6 +79,11 @@ int main(void) {
 		frame.init(device.get(), graphics_queue);
 	}
 
+	std::vector<gl::Semaphore> render_finished_sems(image_count);
+	for (uint32_t i = 0; i < image_count; i++) {
+		render_finished_sems[i] = device->semaphore_create();
+	}
+
 	// -------------------------------------------------------------------------
 	// ImGui setup
 	// -------------------------------------------------------------------------
@@ -124,6 +126,27 @@ int main(void) {
 				device->device_wait();
 				device->swapchain_resize(graphics_queue, swapchain,
 						{ (uint32_t)e.window.data1, (uint32_t)e.window.data2 }, true);
+
+				// Recreate frames and render_finished_sems in case image count changed
+				for (auto& frame : frames) {
+					frame.destroy(device.get());
+				}
+				for (auto sem : render_finished_sems) {
+					device->semaphore_free(sem);
+				}
+
+				uint32_t new_image_count = device->swapchain_get_image_count(swapchain).value();
+				frames.resize(new_image_count);
+				for (auto& frame : frames) {
+					frame.init(device.get(), graphics_queue);
+				}
+
+				render_finished_sems.resize(new_image_count);
+				for (uint32_t i = 0; i < new_image_count; i++) {
+					render_finished_sems[i] = device->semaphore_create();
+				}
+
+				current_frame_index = 0;
 			}
 		}
 
@@ -192,9 +215,9 @@ int main(void) {
 		device->command_end(frame.cmd);
 
 		device->queue_submit(graphics_queue, frame.cmd, frame.frame_fence,
-				frame.image_available_sem, frame.render_finished_sem);
+				frame.image_available_sem, render_finished_sems[image_index]);
 
-		device->queue_present(present_queue, swapchain, frame.render_finished_sem);
+		device->queue_present(present_queue, swapchain, render_finished_sems[image_index]);
 
 		current_frame_index = (current_frame_index + 1) % frames.size();
 	}
@@ -210,6 +233,10 @@ int main(void) {
 
 	for (auto& frame : frames) {
 		frame.destroy(device.get());
+	}
+
+	for (auto sem : render_finished_sems) {
+		device->semaphore_free(sem);
 	}
 
 	device->swapchain_free(swapchain);

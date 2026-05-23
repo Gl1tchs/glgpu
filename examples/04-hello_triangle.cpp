@@ -1,3 +1,5 @@
+#include <cstring>
+#include <fstream>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -17,26 +19,45 @@ struct FrameData {
 	gl::Fence frame_fence;
 
 	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
-		// Create Command Pool and Buffer for this specific frame
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
-
-		// Synchronization Primitives for this frame
 		image_available_sem = device->semaphore_create();
-
-		// Create fence Note: initial state of this fence
-		// is signaled by default
 		frame_fence = device->fence_create();
 	}
 
 	void destroy(gl::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
-
-		// Command buffer is freed when pool is freed
 		device->command_pool_free(cmd_pool);
 	}
 };
+
+struct Vertex {
+	float pos[2];
+	float col[3];
+};
+
+std::vector<uint32_t> load_spirv_file(const std::string& filename) {
+	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
+
+	if (!file.is_open()) {
+		GL_LOG_ERROR("Unable to open SPIRV file at path: '{}'.", filename);
+		return {};
+	}
+
+	size_t file_size = static_cast<size_t>(file.tellg());
+
+	if (file_size % sizeof(uint32_t) != 0) {
+		GL_LOG_ERROR("SPIRV file size is not a multiple of 4 (corrupted?): '{}'.", filename);
+		return {};
+	}
+
+	std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
+	file.seekg(0);
+	file.read(reinterpret_cast<char*>(buffer.data()), file_size);
+
+	return buffer;
+}
 
 int main(void) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -44,7 +65,7 @@ int main(void) {
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow("GLGPU Clear Screen Test", SDL_WINDOWPOS_UNDEFINED,
+	SDL_Window* window = SDL_CreateWindow("GLGPU Hello Triangle", SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
@@ -85,7 +106,57 @@ int main(void) {
 		render_finished_sems[i] = device->semaphore_create();
 	}
 
-	float time = 0.0f;
+	// Load shaders
+	std::vector<uint32_t> vert_code = load_spirv_file("examples/assets/triangle_vert.spv");
+	std::vector<uint32_t> frag_code = load_spirv_file("examples/assets/triangle_frag.spv");
+
+	if (vert_code.empty() || frag_code.empty()) {
+		GL_LOG_FATAL("Could not load shaders. Did you compile the slang/glsl files?");
+		return 1;
+	}
+
+	gl::SpirvEntry vert_entry;
+	vert_entry.byte_code = vert_code;
+	vert_entry.stage = gl::SHADER_STAGE_VERTEX_BIT;
+
+	gl::SpirvEntry frag_entry;
+	frag_entry.byte_code = frag_code;
+	frag_entry.stage = gl::SHADER_STAGE_FRAGMENT_BIT;
+
+	std::vector<gl::SpirvEntry> entries = { vert_entry, frag_entry };
+	gl::Shader shader = device->shader_create_from_bytecode(entries).value();
+	device->set_debug_name(gl::ObjectType::SHADER, shader, "My Shader");
+
+	// Pipeline creation
+	gl::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
+
+	gl::GraphicsPipelineCreateInfo pipeline_info{ .shader = shader,
+		.primitive = gl::RenderPrimitive::TRIANGLE_LIST,
+		.vertex_input_state = { .stride = sizeof(Vertex) },
+		.color_blend_state = gl::PipelineColorBlendState::create_disabled(1),
+		.rendering_info = { .color_attachments = { swapchain_format },
+				.depth_attachment = gl::DataFormat::UNDEFINED } };
+
+	gl::Pipeline pipeline = device->graphics_pipeline_create(pipeline_info).value();
+
+	// Vertex buffer setup
+	Vertex vertices[] = { { { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+		{ { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } }, { { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } } };
+
+	gl::Buffer vertex_buffer =
+			device->buffer_create(sizeof(vertices), gl::BUFFER_USAGE_VERTEX_BUFFER_BIT,
+						  gl::MemoryAllocationType::CPU)
+					.value();
+
+	void* raw_data = device->buffer_map(vertex_buffer).value();
+	if (raw_data) {
+		std::memcpy(raw_data, vertices, sizeof(vertices));
+		device->buffer_unmap(vertex_buffer);
+	} else {
+		GL_LOG_FATAL("Failed to map vertex buffer!");
+		return 1;
+	}
+
 	bool quit = false;
 	uint32_t current_frame_index = 0;
 
@@ -123,75 +194,74 @@ int main(void) {
 			}
 		}
 
-		// It should write into the next image every time
-		// Get the data for the current frame in the buffer sequence
 		FrameData& frame = frames[current_frame_index];
 
-		// Wait for the previous frame to finish processing on the CPU side
 		device->fence_wait(frame.frame_fence);
 		device->fence_reset(frame.frame_fence);
 
-		// Acquire the next image from the swapchain
-		// This tells the GPU: "Give me an image index I can draw into."
-		// It signals 'image_available_sem' when the image is actually ready to be written to.
 		uint32_t image_index = 0;
 		auto acquire_result =
 				device->swapchain_acquire_image(swapchain, frame.image_available_sem, &image_index);
 
-		// If acquire failed (e.g. window resized), handle it or skip frame
 		if (!acquire_result)
 			continue;
 
 		gl::Image swapchain_image = *acquire_result;
 
-		// Record Commands
 		device->command_reset(frame.cmd);
 		device->command_begin(frame.cmd);
 
-		// Transition Image Layout for Clearing
-		// Images coming from the swapchain are usually in an UNDEFINED state.
-		// command_clear_color requires the image to be in ImageLayout::GENERAL.
-		device->command_transition_image(
-				frame.cmd, swapchain_image, gl::ImageLayout::UNDEFINED, gl::ImageLayout::GENERAL);
+		// Transition layout for rendering
+		device->command_transition_image(frame.cmd, swapchain_image, gl::ImageLayout::UNDEFINED,
+				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
-		device->command_begin_label(frame.cmd, "HELLO WORLD", gl::COLOR_RED);
+		gl::RenderingAttachment color_attachment{
+			.image = swapchain_image,
+			.layout = gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+			.load_op = gl::AttachmentLoadOp::CLEAR,
+			.store_op = gl::AttachmentStoreOp::STORE,
+			.clear_color = { 0.1f, 0.1f, 0.1f, 1.0f },
+		};
 
-		// Clear the Screen
-		// Calculate a color based on time
-		time += 0.01f;
-		gl::Color clear_color = { (float)std::abs(sin(time)), (float)std::abs(cos(time)), 0.2f,
-			1.0f };
+		gl::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
+		device->command_begin_rendering(frame.cmd, draw_extent, { &color_attachment, 1 });
 
-		device->command_clear_color(frame.cmd, swapchain_image, clear_color);
+		device->command_set_viewport(frame.cmd, draw_extent);
+		device->command_set_scissor(frame.cmd, draw_extent);
 
+		device->command_bind_graphics_pipeline(frame.cmd, pipeline);
+
+		std::vector<gl::Buffer> vertex_buffers = { vertex_buffer };
+		std::vector<uint64_t> offsets = { 0 };
+		device->command_bind_vertex_buffers(frame.cmd, 0, vertex_buffers, offsets);
+
+		device->command_begin_label(frame.cmd, "My Debug Label", gl::Color{ 1.0, 0.0, 1.0, 1.0 });
+		device->command_draw(frame.cmd, 3);
 		device->command_end_label(frame.cmd);
 
-		// Transition gl::Image Layout for Presentation
-		// The presentation engine requires the image to be in PRESENT_SRC layout.
-		device->command_transition_image(
-				frame.cmd, swapchain_image, gl::ImageLayout::GENERAL, gl::ImageLayout::PRESENT_SRC);
+		device->command_end_rendering(frame.cmd);
+
+		// Transition layout for presentation
+		device->command_transition_image(frame.cmd, swapchain_image,
+				gl::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gl::ImageLayout::PRESENT_SRC);
 
 		device->command_end(frame.cmd);
 
-		// Submit Command Buffer
-		// We wait for 'image_available_sem' (image is ready to write)
-		// We signal 'render_finished_sem' (rendering is done)
-		// We signal 'frame_fence' so CPU knows when this batch is done
 		device->queue_submit(graphics_queue, frame.cmd, frame.frame_fence,
 				frame.image_available_sem, render_finished_sems[image_index]);
 
-		// Present the image to the screen
-		// Waits for 'render_finished_sem'
 		device->queue_present(present_queue, swapchain, render_finished_sems[image_index]);
 
-		// Advance to the next frame data for the next loop iteration
 		current_frame_index = (current_frame_index + 1) % frames.size();
 	}
 
-	// Wait for GPU to finish all operations before destroying resources
 	device->device_wait();
 
-	// Cleanup all frame data
+	// Cleanup
+	device->buffer_free(vertex_buffer);
+	device->pipeline_free(pipeline);
+	device->shader_free(shader);
+
 	for (auto& frame : frames) {
 		frame.destroy(device.get());
 	}
