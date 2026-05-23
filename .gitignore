@@ -54,3 +54,5 @@ build/
 bin/*
 out/*
 Testing/
+
+imgui.ini

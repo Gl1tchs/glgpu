@@ -27,6 +27,19 @@ struct DeviceCreateInfo {
 };
 
 /**
+ * Opaque bag of raw backend handles for use by glue code (e.g. glgpu_imgui_glue.h).
+ * Fields are cast to the appropriate backend types at the point of use.
+ * Do NOT depend on this struct in general application code.
+ */
+struct NativeContext {
+	void* instance        = nullptr; // VkInstance
+	void* physical_device = nullptr; // VkPhysicalDevice
+	void* device          = nullptr; // VkDevice
+	void* graphics_queue  = nullptr; // VkQueue
+	uint32_t graphics_queue_family = 0;
+};
+
+/**
  * Abstract class responsible for communicating with the GPU.
  */
 class GLGPU_API Device {
@@ -50,6 +63,10 @@ public:
 	virtual uint32_t get_max_bindless_instances() const = 0;
 
 	virtual bool is_swapchain_supported() = 0;
+
+	virtual NativeContext get_native_context() const = 0;
+
+	virtual RenderAPI get_api() const = 0;
 
 	virtual Res<CommandQueue> queue_get(QueueType type) = 0;
 

@@ -40,6 +40,10 @@ public:
 
 	bool is_swapchain_supported() override;
 
+	NativeContext get_native_context() const override;
+
+	RenderAPI get_api() const override;
+
 	// Command Queue
 	Res<CommandQueue> queue_get(QueueType type) override;
 

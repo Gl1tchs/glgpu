@@ -721,4 +721,18 @@ void VulkanDevice::_destroy_debug_utils_messenger_ext(VkInstance instance,
 	}
 }
 
+NativeContext VulkanDevice::get_native_context() const {
+	return {
+		.instance = (void*)_instance,
+		.physical_device = (void*)_physical_device,
+		.device = (void*)_device,
+		.graphics_queue = (void*)_graphics_queue.queue,
+		.graphics_queue_family = _graphics_queue.queue_family,
+	};
+}
+
+RenderAPI VulkanDevice::get_api() const {
+	return RenderAPI::VULKAN;
+}
+
 } //namespace gl
