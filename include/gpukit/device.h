@@ -2,6 +2,7 @@
 
 #include "gpukit/color.h"
 #include "gpukit/export.h"
+#include "gpukit/os.h"
 #include "gpukit/types.h"
 #include "gpukit/vector_view.h"
 

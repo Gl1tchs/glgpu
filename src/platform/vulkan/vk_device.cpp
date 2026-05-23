@@ -87,10 +87,15 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 #if defined(_WIN32)
 		instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
-		if (get_window_compositor() == WindowCompositor::WAYLAND) {
-			instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-		} else {
-			instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		switch (get_window_compositor()) {
+			case WindowCompositor::WAYLAND:
+				instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+				break;
+			case WindowCompositor::X11:
+				instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+				break;
+			default:
+				return Error::SURFACE_INVALID_COMPOSITOR;
 		}
 #endif
 	}
@@ -416,7 +421,8 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 #ifndef GPUKIT_DIST_BUILD
 	GPUKIT_LOG_INFO("[VULKAN] Vulkan Initialized:");
 	GPUKIT_LOG_INFO("[VULKAN] Device: {}", _physical_device_properties.deviceName);
-	GPUKIT_LOG_INFO("[VULKAN] API: {}.{}.{}", VK_VERSION_MAJOR(_physical_device_properties.apiVersion),
+	GPUKIT_LOG_INFO("[VULKAN] API: {}.{}.{}",
+			VK_VERSION_MAJOR(_physical_device_properties.apiVersion),
 			VK_VERSION_MINOR(_physical_device_properties.apiVersion),
 			VK_VERSION_PATCH(_physical_device_properties.apiVersion));
 #endif
@@ -828,19 +834,28 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 		return false;
 	}
 
-	if (get_window_compositor() == WindowCompositor::WAYLAND) {
-		VkWaylandSurfaceCreateInfoKHR create_info = {};
-		create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-		create_info.display = (wl_display*)connection;
-		create_info.surface = (wl_surface*)window;
-		return vkCreateWaylandSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
+	switch (get_window_compositor()) {
+		case WindowCompositor::WAYLAND: {
+			VkWaylandSurfaceCreateInfoKHR create_info = {};
+			create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+			create_info.display = (wl_display*)connection;
+			create_info.surface = (wl_surface*)window;
+			return vkCreateWaylandSurfaceKHR(_instance, &create_info, nullptr, &_surface) ==
+					VK_SUCCESS;
+		}
+		case WindowCompositor::X11: {
+			VkXlibSurfaceCreateInfoKHR create_info = {};
+			create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+			create_info.dpy = (Display*)connection;
+			create_info.window = (Window)(uintptr_t)window;
+			return vkCreateXlibSurfaceKHR(_instance, &create_info, nullptr, &_surface) ==
+					VK_SUCCESS;
+		}
+		default: {
+			GPUKIT_LOG_ERROR("[GPUKit] Invalid compositor");
+			return false;
+		}
 	}
-
-	VkXlibSurfaceCreateInfoKHR create_info = {};
-	create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-	create_info.dpy = (Display*)connection;
-	create_info.window = (Window)(uintptr_t)window;
-	return vkCreateXlibSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
 #else
 	return false;
 #endif
@@ -879,8 +894,6 @@ NativeContext VulkanDevice::get_native_context() const {
 	};
 }
 
-RenderAPI VulkanDevice::get_api() const {
-	return RenderAPI::VULKAN;
-}
+RenderAPI VulkanDevice::get_api() const { return RenderAPI::VULKAN; }
 
-} //namespace gpukitkit
+} //namespace gpukit

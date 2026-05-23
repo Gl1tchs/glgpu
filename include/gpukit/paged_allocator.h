@@ -43,4 +43,4 @@ private:
 	}
 };
 
-} //namespace gpukitkit
+} //namespace gpukit
