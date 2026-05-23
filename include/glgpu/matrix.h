@@ -4,7 +4,6 @@
 #include "glgpu/vector.h"
 
 #include <array>
-#include <type_traits>
 
 #ifdef GL_USE_SIMD_INTRINSICS
 #include <immintrin.h>
@@ -13,6 +12,342 @@
 namespace gl {
 
 template <size_t TCols, size_t TRows> struct Mat;
+
+#ifdef GL_USE_SIMD_INTRINSICS
+inline __m128 load_vec3(const float* ptr) {
+	__m128 xy = _mm_castpd_ps(_mm_load_sd(reinterpret_cast<const double*>(ptr)));
+	__m128 z = _mm_load_ss(ptr + 2);
+	return _mm_movelh_ps(xy, z);
+}
+
+inline void store_vec3(float* ptr, __m128 v) {
+	_mm_storel_pi(reinterpret_cast<__m64*>(ptr), v);
+	_mm_store_ss(ptr + 2, _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2)));
+}
+#endif
+
+template <size_t N> struct Mat<N, N> {
+	std::array<Vec<N, float>, N> cols;
+
+	// Default: Identity matrix
+	Mat(float value = 1.0f) {
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				cols[c][r] = (c == r) ? value : 0.0f;
+			}
+		}
+	}
+
+	// Create empty matrix
+	static Mat empty() {
+		Mat m;
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				m.cols[c][r] = 0.0f;
+			}
+		}
+		return m;
+	}
+
+	Vec<N, float>& operator[](size_t col_idx) { return cols[col_idx]; }
+	const Vec<N, float>& operator[](size_t col_idx) const { return cols[col_idx]; }
+
+	Mat operator+(const Mat& other) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		if constexpr (N == 2) {
+			__m128 a = _mm_loadu_ps(&cols[0].x);
+			__m128 b = _mm_loadu_ps(&other.cols[0].x);
+			__m128 r = _mm_add_ps(a, b);
+			Mat res;
+			_mm_storeu_ps(&res.cols[0].x, r);
+			return res;
+		}
+#endif
+		Mat res;
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				res.cols[c][r] = cols[c][r] + other.cols[c][r];
+			}
+		}
+		return res;
+	}
+
+	Mat operator-(const Mat& other) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		if constexpr (N == 2) {
+			__m128 a = _mm_loadu_ps(&cols[0].x);
+			__m128 b = _mm_loadu_ps(&other.cols[0].x);
+			__m128 r = _mm_sub_ps(a, b);
+			Mat res;
+			_mm_storeu_ps(&res.cols[0].x, r);
+			return res;
+		}
+#endif
+		Mat res;
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				res.cols[c][r] = cols[c][r] - other.cols[c][r];
+			}
+		}
+		return res;
+	}
+
+	Mat operator*(const Mat& other) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		if constexpr (N == 2) {
+			__m128 Col0 =
+					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[0].x));
+			__m128 Col1 =
+					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[1].x));
+
+			__m128 B_col0 = _mm_loadl_pi(
+					_mm_setzero_ps(), reinterpret_cast<const __m64*>(&other.cols[0].x));
+			__m128 b00 = _mm_shuffle_ps(B_col0, B_col0, _MM_SHUFFLE(0, 0, 0, 0));
+			__m128 b10 = _mm_shuffle_ps(B_col0, B_col0, _MM_SHUFFLE(1, 1, 1, 1));
+			__m128 res_col0 = _mm_add_ps(_mm_mul_ps(Col0, b00), _mm_mul_ps(Col1, b10));
+
+			__m128 B_col1 = _mm_loadl_pi(
+					_mm_setzero_ps(), reinterpret_cast<const __m64*>(&other.cols[1].x));
+			__m128 b01 = _mm_shuffle_ps(B_col1, B_col1, _MM_SHUFFLE(0, 0, 0, 0));
+			__m128 b11 = _mm_shuffle_ps(B_col1, B_col1, _MM_SHUFFLE(1, 1, 1, 1));
+			__m128 res_col1 = _mm_add_ps(_mm_mul_ps(Col0, b01), _mm_mul_ps(Col1, b11));
+
+			Mat res;
+			_mm_storel_pi(reinterpret_cast<__m64*>(&res.cols[0].x), res_col0);
+			_mm_storel_pi(reinterpret_cast<__m64*>(&res.cols[1].x), res_col1);
+			return res;
+		}
+#endif
+		Mat res = Mat::empty();
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				for (size_t k = 0; k < N; ++k) {
+					res.cols[c][r] += cols[k][r] * other.cols[c][k];
+				}
+			}
+		}
+		return res;
+	}
+
+	Vec<N, float> operator*(const Vec<N, float>& v) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		if constexpr (N == 2) {
+			__m128 Col0 =
+					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[0].x));
+			__m128 Col1 =
+					_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&cols[1].x));
+
+			__m128 vec = _mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(&v.x));
+			__m128 v0 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(0, 0, 0, 0));
+			__m128 v1 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(1, 1, 1, 1));
+
+			__m128 res_vec = _mm_add_ps(_mm_mul_ps(Col0, v0), _mm_mul_ps(Col1, v1));
+
+			Vec<2, float> res;
+			_mm_storel_pi(reinterpret_cast<__m64*>(&res.x), res_vec);
+			return res;
+		}
+#endif
+		Vec<N, float> res(0.0f);
+		for (size_t r = 0; r < N; ++r) {
+			for (size_t c = 0; c < N; ++c) {
+				res[r] += cols[c][r] * v[c];
+			}
+		}
+		return res;
+	}
+
+	bool operator==(const Mat& other) const {
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				if (std::abs(cols[c][r] - other.cols[c][r]) > 1e-6f) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	Mat transpose() const {
+		Mat res = Mat::empty();
+		for (size_t c = 0; c < N; ++c) {
+			for (size_t r = 0; r < N; ++r) {
+				res.cols[r][c] = cols[c][r];
+			}
+		}
+		return res;
+	}
+};
+
+template <> struct Mat<3, 3> {
+	std::array<Vec3f, 3> cols;
+
+	// Default: Identity matrix
+	Mat(float value = 1.0f) :
+			cols({
+					{ Vec3f{ value, 0.0f, 0.0f } },
+					{ Vec3f{ 0.0f, value, 0.0f } },
+					{ Vec3f{ 0.0f, 0.0f, value } },
+			}) {}
+
+	// Create empty matrix
+	static Mat empty() { return Mat{ {} }; }
+
+	Vec3f& operator[](size_t col_idx) { return cols[col_idx]; }
+	const Vec3f& operator[](size_t col_idx) const { return cols[col_idx]; }
+
+	Mat operator+(const Mat& other) const {
+		Mat res;
+#ifdef GL_USE_SIMD_INTRINSICS
+		for (int i = 0; i < 3; ++i) {
+			__m128 a = load_vec3(&cols[i].x);
+			__m128 b = load_vec3(&other.cols[i].x);
+			__m128 r = _mm_add_ps(a, b);
+			store_vec3(&res.cols[i].x, r);
+		}
+#else
+		for (size_t c = 0; c < 3; ++c) {
+			for (size_t r = 0; r < 3; ++r) {
+				res.cols[c][r] = cols[c][r] + other.cols[c][r];
+			}
+		}
+#endif
+		return res;
+	}
+
+	Mat operator-(const Mat& other) const {
+		Mat res;
+#ifdef GL_USE_SIMD_INTRINSICS
+		for (int i = 0; i < 3; ++i) {
+			__m128 a = load_vec3(&cols[i].x);
+			__m128 b = load_vec3(&other.cols[i].x);
+			__m128 r = _mm_sub_ps(a, b);
+			store_vec3(&res.cols[i].x, r);
+		}
+#else
+		for (size_t c = 0; c < 3; ++c) {
+			for (size_t r = 0; r < 3; ++r) {
+				res.cols[c][r] = cols[c][r] - other.cols[c][r];
+			}
+		}
+#endif
+		return res;
+	}
+
+	Mat operator*(const Mat& other) const {
+		Mat res = Mat::empty();
+#ifdef GL_USE_SIMD_INTRINSICS
+		__m128 Col0 = load_vec3(&cols[0].x);
+		__m128 Col1 = load_vec3(&cols[1].x);
+		__m128 Col2 = load_vec3(&cols[2].x);
+
+		for (int i = 0; i < 3; ++i) {
+			__m128 OtherCol = load_vec3(&other.cols[i].x);
+
+			__m128 e0 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(0, 0, 0, 0));
+			__m128 e1 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(1, 1, 1, 1));
+			__m128 e2 = _mm_shuffle_ps(OtherCol, OtherCol, _MM_SHUFFLE(2, 2, 2, 2));
+
+			__m128 m0 = _mm_mul_ps(Col0, e0);
+			__m128 m1 = _mm_mul_ps(Col1, e1);
+			__m128 m2 = _mm_mul_ps(Col2, e2);
+
+			__m128 sum = _mm_add_ps(_mm_add_ps(m0, m1), m2);
+
+			store_vec3(&res.cols[i].x, sum);
+		}
+#else
+		for (size_t c = 0; c < 3; ++c) {
+			for (size_t r = 0; r < 3; ++r) {
+				res.cols[c][r] = cols[0][r] * other.cols[c][0] + cols[1][r] * other.cols[c][1] +
+						cols[2][r] * other.cols[c][2];
+			}
+		}
+#endif
+		return res;
+	}
+
+	Vec3f operator*(const Vec3f& v) const {
+#ifdef GL_USE_SIMD_INTRINSICS
+		__m128 Col0 = load_vec3(&cols[0].x);
+		__m128 Col1 = load_vec3(&cols[1].x);
+		__m128 Col2 = load_vec3(&cols[2].x);
+
+		__m128 vec = load_vec3(&v.x);
+
+		__m128 v0 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(0, 0, 0, 0));
+		__m128 v1 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(1, 1, 1, 1));
+		__m128 v2 = _mm_shuffle_ps(vec, vec, _MM_SHUFFLE(2, 2, 2, 2));
+
+		__m128 m0 = _mm_mul_ps(Col0, v0);
+		__m128 m1 = _mm_mul_ps(Col1, v1);
+		__m128 m2 = _mm_mul_ps(Col2, v2);
+
+		__m128 res_vec = _mm_add_ps(_mm_add_ps(m0, m1), m2);
+
+		Vec3f res;
+		store_vec3(&res.x, res_vec);
+		return res;
+#else
+		Vec3f res;
+		res.x = cols[0][0] * v.x + cols[1][0] * v.y + cols[2][0] * v.z;
+		res.y = cols[0][1] * v.x + cols[1][1] * v.y + cols[2][1] * v.z;
+		res.z = cols[0][2] * v.x + cols[1][2] * v.y + cols[2][2] * v.z;
+		return res;
+#endif
+	}
+
+	bool operator==(const Mat& other) const {
+		for (size_t c = 0; c < 3; ++c) {
+			for (size_t r = 0; r < 3; ++r) {
+				if (std::abs(cols[c][r] - other.cols[c][r]) > 1e-6f) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	Mat transpose() const {
+		Mat res = Mat::empty();
+		for (size_t c = 0; c < 3; ++c) {
+			for (size_t r = 0; r < 3; ++r) {
+				res.cols[r][c] = cols[c][r];
+			}
+		}
+		return res;
+	}
+
+	float determinant() const {
+		return cols[0][0] * (cols[1][1] * cols[2][2] - cols[2][1] * cols[1][2]) -
+				cols[1][0] * (cols[0][1] * cols[2][2] - cols[2][1] * cols[0][2]) +
+				cols[2][0] * (cols[0][1] * cols[1][2] - cols[1][1] * cols[0][2]);
+	}
+
+	Mat inverse() const {
+		const float det = determinant();
+		if (std::abs(det) < 1e-6f) {
+			return Mat::empty();
+		}
+
+		Mat res = Mat::empty();
+		float inv_det = 1.0f / det;
+
+		res.cols[0][0] = (cols[1][1] * cols[2][2] - cols[2][1] * cols[1][2]) * inv_det;
+		res.cols[0][1] = -(cols[0][1] * cols[2][2] - cols[2][1] * cols[0][2]) * inv_det;
+		res.cols[0][2] = (cols[0][1] * cols[1][2] - cols[1][1] * cols[0][2]) * inv_det;
+
+		res.cols[1][0] = -(cols[1][0] * cols[2][2] - cols[2][0] * cols[1][2]) * inv_det;
+		res.cols[1][1] = (cols[0][0] * cols[2][2] - cols[2][0] * cols[0][2]) * inv_det;
+		res.cols[1][2] = -(cols[0][0] * cols[1][2] - cols[1][0] * cols[0][2]) * inv_det;
+
+		res.cols[2][0] = (cols[1][0] * cols[2][1] - cols[2][0] * cols[1][1]) * inv_det;
+		res.cols[2][1] = -(cols[0][0] * cols[2][1] - cols[2][0] * cols[0][1]) * inv_det;
+		res.cols[2][2] = (cols[0][0] * cols[1][1] - cols[1][0] * cols[0][1]) * inv_det;
+
+		return res;
+	}
+};
 
 template <> struct Mat<4, 4> {
 	std::array<Vec4f, 4> cols;
@@ -343,6 +678,8 @@ template <> struct Mat<4, 4> {
 	}
 };
 
+typedef Mat<2, 2> Mat2;
+typedef Mat<3, 3> Mat3;
 typedef Mat<4, 4> Mat4;
 
 }; //namespace gl

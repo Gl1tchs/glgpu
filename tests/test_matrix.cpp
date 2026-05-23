@@ -217,3 +217,114 @@ TEST_CASE("Projections", "[Mat4][Projection]") {
 		REQUIRE(res.x == 1.0f);
 	}
 }
+
+TEST_CASE("Matrix3 Construction and Arithmetic", "[Mat3]") {
+	SECTION("Default Constructor creates Identity Matrix") {
+		Mat3 m;
+		REQUIRE(m[0][0] == 1.0f);
+		REQUIRE(m[1][1] == 1.0f);
+		REQUIRE(m[2][2] == 1.0f);
+		REQUIRE(m[0][1] == 0.0f);
+		REQUIRE(m[2][0] == 0.0f);
+	}
+
+	SECTION("Empty creates Zero Matrix") {
+		Mat3 m = Mat3::empty();
+		for (int c = 0; c < 3; c++) {
+			for (int r = 0; r < 3; r++) {
+				REQUIRE(m[c][r] == 0.0f);
+			}
+		}
+	}
+
+	SECTION("Addition and Subtraction") {
+		Mat3 a(2.0f);
+		Mat3 b(3.0f);
+		Mat3 sum = a + b;
+		Mat3 diff = b - a;
+		REQUIRE(sum[0][0] == 5.0f);
+		REQUIRE(sum[2][2] == 5.0f);
+		REQUIRE(diff[0][0] == 1.0f);
+		REQUIRE(diff[2][2] == 1.0f);
+	}
+
+	SECTION("Multiplication and Inverse") {
+		Mat3 m = Mat3::empty();
+		m.cols[0] = { 1.0f, 0.0f, 2.0f };
+		m.cols[1] = { 0.0f, 3.0f, 0.0f };
+		m.cols[2] = { 4.0f, 0.0f, 5.0f };
+
+		// Determinant: 1 * (3 * 5 - 0 * 0) - 0 + 4 * (0 * 0 - 3 * 2) = 15 - 24 = -9
+		REQUIRE(std::abs(m.determinant() - (-9.0f)) < 1e-5f);
+
+		Mat3 inv = m.inverse();
+		Mat3 id = m * inv;
+		REQUIRE(id == Mat3(1.0f));
+
+		Vec3f v(1.0f, 2.0f, 3.0f);
+		Vec3f v_res = m * v;
+		// m * v:
+		// row 0: 1 * 1 + 0 * 2 + 4 * 3 = 13
+		// row 1: 0 * 1 + 3 * 2 + 0 * 3 = 6
+		// row 2: 2 * 1 + 0 * 2 + 5 * 3 = 17
+		REQUIRE(v_res.x == 13.0f);
+		REQUIRE(v_res.y == 6.0f);
+		REQUIRE(v_res.z == 17.0f);
+	}
+}
+
+TEST_CASE("Matrix2 Construction and Arithmetic", "[Mat2]") {
+	SECTION("Default Constructor creates Identity Matrix") {
+		Mat2 m;
+		REQUIRE(m[0][0] == 1.0f);
+		REQUIRE(m[1][1] == 1.0f);
+		REQUIRE(m[0][1] == 0.0f);
+		REQUIRE(m[1][0] == 0.0f);
+	}
+
+	SECTION("Empty creates Zero Matrix") {
+		Mat2 m = Mat2::empty();
+		for (int c = 0; c < 2; c++) {
+			for (int r = 0; r < 2; r++) {
+				REQUIRE(m[c][r] == 0.0f);
+			}
+		}
+	}
+
+	SECTION("Addition and Subtraction") {
+		Mat2 a(2.0f);
+		Mat2 b(3.0f);
+		Mat2 sum = a + b;
+		Mat2 diff = b - a;
+		REQUIRE(sum[0][0] == 5.0f);
+		REQUIRE(sum[1][1] == 5.0f);
+		REQUIRE(diff[0][0] == 1.0f);
+		REQUIRE(diff[1][1] == 1.0f);
+	}
+
+	SECTION("Multiplication") {
+		Mat2 m = Mat2::empty();
+		m.cols[0] = { 1.0f, 2.0f };
+		m.cols[1] = { 3.0f, 4.0f };
+
+		Vec2f v(1.0f, 2.0f);
+		Vec2f v_res = m * v;
+		// m * v:
+		// row 0: 1 * 1 + 3 * 2 = 7
+		// row 1: 2 * 1 + 4 * 2 = 10
+		REQUIRE(v_res.x == 7.0f);
+		REQUIRE(v_res.y == 10.0f);
+
+		Mat2 m2 = Mat2::empty();
+		m2.cols[0] = { 2.0f, 0.0f };
+		m2.cols[1] = { 0.0f, 3.0f };
+		Mat2 m_res = m * m2;
+		// m * m2:
+		// col 0: col 0 of m * 2 = { 2, 4 }
+		// col 1: col 1 of m * 3 = { 9, 12 }
+		REQUIRE(m_res.cols[0].x == 2.0f);
+		REQUIRE(m_res.cols[0].y == 4.0f);
+		REQUIRE(m_res.cols[1].x == 9.0f);
+		REQUIRE(m_res.cols[1].y == 12.0f);
+	}
+}
