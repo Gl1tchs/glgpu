@@ -293,6 +293,8 @@ public:
 
 	virtual Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color) = 0;
 	virtual Res<> command_end_label(CommandBuffer cmd) = 0;
+
+	virtual Res<> set_debug_name(ObjectType type, void* handle, const char* name) = 0;
 };
 
 } // namespace gl

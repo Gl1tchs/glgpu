@@ -355,6 +355,8 @@ public:
 	Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color) override;
 	Res<> command_end_label(CommandBuffer cmd) override;
 
+	Res<> set_debug_name(ObjectType type, void* handle, const char* name) override;
+
 private:
 	// Vulkan helpers
 
@@ -434,6 +436,7 @@ private:
 
 	PFN_vkCmdBeginDebugUtilsLabelEXT _vkCmdBeginDebugUtilsLabelEXT;
 	PFN_vkCmdEndDebugUtilsLabelEXT _vkCmdEndDebugUtilsLabelEXT;
+	PFN_vkSetDebugUtilsObjectNameEXT _vkSetDebugUtilsObjectNameEXT;
 
 	VkSurfaceKHR _surface = VK_NULL_HANDLE;
 

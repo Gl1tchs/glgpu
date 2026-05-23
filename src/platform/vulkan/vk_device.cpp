@@ -5,6 +5,7 @@
 
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -136,6 +137,8 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			_instance, "vkCmdBeginDebugUtilsLabelEXT");
 	_vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(
 			_instance, "vkCmdEndDebugUtilsLabelEXT");
+	_vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
+			_instance, "vkSetDebugUtilsObjectNameEXT");
 
 	s_initialized = true;
 
@@ -477,6 +480,122 @@ Res<> VulkanDevice::command_end_label(CommandBuffer cmd) {
 
 	_vkCmdEndDebugUtilsLabelEXT((VkCommandBuffer)cmd);
 
+	return {};
+}
+
+Res<> VulkanDevice::set_debug_name(ObjectType type, void* handle, const char* name) {
+	if (!handle) {
+		return Error::INVALID_HANDLE;
+	}
+
+	if (!_vkSetDebugUtilsObjectNameEXT) {
+		// If validation layers/debug utils are not enabled, just return success (noop)
+		return {};
+	}
+
+	VkDebugUtilsObjectNameInfoEXT name_info = {};
+	name_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+	name_info.pObjectName = name;
+
+	switch (type) {
+		case ObjectType::BUFFER: {
+			VulkanBuffer* vk_buf = (VulkanBuffer*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_BUFFER;
+			name_info.objectHandle = (uint64_t)vk_buf->vk_buffer;
+			break;
+		}
+		case ObjectType::IMAGE: {
+			VulkanImage* vk_img = (VulkanImage*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_IMAGE;
+			name_info.objectHandle = (uint64_t)vk_img->vk_image;
+			break;
+		}
+		case ObjectType::SAMPLER: {
+			name_info.objectType = VK_OBJECT_TYPE_SAMPLER;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		case ObjectType::COMMAND_POOL: {
+			name_info.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		case ObjectType::COMMAND_BUFFER: {
+			name_info.objectType = VK_OBJECT_TYPE_COMMAND_BUFFER;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		case ObjectType::COMMAND_QUEUE: {
+			VulkanQueue* vk_q = (VulkanQueue*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_QUEUE;
+			name_info.objectHandle = (uint64_t)vk_q->queue;
+			break;
+		}
+		case ObjectType::RENDER_PASS: {
+			VulkanRenderPass* vk_rp = (VulkanRenderPass*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_RENDER_PASS;
+			name_info.objectHandle = (uint64_t)vk_rp->vk_render_pass;
+			break;
+		}
+		case ObjectType::FRAMEBUFFER: {
+			name_info.objectType = VK_OBJECT_TYPE_FRAMEBUFFER;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		case ObjectType::SWAPCHAIN: {
+			VulkanSwapchain* vk_sc = (VulkanSwapchain*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+			name_info.objectHandle = (uint64_t)vk_sc->vk_swapchain;
+			break;
+		}
+		case ObjectType::PIPELINE: {
+			VulkanPipeline* vk_pl = (VulkanPipeline*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_PIPELINE;
+			name_info.objectHandle = (uint64_t)vk_pl->vk_pipeline;
+			break;
+		}
+		case ObjectType::SHADER: {
+			VulkanShader* vk_sh = (VulkanShader*)handle;
+
+			// Pipeline layout
+			name_info.objectType = VK_OBJECT_TYPE_PIPELINE_LAYOUT;
+			name_info.objectHandle = (uint64_t)vk_sh->pipeline_layout;
+			_vkSetDebugUtilsObjectNameEXT(_device, &name_info);
+
+			// Individual shader modules
+			std::string base_name = name;
+			for (size_t i = 0; i < vk_sh->stage_create_infos.size(); ++i) {
+				std::string stage_name = base_name + "_stage_" + std::to_string(i);
+				VkDebugUtilsObjectNameInfoEXT stage_info = {};
+				stage_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+				stage_info.objectType = VK_OBJECT_TYPE_SHADER_MODULE;
+				stage_info.objectHandle = (uint64_t)vk_sh->stage_create_infos[i].module;
+				stage_info.pObjectName = stage_name.c_str();
+				_vkSetDebugUtilsObjectNameEXT(_device, &stage_info);
+			}
+			return {};
+		}
+		case ObjectType::UNIFORM_SET: {
+			VulkanUniformSet* vk_us = (VulkanUniformSet*)handle;
+			name_info.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET;
+			name_info.objectHandle = (uint64_t)vk_us->vk_descriptor_set;
+			break;
+		}
+		case ObjectType::FENCE: {
+			name_info.objectType = VK_OBJECT_TYPE_FENCE;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		case ObjectType::SEMAPHORE: {
+			name_info.objectType = VK_OBJECT_TYPE_SEMAPHORE;
+			name_info.objectHandle = (uint64_t)handle;
+			break;
+		}
+		default:
+			return Error::INVALID_ARGUMENT;
+	}
+
+	VK_CHECK_RET(_vkSetDebugUtilsObjectNameEXT(_device, &name_info), Error::INVALID_OPERATION);
 	return {};
 }
 

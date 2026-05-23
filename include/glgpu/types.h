@@ -42,6 +42,23 @@ GL_DEFINE_NON_DISPATCHABLE_HANDLE(Semaphore)
 // Common Enums & Errors
 // -----------------------------------------------------------------------------
 
+enum class ObjectType : uint32_t {
+	BUFFER,
+	IMAGE,
+	SAMPLER,
+	COMMAND_POOL,
+	COMMAND_BUFFER,
+	COMMAND_QUEUE,
+	RENDER_PASS,
+	FRAMEBUFFER,
+	SWAPCHAIN,
+	PIPELINE,
+	SHADER,
+	UNIFORM_SET,
+	FENCE,
+	SEMAPHORE,
+};
+
 /**
  * Global Error Enumeration
  * Combines specific errors (Swapchain, Surface, Generic) into one type.
