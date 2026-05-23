@@ -71,8 +71,8 @@ endmacro()
 # ---------------------------------------------------------------------------
 # Examples
 # ---------------------------------------------------------------------------
-add_example(hello_glgpu "01-hello_glgpu.cpp")
-add_example(compute_example "02-compute_example.cpp")
-add_imgui_example(imgui_example "03-imgui_example.cpp")
-add_example(hello_triangle "04-hello_triangle.cpp")
-add_example(bindless_example "05-bindless_example.cpp")
+add_example(01_hello_glgpu "01-hello_glgpu.cpp")
+add_example(02_compute_example "02-compute_example.cpp")
+add_imgui_example(03_imgui_example "03-imgui_example.cpp")
+add_example(04_hello_triangle "04-hello_triangle.cpp")
+add_example(05_bindless_example "05-bindless_example.cpp")
