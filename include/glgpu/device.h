@@ -22,8 +22,8 @@ typedef uint32_t DeviceFeatureFlags;
 struct DeviceCreateInfo {
 	RenderAPI api = RenderAPI::VULKAN;
 	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
-	void* native_connection_handle = nullptr; // Windows HINSTANCE or X11 Display
-	void* native_window_handle = nullptr; // HWND or XWindow
+	void* native_connection_handle = nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display*
+	void* native_window_handle = nullptr;     // Win32: HWND      | X11: Window   | Wayland: wl_surface*
 };
 
 /**
@@ -33,7 +33,7 @@ class GLGPU_API Device {
 public:
 	virtual ~Device() = default;
 
-	static Res<std::shared_ptr<Device>> create(const DeviceCreateInfo& info);
+	static Res<std::unique_ptr<Device>> create(const DeviceCreateInfo& info);
 
 	virtual Res<> init(const DeviceCreateInfo& info) = 0;
 

@@ -7,15 +7,15 @@
 namespace gl::test {
 
 // Internal storage for the singleton
-inline std::shared_ptr<Device>& _get_device_storage() {
-	static std::shared_ptr<Device> device = nullptr;
+inline std::unique_ptr<Device>& _get_device_storage() {
+	static std::unique_ptr<Device> device = nullptr;
 	return device;
 }
 
 /**
- * Returns the shared backend instance. Creates it if it doesn't exist.
+ * Returns the unique backend instance. Creates it if it doesn't exist.
  */
-inline std::shared_ptr<Device> get_test_device() {
+inline Device* get_test_device() {
 	auto& device = _get_device_storage();
 
 	if (!device) {
@@ -33,10 +33,10 @@ inline std::shared_ptr<Device> get_test_device() {
 			std::terminate();
 		}
 
-		device = res.value();
+		device = std::move(res.value());
 	}
 
-	return device;
+	return device.get();
 }
 
 /**

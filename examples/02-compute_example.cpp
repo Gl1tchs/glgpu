@@ -37,7 +37,7 @@ int main(void) {
 		.required_features = gl::DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT,
 	};
 
-	auto backend = gl::Device::create(info).value();
+	auto backend = gl::Device::create(info).own();
 	GL_LOG_INFO("Headless backend initialized.");
 
 	// We will process 1024 floats

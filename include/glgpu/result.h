@@ -85,6 +85,11 @@ public:
 	constexpr bool is_error() const noexcept { return !_has_value; }
 	constexpr explicit operator bool() const noexcept { return _has_value; }
 
+	constexpr ValueType&& own() noexcept {
+		assert(_has_value);
+		return std::move(_value);
+	}
+
 	constexpr ValueType& value() noexcept {
 		assert(_has_value);
 		return _value;

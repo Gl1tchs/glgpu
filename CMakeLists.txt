@@ -106,6 +106,18 @@ else()
     target_include_directories(glgpu PRIVATE ${Vulkan_INCLUDE_DIRS})
 endif()
 
+# Link wayland-client on Linux for Wayland surface support
+if(UNIX AND NOT APPLE)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(WAYLAND_CLIENT wayland-client)
+        if(WAYLAND_CLIENT_FOUND)
+            target_link_libraries(glgpu PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+            target_include_directories(glgpu PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIRS})
+        endif()
+    endif()
+endif()
+
 # ------------------------------------------------------------------------------
 # Installation & Exporting
 # ------------------------------------------------------------------------------

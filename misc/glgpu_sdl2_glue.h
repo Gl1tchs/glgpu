@@ -33,7 +33,9 @@ inline bool extract_sdl2_info(DeviceCreateInfo& info, SDL_Window* window) {
 
 #if defined(SDL_VIDEO_DRIVER_WAYLAND)
 	if (wmInfo.subsystem == SDL_SYSWM_WAYLAND) {
-		return false;
+		info.native_connection_handle = (void*)wmInfo.info.wl.display;
+		info.native_window_handle = (void*)wmInfo.info.wl.surface;
+		return true;
 	}
 #endif
 

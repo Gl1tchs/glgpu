@@ -23,7 +23,7 @@ template <size_t S, typename T> inline constexpr Vec<S, T> pow(Vec<S, T> v, T po
 template <size_t S, typename T>
 inline constexpr Vec<S, T> min(Vec<S, T> lhs, const Vec<S, T>& rhs) {
 	for (size_t i = 0; i < S; i++) {
-		lhs[i] = std::min(lhs[i], rhs[i]);
+        lhs[i] = std::min(lhs[i], rhs[i]);
 	}
 	return lhs;
 }

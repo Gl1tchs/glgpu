@@ -17,7 +17,7 @@ struct FrameData {
 	gl::Semaphore render_finished_sem;
 	gl::Fence frame_fence;
 
-	void init(std::shared_ptr<gl::Device> device, gl::CommandQueue graphics_queue) {
+	void init(gl::Device* device, gl::CommandQueue graphics_queue) {
 		// Create Command Pool and Buffer for this specific frame
 		cmd_pool = device->command_pool_create(graphics_queue).value();
 		cmd = device->command_pool_allocate(cmd_pool).value();
@@ -31,7 +31,7 @@ struct FrameData {
 		frame_fence = device->fence_create();
 	}
 
-	void destroy(std::shared_ptr<gl::Device> device) {
+	void destroy(gl::Device* device) {
 		device->fence_free(frame_fence);
 		device->semaphore_free(image_available_sem);
 		device->semaphore_free(render_finished_sem);
@@ -66,7 +66,7 @@ int main(void) {
 		GL_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
-	auto device = gl::Device::create(info).value();
+	auto device = gl::Device::create(info).own();
 
 	gl::CommandQueue graphics_queue = device->queue_get(gl::QueueType::GRAPHICS).value();
 	gl::CommandQueue present_queue = device->queue_get(gl::QueueType::PRESENT).value();
@@ -80,7 +80,7 @@ int main(void) {
 	std::vector<FrameData> frames(image_count);
 
 	for (auto& frame : frames) {
-		frame.init(device, graphics_queue);
+		frame.init(device.get(), graphics_queue);
 	}
 
 	float time = 0.0f;
@@ -170,7 +170,7 @@ int main(void) {
 
 	// Cleanup all frame data
 	for (auto& frame : frames) {
-		frame.destroy(device);
+		frame.destroy(device.get());
 	}
 
 	device->swapchain_free(swapchain);

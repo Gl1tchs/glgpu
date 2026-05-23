@@ -1,6 +1,7 @@
 #include "glgpu/log.h"
 
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 
 namespace gl {

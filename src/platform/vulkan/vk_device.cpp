@@ -1,5 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
+#include "glgpu/os.h"
 #include "platform/vulkan/vk_common.h"
 
 #include <map>
@@ -14,7 +15,9 @@
 #include <windows.h>
 #elif defined(__linux__)
 #include <X11/Xlib.h>
+#include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xlib.h>
+#include <wayland-client.h>
 #endif
 
 #define VMA_IMPLEMENTATION
@@ -81,9 +84,13 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			info.native_window_handle != nullptr) {
 		instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(_WIN32)
-		extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+		instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
-		instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		if (get_window_compositor() == WindowCompositor::WAYLAND) {
+			instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+		} else {
+			instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+		}
 #endif
 	}
 
@@ -673,11 +680,18 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 		return false;
 	}
 
-	// TODO: wayland support
+	if (get_window_compositor() == WindowCompositor::WAYLAND) {
+		VkWaylandSurfaceCreateInfoKHR create_info = {};
+		create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+		create_info.display = (wl_display*)connection;
+		create_info.surface = (wl_surface*)window;
+		return vkCreateWaylandSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
+	}
+
 	VkXlibSurfaceCreateInfoKHR create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	create_info.dpy = (Display*)connection;
-	create_info.window = (Window)window;
+	create_info.window = (Window)(uintptr_t)window;
 	return vkCreateXlibSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
 #else
 	return false;
