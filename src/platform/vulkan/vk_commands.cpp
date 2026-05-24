@@ -113,7 +113,8 @@ Res<> VulkanDevice::command_pool_free(CommandPool command_pool) {
 	{
 		std::lock_guard<std::mutex> lock(_command_pools_mutex);
 		_command_pools.erase(vk_pool);
-		for (auto cb_it = _command_buffer_parents.begin(); cb_it != _command_buffer_parents.end(); ) {
+		for (auto cb_it = _command_buffer_parents.begin();
+				cb_it != _command_buffer_parents.end();) {
 			if (cb_it->second == vk_pool) {
 				cb_it = _command_buffer_parents.erase(cb_it);
 			} else {
@@ -351,11 +352,16 @@ Res<> VulkanDevice::command_begin_rendering(CommandBuffer cmd, const Vec2u& draw
 	if (depth_attachment) {
 		VulkanImage* vk_depth_image = (VulkanImage*)depth_attachment;
 
+		VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		if (!color_attachments.empty() && color_attachments[0].load_op == AttachmentLoadOp::LOAD) {
+			load_op = VK_ATTACHMENT_LOAD_OP_LOAD;
+		}
+
 		depth_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 		depth_attachment_info.pNext = nullptr;
 		depth_attachment_info.imageView = vk_depth_image->vk_image_view;
 		depth_attachment_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-		depth_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depth_attachment_info.loadOp = load_op;
 		depth_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depth_attachment_info.clearValue.depthStencil.depth = 1.0f;
 	}
@@ -680,8 +686,7 @@ Res<> VulkanDevice::command_buffer_memory_barrier(
 }
 
 Res<> VulkanDevice::command_pipeline_barrier(CommandBuffer cmd,
-		VectorView<BufferBarrier> buffer_barriers,
-		VectorView<ImageBarrier> image_barriers) {
+		VectorView<BufferBarrier> buffer_barriers, VectorView<ImageBarrier> image_barriers) {
 	if (!cmd) {
 		return Error::INVALID_HANDLE;
 	}
@@ -755,7 +760,8 @@ Res<> VulkanDevice::command_pipeline_barrier(CommandBuffer cmd,
 		global_dst_stages |= static_cast<VkPipelineStageFlags>(barrier.dst_stage);
 	}
 
-	// If no barriers were provided, or stages are 0, default to TOP_OF_PIPE/BOTTOM_OF_PIPE or do nothing.
+	// If no barriers were provided, or stages are 0, default to TOP_OF_PIPE/BOTTOM_OF_PIPE or do
+	// nothing.
 	if (global_src_stages == 0) {
 		global_src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
@@ -763,17 +769,12 @@ Res<> VulkanDevice::command_pipeline_barrier(CommandBuffer cmd,
 		global_dst_stages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 	}
 
-	vkCmdPipelineBarrier((VkCommandBuffer)cmd,
-			global_src_stages,
-			global_dst_stages,
-			0,
-			0, nullptr,
+	vkCmdPipelineBarrier((VkCommandBuffer)cmd, global_src_stages, global_dst_stages, 0, 0, nullptr,
 			static_cast<uint32_t>(vk_buffer_barriers.size()), vk_buffer_barriers.data(),
 			static_cast<uint32_t>(vk_image_barriers.size()), vk_image_barriers.data());
 
 	return {};
 }
-
 
 Res<> VulkanDevice::command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
 		VectorView<BufferCopyRegion> regions) {
@@ -910,4 +911,4 @@ Res<> VulkanDevice::command_transition_image(CommandBuffer cmd, Image image,
 	return {};
 }
 
-} //namespace gpukitkit
+} //namespace gpukit
