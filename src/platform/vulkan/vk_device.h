@@ -102,6 +102,9 @@ public:
 
 	Res<ImageUsageFlags> image_get_image_usage(Image image) override;
 
+	Res<void*> image_get_native_view(Image image) const override;
+	Res<void*> sampler_get_native(Sampler sampler) const override;
+
 	// Sampler
 	Res<Sampler> sampler_create(const SamplerCreateInfo& info) override;
 

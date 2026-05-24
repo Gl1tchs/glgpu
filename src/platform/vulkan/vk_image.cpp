@@ -283,6 +283,19 @@ Res<ImageUsageFlags> VulkanDevice::image_get_image_usage(Image image) {
 	return vk_image->image_usage;
 }
 
+Res<void*> VulkanDevice::image_get_native_view(Image image) const {
+	if (!image)
+		return make_err<void*>(Error::INVALID_HANDLE);
+	VulkanImage* vk_image = (VulkanImage*)image;
+	return static_cast<void*>(vk_image->vk_image_view);
+}
+
+Res<void*> VulkanDevice::sampler_get_native(Sampler sampler) const {
+	if (!sampler)
+		return make_err<void*>(Error::INVALID_HANDLE);
+	return reinterpret_cast<void*>(sampler);
+}
+
 Res<Sampler> VulkanDevice::sampler_create(const SamplerCreateInfo& info) {
 	VkSamplerCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

@@ -220,6 +220,34 @@ inline void imgui_shutdown(Device* device, const ImGuiGlueState& state) {
 }
 
 // ---------------------------------------------------------------------------
+// Texture registration helpers
+// ---------------------------------------------------------------------------
+
+// Register a gpukit Image+Sampler pair for sampling inside an ImGui::Image() call.
+// Assumes the image will be transitioned to SHADER_READ_ONLY_OPTIMAL before ImGui renders.
+// Returns an ImTextureID owned by the caller; release it with imgui_remove_texture().
+inline ImTextureID imgui_add_texture(Device* device, Image image, Sampler sampler) {
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
+	auto view_res = device->image_get_native_view(image);
+	auto samp_res = device->sampler_get_native(sampler);
+	if (!view_res || !samp_res)
+		return (ImTextureID)nullptr;
+	VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(static_cast<VkSampler>(samp_res.value()),
+			static_cast<VkImageView>(view_res.value()), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	return (ImTextureID) static_cast<void*>(ds);
+#endif // GPUKIT_IMGUI_BACKEND_VULKAN
+	return ImTextureID(0);
+}
+
+inline void imgui_remove_texture(Device* /*device*/, ImTextureID texture_id) {
+	if (!texture_id)
+		return;
+#if defined(GPUKIT_IMGUI_BACKEND_VULKAN)
+	ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)texture_id);
+#endif // GPUKIT_IMGUI_BACKEND_VULKAN
+}
+
+// ---------------------------------------------------------------------------
 // Legacy aliases
 // ---------------------------------------------------------------------------
 
@@ -236,4 +264,4 @@ inline bool imgui_vulkan_init(
 inline void imgui_vulkan_new_frame(Device* device) { imgui_new_frame(device); }
 inline void imgui_vulkan_render(Device* device, CommandBuffer cmd) { imgui_render(device, cmd); }
 
-} // namespace gl
+} // namespace gpukit

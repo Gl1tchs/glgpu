@@ -118,6 +118,14 @@ public:
 	virtual Res<uint32_t> image_get_mip_levels(Image image) = 0;
 	virtual Res<ImageUsageFlags> image_get_image_usage(Image image) = 0;
 
+	// Returns the backend-native image view handle (e.g. VkImageView) as void*.
+	// For use by glue code only — do not depend on this in general application code.
+	virtual Res<void*> image_get_native_view(Image image) const = 0;
+
+	// Returns the backend-native sampler handle (e.g. VkSampler) as void*.
+	// For use by glue code only — do not depend on this in general application code.
+	virtual Res<void*> sampler_get_native(Sampler sampler) const = 0;
+
 	// Sampler
 
 	virtual Res<Sampler> sampler_create(const SamplerCreateInfo& info) = 0;
