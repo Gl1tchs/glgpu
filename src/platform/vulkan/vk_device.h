@@ -21,33 +21,31 @@ static_assert(sizeof(ImageResolve) == sizeof(VkImageResolve));
 static_assert(sizeof(BufferCopyRegion) == sizeof(VkBufferCopy));
 static_assert(sizeof(BufferImageCopyRegion) == sizeof(VkBufferImageCopy));
 
-class VulkanDevice : public Device {
+class VulkanDevice {
 public:
 	VulkanDevice() = default;
-	virtual ~VulkanDevice();
+	~VulkanDevice();
 
-	Res<> init(const DeviceCreateInfo& info) override;
+	Res<> init(const DeviceCreateInfo& info);
 
 	// =========================================================================
 	// Device & Surface
 	// =========================================================================
 
-	Res<> device_wait() override;
+	Res<> device_wait();
 
-	Res<> attach_surface(void* connection_handle, void* window_handle) override;
+	Res<> attach_surface(void* connection_handle, void* window_handle);
 
-	uint32_t get_max_msaa_samples() const override;
+	uint32_t get_max_msaa_samples() const;
 
-	uint32_t get_max_bindless_instances() const override;
+	uint32_t get_max_bindless_instances() const;
 
-	bool is_swapchain_supported() override;
+	bool is_swapchain_supported();
 
-	NativeContext get_native_context() const override;
-
-	RenderAPI get_api() const override;
+	NativeContext get_native_context() const;
 
 	// Command Queue
-	Res<CommandQueue> queue_get(QueueType type) override;
+	Res<CommandQueue> queue_get(QueueType type);
 
 	// =========================================================================
 	// Resource Management (Buffers & Images)
@@ -65,19 +63,19 @@ public:
 	};
 
 	Res<Buffer> buffer_create(
-			uint64_t size, BufferUsageFlags usage, MemoryAllocationType allocation_type) override;
+			uint64_t size, BufferUsageFlags usage, MemoryAllocationType allocation_type);
 
-	Res<> buffer_free(Buffer buffer) override;
+	Res<> buffer_free(Buffer buffer);
 
-	Res<BufferDeviceAddress> buffer_get_device_address(Buffer buffer) override;
+	Res<BufferDeviceAddress> buffer_get_device_address(Buffer buffer);
 
-	Res<uint8_t*> buffer_map(Buffer buffer) override;
+	Res<uint8_t*> buffer_map(Buffer buffer);
 
-	Res<> buffer_unmap(Buffer buffer) override;
+	Res<> buffer_unmap(Buffer buffer);
 
-	Res<> buffer_invalidate(Buffer buffer) override;
+	Res<> buffer_invalidate(Buffer buffer);
 
-	Res<> buffer_flush(Buffer buffer) override;
+	Res<> buffer_flush(Buffer buffer);
 
 	// Image
 	struct VulkanImage {
@@ -90,25 +88,25 @@ public:
 		VkImageUsageFlags image_usage;
 	};
 
-	Res<Image> image_create(const ImageCreateInfo& info) override;
+	Res<Image> image_create(const ImageCreateInfo& info);
 
-	Res<> image_free(Image image) override;
+	Res<> image_free(Image image);
 
-	Res<Vec3u> image_get_size(Image image) override;
+	Res<Vec3u> image_get_size(Image image);
 
-	Res<DataFormat> image_get_format(Image image) override;
+	Res<DataFormat> image_get_format(Image image);
 
-	Res<uint32_t> image_get_mip_levels(Image image) override;
+	Res<uint32_t> image_get_mip_levels(Image image);
 
-	Res<ImageUsageFlags> image_get_image_usage(Image image) override;
+	Res<ImageUsageFlags> image_get_image_usage(Image image);
 
-	Res<void*> image_get_native_view(Image image) const override;
-	Res<void*> sampler_get_native(Sampler sampler) const override;
+	Res<void*> image_get_native_view(Image image) const;
+	Res<void*> sampler_get_native(Sampler sampler) const;
 
 	// Sampler
-	Res<Sampler> sampler_create(const SamplerCreateInfo& info) override;
+	Res<Sampler> sampler_create(const SamplerCreateInfo& info);
 
-	Res<> sampler_free(Sampler sampler) override;
+	Res<> sampler_free(Sampler sampler);
 
 	// =========================================================================
 	// Shader & Pipelines
@@ -134,17 +132,17 @@ public:
 		std::map<uint32_t, std::map<uint32_t, ReflectedBinding>> reflected_bindings;
 	};
 
-	Res<Shader> shader_create(VectorView<SpirvEntry> shaders) override;
+	Res<Shader> shader_create(VectorView<SpirvEntry> shaders);
 
-	Res<Shader> shader_create(const char* vertex_filepath, const char* fragment_filepath) override;
+	Res<Shader> shader_create(const char* vertex_filepath, const char* fragment_filepath);
 
-	Res<Shader> shader_create(const char* compute_filepath) override;
+	Res<Shader> shader_create(const char* compute_filepath);
 
-	Res<> shader_free(Shader shader) override;
+	Res<> shader_free(Shader shader);
 
-	Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader) override;
+	Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader);
 
-	Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shader) override;
+	Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shader);
 
 	// Pipeline
 	struct VulkanPipeline {
@@ -153,11 +151,11 @@ public:
 		size_t shader_hash;
 	};
 
-	Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info) override;
+	Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info);
 
-	Res<Pipeline> compute_pipeline_create(Shader shader) override;
+	Res<Pipeline> compute_pipeline_create(Shader shader);
 
-	Res<> pipeline_free(Pipeline pipeline) override;
+	Res<> pipeline_free(Pipeline pipeline);
 
 	// UniformSet
 	static const uint32_t MAX_UNIFORM_POOL_ELEMENT = 65535;
@@ -187,26 +185,26 @@ public:
 	};
 
 	Res<UniformSet> uniform_set_create(
-			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index) override;
+			VectorView<ShaderUniform> uniforms, Shader shader, uint32_t set_index);
 
-	Res<UniformSet> uniform_set_create(Shader shader, uint32_t set_index) override;
+	Res<UniformSet> uniform_set_create(Shader shader, uint32_t set_index);
 
-	Res<> uniform_set_free(UniformSet uniform_set) override;
+	Res<> uniform_set_free(UniformSet uniform_set);
 
 	Res<UniformSet> uniform_set_create_bindless(
-			Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count) override;
+			Shader shader, uint32_t set_index, uint32_t binding_index, uint32_t max_count);
 
-	Res<> uniform_set_update_texture(UniformSet set, uint32_t binding, uint32_t array_index,
-			Image image, Sampler sampler) override;
+	Res<> uniform_set_update_texture(
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image, Sampler sampler);
 
 	Res<> uniform_set_update_sampled_image(
-			UniformSet set, uint32_t binding, uint32_t array_index, Image image) override;
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image);
 
 	Res<> uniform_set_update_storage_image(
-			UniformSet set, uint32_t binding, uint32_t array_index, Image image) override;
+			UniformSet set, uint32_t binding, uint32_t array_index, Image image);
 
 	Res<> uniform_set_update_buffer(
-			UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer) override;
+			UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer);
 
 	// =========================================================================
 	// Render Pass & Framebuffer
@@ -218,16 +216,16 @@ public:
 		std::vector<RenderPassAttachment> attachments;
 	};
 
-	Res<RenderPass> render_pass_create(VectorView<RenderPassAttachment> attachments,
-			VectorView<SubpassInfo> subpasses) override;
+	Res<RenderPass> render_pass_create(
+			VectorView<RenderPassAttachment> attachments, VectorView<SubpassInfo> subpasses);
 
-	Res<> render_pass_destroy(RenderPass render_pass) override;
+	Res<> render_pass_destroy(RenderPass render_pass);
 
 	// Frame Buffer
 	Res<FrameBuffer> frame_buffer_create(
-			RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent) override;
+			RenderPass render_pass, VectorView<Image> attachments, const Vec2u& extent);
 
-	Res<> frame_buffer_destroy(FrameBuffer frame_buffer) override;
+	Res<> frame_buffer_destroy(FrameBuffer frame_buffer);
 
 	// =========================================================================
 	// Swapchain
@@ -243,39 +241,39 @@ public:
 		bool initialized;
 	};
 
-	Res<Swapchain> swapchain_create() override;
+	Res<Swapchain> swapchain_create();
 
 	Res<> swapchain_resize(
-			CommandQueue cmd_queue, Swapchain swapchain, Vec2u size, bool vsync = false) override;
+			CommandQueue cmd_queue, Swapchain swapchain, Vec2u size, bool vsync = false);
 
-	Res<size_t> swapchain_get_image_count(Swapchain swapchain) override;
+	Res<size_t> swapchain_get_image_count(Swapchain swapchain);
 
-	Res<std::vector<Image>> swapchain_get_images(Swapchain swapchain) override;
+	Res<std::vector<Image>> swapchain_get_images(Swapchain swapchain);
 
 	Res<Image> swapchain_acquire_image(
-			Swapchain swapchain, Semaphore semaphore, uint32_t* o_image_index) override;
+			Swapchain swapchain, Semaphore semaphore, uint32_t* o_image_index);
 
-	Res<Vec2u> swapchain_get_extent(Swapchain swapchain) override;
+	Res<Vec2u> swapchain_get_extent(Swapchain swapchain);
 
-	Res<DataFormat> swapchain_get_format(Swapchain swapchain) override;
+	Res<DataFormat> swapchain_get_format(Swapchain swapchain);
 
-	Res<> swapchain_free(Swapchain swapchain) override;
+	Res<> swapchain_free(Swapchain swapchain);
 
 	// =========================================================================
 	// Synchronization
 	// =========================================================================
 
-	Fence fence_create(bool create_signaled = true) override;
+	Fence fence_create(bool create_signaled = true);
 
-	Res<> fence_free(Fence fence) override;
+	Res<> fence_free(Fence fence);
 
-	Res<> fence_wait(Fence fence) override;
+	Res<> fence_wait(Fence fence);
 
-	Res<> fence_reset(Fence fence) override;
+	Res<> fence_reset(Fence fence);
 
-	Semaphore semaphore_create() override;
+	Semaphore semaphore_create();
 
-	Res<> semaphore_free(Semaphore semaphore) override;
+	Res<> semaphore_free(Semaphore semaphore);
 
 	// =========================================================================
 	// Command Submission & Recording
@@ -288,112 +286,107 @@ public:
 	};
 
 	Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence = GL_NULL_HANDLE,
-			Semaphore wait_semaphore = GL_NULL_HANDLE,
-			Semaphore signal_semaphore = GL_NULL_HANDLE) override;
+			Semaphore wait_semaphore = GL_NULL_HANDLE, Semaphore signal_semaphore = GL_NULL_HANDLE);
 
-	Res<> queue_present(CommandQueue queue, Swapchain swapchain,
-			Semaphore wait_semaphore = GL_NULL_HANDLE) override;
+	Res<> queue_present(
+			CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore = GL_NULL_HANDLE);
 
 	Res<> command_immediate_submit(std::function<void(CommandBuffer cmd)>&& function,
-			QueueType queue_type = QueueType::TRANSFER) override;
+			QueueType queue_type = QueueType::TRANSFER);
 
-	Res<CommandPool> command_pool_create(CommandQueue queue) override;
+	Res<CommandPool> command_pool_create(CommandQueue queue);
 
-	Res<> command_pool_free(CommandPool command_pool) override;
+	Res<> command_pool_free(CommandPool command_pool);
 
-	Res<CommandBuffer> command_pool_allocate(CommandPool command_pool) override;
+	Res<CommandBuffer> command_pool_allocate(CommandPool command_pool);
 
 	Res<std::vector<CommandBuffer>> command_pool_allocate(
-			CommandPool command_pool, const uint32_t count) override;
+			CommandPool command_pool, const uint32_t count);
 
-	Res<> command_pool_reset(CommandPool command_pool) override;
+	Res<> command_pool_reset(CommandPool command_pool);
 
-	Res<> command_begin(CommandBuffer cmd) override;
+	Res<> command_begin(CommandBuffer cmd);
 
-	Res<> command_end(CommandBuffer cmd) override;
+	Res<> command_end(CommandBuffer cmd);
 
-	Res<> command_reset(CommandBuffer cmd) override;
+	Res<> command_reset(CommandBuffer cmd);
 
 	Res<> command_begin_render_pass(CommandBuffer cmd, RenderPass render_pass,
-			FrameBuffer framebuffer, const Vec2u& draw_extent,
-			Color clear_color = COLOR_GRAY) override;
+			FrameBuffer framebuffer, const Vec2u& draw_extent, Color clear_color = COLOR_GRAY);
 
-	Res<> command_end_render_pass(CommandBuffer cmd) override;
+	Res<> command_end_render_pass(CommandBuffer cmd);
 
 	Res<> command_begin_rendering(CommandBuffer cmd, const Vec2u& draw_extent,
 			VectorView<RenderingAttachment> color_attachments,
-			Image depth_attachment = GL_NULL_HANDLE) override;
+			Image depth_attachment = GL_NULL_HANDLE);
 
-	Res<> command_end_rendering(CommandBuffer cmd) override;
+	Res<> command_end_rendering(CommandBuffer cmd);
 
 	// image layout must be ImageLayout::GENERAL
 	Res<> command_clear_color(CommandBuffer cmd, Image image, const Color& clear_color,
-			ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT) override;
+			ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT);
 
-	Res<> command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline) override;
+	Res<> command_bind_graphics_pipeline(CommandBuffer cmd, Pipeline pipeline);
 
-	Res<> command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline) override;
+	Res<> command_bind_compute_pipeline(CommandBuffer cmd, Pipeline pipeline);
 
 	Res<> command_bind_vertex_buffers(CommandBuffer cmd, uint32_t first_binding,
-			VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets) override;
+			VectorView<Buffer> vertex_buffers, VectorView<uint64_t> offsets);
 
 	Res<> command_bind_index_buffer(
-			CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type) override;
+			CommandBuffer cmd, Buffer index_buffer, uint64_t offset, IndexType index_type);
 
 	Res<> command_draw(CommandBuffer cmd, uint32_t vertex_count, uint32_t instance_count = 1,
-			uint32_t first_vertex = 0, uint32_t first_instance = 0) override;
+			uint32_t first_vertex = 0, uint32_t first_instance = 0);
 
 	Res<> command_draw_indexed(CommandBuffer cmd, uint32_t index_count, uint32_t instance_count = 1,
-			uint32_t first_index = 0, int32_t vertex_offset = 0,
-			uint32_t first_instance = 0) override;
+			uint32_t first_index = 0, int32_t vertex_offset = 0, uint32_t first_instance = 0);
 
 	Res<> command_draw_indexed_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset,
-			uint32_t draw_count, uint32_t stride) override;
+			uint32_t draw_count, uint32_t stride);
 
 	Res<> command_dispatch(CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y,
-			uint32_t group_count_z) override;
+			uint32_t group_count_z);
 
 	Res<> command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
-			VectorView<UniformSet> uniform_sets,
-			PipelineType type = PipelineType::GRAPHICS) override;
+			VectorView<UniformSet> uniform_sets, PipelineType type = PipelineType::GRAPHICS);
 
 	Res<> command_push_constants(CommandBuffer cmd, Shader shader, uint64_t offset, uint32_t size,
-			const void* push_constants) override;
+			const void* push_constants);
 
-	Res<> command_set_viewport(CommandBuffer cmd, const Vec2u& size) override;
+	Res<> command_set_viewport(CommandBuffer cmd, const Vec2u& size);
 
-	Res<> command_set_scissor(
-			CommandBuffer cmd, const Vec2u& size, const Vec2u& offset = { 0, 0 }) override;
+	Res<> command_set_scissor(CommandBuffer cmd, const Vec2u& size, const Vec2u& offset = { 0, 0 });
 
 	Res<> command_set_depth_bias(CommandBuffer cmd, float depth_bias_constant_factor,
-			float depth_bias_clamp, float depth_bias_slope_factor) override;
+			float depth_bias_clamp, float depth_bias_slope_factor);
 
 	Res<> command_buffer_memory_barrier(CommandBuffer cmd, BufferUsageFlags src_usage,
-			BufferUsageFlags dst_usage, Buffer buffer) override;
+			BufferUsageFlags dst_usage, Buffer buffer);
 
 	Res<> command_pipeline_barrier(CommandBuffer cmd, VectorView<BufferBarrier> buffer_barriers,
-			VectorView<ImageBarrier> image_barriers) override;
+			VectorView<ImageBarrier> image_barriers);
 
 	Res<> command_copy_buffer(CommandBuffer cmd, Buffer src_buffer, Buffer dst_buffer,
-			VectorView<BufferCopyRegion> regions) override;
+			VectorView<BufferCopyRegion> regions);
 
 	Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buffer, Image dst_image,
-			VectorView<BufferImageCopyRegion> regions) override;
+			VectorView<BufferImageCopyRegion> regions);
 
 	Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
-			uint32_t dst_mip_level = 0) override;
+			uint32_t dst_mip_level = 0);
 
 	Res<> command_transition_image(CommandBuffer cmd, Image image, ImageLayout current_layout,
 			ImageLayout new_layout, uint32_t base_mip_level = 0,
-			uint32_t level_count = GL_REMAINING_MIP_LEVELS) override;
+			uint32_t level_count = GL_REMAINING_MIP_LEVELS);
 
 	// Utility functions
 
-	Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color) override;
-	Res<> command_end_label(CommandBuffer cmd) override;
+	Res<> command_begin_label(CommandBuffer cmd, const char* name, Color color);
+	Res<> command_end_label(CommandBuffer cmd);
 
-	Res<> set_debug_name(ObjectType type, void* handle, const char* name) override;
+	Res<> set_debug_name(ObjectType type, void* handle, const char* name);
 
 private:
 	// Vulkan helpers
@@ -516,4 +509,4 @@ private:
 	std::unordered_map<VkCommandBuffer, VkCommandPool> _command_buffer_parents;
 };
 
-} // namespace gl
+} //namespace gpukit

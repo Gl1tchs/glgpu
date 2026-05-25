@@ -894,6 +894,4 @@ NativeContext VulkanDevice::get_native_context() const {
 	};
 }
 
-RenderAPI VulkanDevice::get_api() const { return RenderAPI::VULKAN; }
-
 } //namespace gpukit

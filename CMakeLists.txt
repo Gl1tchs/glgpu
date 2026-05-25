@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(gpukit VERSION 1.3.0
+project(gpukit
+    VERSION 1.3.0
     DESCRIPTION "Low-Level, low dependency rendering interface over the Vulkan API"
     LANGUAGES CXX
 )
@@ -13,7 +14,6 @@ include(CMakePackageConfigHelpers)
 # ------------------------------------------------------------------------------
 option(GPUKIT_BUILD_EXAMPLES "Build examples" ON)
 option(GPUKIT_BUILD_TESTS "Build tests" ON)
-option(GPUKIT_WITH_VULKAN "Enable vulkan backend" ON)
 option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
 option(GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 

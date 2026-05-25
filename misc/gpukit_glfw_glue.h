@@ -35,4 +35,4 @@ inline bool extract_glfw_info(DeviceCreateInfo& info, GLFWwindow* window) {
 #endif
 }
 
-} //namespace gl
+} //namespace gpukit

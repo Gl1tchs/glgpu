@@ -4,6 +4,7 @@
 #include <SDL2/SDL_syswm.h>
 
 #include "gpukit/device.h"
+#include "gpukit/os.h"
 
 namespace gpukit {
 

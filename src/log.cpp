@@ -31,9 +31,8 @@ static std::string _get_timestamp() {
 }
 
 void Logger::log(LogLevel level, const std::string& fmt) {
-	// Output to stdout
-	std::cout << VERBOSITY_TO_COLOR[level] << std::format("[{}] {}", _get_timestamp(), fmt)
+	std::clog << VERBOSITY_TO_COLOR[level] << std::format("[{}] {}", _get_timestamp(), fmt)
 			  << "\x1B[0m\n";
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

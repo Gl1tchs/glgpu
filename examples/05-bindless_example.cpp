@@ -10,24 +10,23 @@
 constexpr int WINDOW_WIDTH = 800;
 constexpr int WINDOW_HEIGHT = 600;
 
-// Struct to hold per-frame resources for buffering
 struct FrameData {
 	gpukit::CommandPool cmd_pool;
 	gpukit::CommandBuffer cmd;
 	gpukit::Semaphore image_available_sem;
 	gpukit::Fence frame_fence;
 
-	void init(gpukit::Device* device, gpukit::CommandQueue graphics_queue) {
-		cmd_pool = device->command_pool_create(graphics_queue).value();
-		cmd = device->command_pool_allocate(cmd_pool).value();
-		image_available_sem = device->semaphore_create();
-		frame_fence = device->fence_create();
+	void init(gpukit::CommandQueue graphics_queue) {
+		cmd_pool = gpukit::command_pool_create(graphics_queue).value();
+		cmd = gpukit::command_pool_allocate(cmd_pool).value();
+		image_available_sem = gpukit::semaphore_create();
+		frame_fence = gpukit::fence_create();
 	}
 
-	void destroy(gpukit::Device* device) {
-		device->fence_free(frame_fence);
-		device->semaphore_free(image_available_sem);
-		device->command_pool_free(cmd_pool);
+	void destroy() {
+		gpukit::fence_free(frame_fence);
+		gpukit::semaphore_free(image_available_sem);
+		gpukit::command_pool_free(cmd_pool);
 	}
 };
 
@@ -37,7 +36,7 @@ struct Vertex {
 	int tex_index;
 };
 
-gpukit::Image create_checkered_texture(gpukit::Device* device, uint32_t r, uint32_t g, uint32_t b) {
+gpukit::Image create_checkered_texture(uint32_t r, uint32_t g, uint32_t b) {
 	const uint32_t width = 16;
 	const uint32_t height = 16;
 	std::vector<uint32_t> pixels(width * height);
@@ -56,24 +55,21 @@ gpukit::Image create_checkered_texture(gpukit::Device* device, uint32_t r, uint3
 	img_info.mipmapped = false;
 	img_info.samples = 1;
 
-	gpukit::Image img = device->image_create(img_info).value();
+	gpukit::Image img = gpukit::image_create(img_info).value();
 
-	// Create a staging buffer
 	uint64_t buffer_size = width * height * 4;
-	gpukit::Buffer staging = device->buffer_create(buffer_size, gpukit::BUFFER_USAGE_TRANSFER_SRC_BIT,
-									   gpukit::MemoryAllocationType::CPU)
-								 .value();
+	gpukit::Buffer staging = gpukit::buffer_create(
+			buffer_size, gpukit::BUFFER_USAGE_TRANSFER_SRC_BIT, gpukit::MemoryAllocationType::CPU)
+									 .value();
 
-	void* mapped = device->buffer_map(staging).value();
+	void* mapped = gpukit::buffer_map(staging).value();
 	std::memcpy(mapped, pixels.data(), buffer_size);
-	device->buffer_flush(staging);
-	device->buffer_unmap(staging);
+	gpukit::buffer_flush(staging);
+	gpukit::buffer_unmap(staging);
 
-	// Copy from staging buffer to image
-	device->command_immediate_submit(
+	gpukit::command_immediate_submit(
 			[&](gpukit::CommandBuffer cmd) {
-				// Transition image to TRANSFER_DST_OPTIMAL
-				device->command_transition_image(cmd, img, gpukit::ImageLayout::UNDEFINED,
+				gpukit::command_transition_image(cmd, img, gpukit::ImageLayout::UNDEFINED,
 						gpukit::ImageLayout::TRANSFER_DST_OPTIMAL);
 
 				gpukit::BufferImageCopyRegion copy_region = {};
@@ -87,15 +83,15 @@ gpukit::Image create_checkered_texture(gpukit::Device* device, uint32_t r, uint3
 				copy_region.image_offset = { 0, 0, 0 };
 				copy_region.image_extent = { width, height, 1 };
 
-				device->command_copy_buffer_to_image(cmd, staging, img, { &copy_region, 1 });
+				gpukit::command_copy_buffer_to_image(cmd, staging, img, { &copy_region, 1 });
 
-				// Transition image to SHADER_READ_ONLY_OPTIMAL
-				device->command_transition_image(cmd, img, gpukit::ImageLayout::TRANSFER_DST_OPTIMAL,
+				gpukit::command_transition_image(cmd, img,
+						gpukit::ImageLayout::TRANSFER_DST_OPTIMAL,
 						gpukit::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 			},
 			gpukit::QueueType::TRANSFER);
 
-	device->buffer_free(staging);
+	gpukit::buffer_free(staging);
 
 	return img;
 }
@@ -117,43 +113,40 @@ int main(void) {
 
 	gpukit::DeviceCreateInfo info{
 		.required_features = gpukit::DEVICE_FEATURE_SWAPCHAIN_BIT |
-				gpukit::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT | gpukit::DEVICE_FEATURE_VALIDATION_LAYERS,
+				gpukit::DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT |
+				gpukit::DEVICE_FEATURE_VALIDATION_LAYERS,
 	};
 
 	if (!gpukit::extract_sdl2_info(info, window)) {
 		GPUKIT_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
-	auto device = gpukit::Device::create(info).own();
+	gpukit::init(info);
 
-	gpukit::CommandQueue graphics_queue = device->queue_get(gpukit::QueueType::GRAPHICS).value();
-	gpukit::CommandQueue present_queue = device->queue_get(gpukit::QueueType::PRESENT).value();
+	gpukit::CommandQueue graphics_queue = gpukit::queue_get(gpukit::QueueType::GRAPHICS).value();
+	gpukit::CommandQueue present_queue = gpukit::queue_get(gpukit::QueueType::PRESENT).value();
 
-	gpukit::Swapchain swapchain = device->swapchain_create().value();
-	device->swapchain_resize(
-			graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true /* vsync */);
+	gpukit::Swapchain swapchain = gpukit::swapchain_create().value();
+	gpukit::swapchain_resize(graphics_queue, swapchain, { WINDOW_WIDTH, WINDOW_HEIGHT }, true);
 
-	// Setup buffering
-	uint32_t image_count = device->swapchain_get_image_count(swapchain).value();
+	uint32_t image_count = gpukit::swapchain_get_image_count(swapchain).value();
 	std::vector<FrameData> frames(image_count);
 
 	for (auto& frame : frames) {
-		frame.init(device.get(), graphics_queue);
+		frame.init(graphics_queue);
 	}
 
 	std::vector<gpukit::Semaphore> render_finished_sems(image_count);
 	for (uint32_t i = 0; i < image_count; i++) {
-		render_finished_sems[i] = device->semaphore_create();
+		render_finished_sems[i] = gpukit::semaphore_create();
 	}
 
-	// Load shaders using the new clean file-based API
 	gpukit::Shader shader =
-			device->shader_create("examples/assets/bindless.vert", "examples/assets/bindless.frag")
+			gpukit::shader_create("examples/assets/bindless.vert", "examples/assets/bindless.frag")
 					.value();
-	device->set_debug_name(gpukit::ObjectType::SHADER, shader, "Bindless Shader");
+	gpukit::set_debug_name(gpukit::ObjectType::SHADER, shader, "Bindless Shader");
 
-	// Pipeline creation
-	gpukit::DataFormat swapchain_format = device->swapchain_get_format(swapchain).value();
+	gpukit::DataFormat swapchain_format = gpukit::swapchain_get_format(swapchain).value();
 
 	gpukit::GraphicsPipelineCreateInfo pipeline_info{ .shader = shader,
 		.primitive = gpukit::RenderPrimitive::TRIANGLE_LIST,
@@ -162,33 +155,28 @@ int main(void) {
 		.rendering_info = { .color_attachments = { swapchain_format },
 				.depth_attachment = gpukit::DataFormat::UNDEFINED } };
 
-	gpukit::Pipeline pipeline = device->graphics_pipeline_create(pipeline_info).value();
+	gpukit::Pipeline pipeline = gpukit::graphics_pipeline_create(pipeline_info).value();
 
-	// Create checkered textures of 4 different colors
-	gpukit::Image texture0 = create_checkered_texture(device.get(), 255, 0, 0); // Red
-	gpukit::Image texture1 = create_checkered_texture(device.get(), 0, 255, 0); // Green
-	gpukit::Image texture2 = create_checkered_texture(device.get(), 0, 0, 255); // Blue
-	gpukit::Image texture3 = create_checkered_texture(device.get(), 255, 255, 0); // Yellow
+	gpukit::Image texture0 = create_checkered_texture(255, 0, 0);
+	gpukit::Image texture1 = create_checkered_texture(0, 255, 0);
+	gpukit::Image texture2 = create_checkered_texture(0, 0, 255);
+	gpukit::Image texture3 = create_checkered_texture(255, 255, 0);
 
-	// Create sampler
 	gpukit::SamplerCreateInfo sampler_info{};
 	sampler_info.min_filter = gpukit::ImageFiltering::LINEAR;
 	sampler_info.mag_filter = gpukit::ImageFiltering::LINEAR;
 	sampler_info.wrap_u = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
 	sampler_info.wrap_v = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
-	gpukit::Sampler sampler = device->sampler_create(sampler_info).value();
+	gpukit::Sampler sampler = gpukit::sampler_create(sampler_info).value();
 
-	// Create the bindless uniform set.
-	// Binding is at set 0, binding 0. Max count is 1000.
-	gpukit::UniformSet bindless_set = device->uniform_set_create_bindless(shader, 0, 0, 1000).value();
+	gpukit::UniformSet bindless_set =
+			gpukit::uniform_set_create_bindless(shader, 0, 0, 1000).value();
 
-	// Update the bindless set
-	device->uniform_set_update_texture(bindless_set, 0, 0, texture0, sampler);
-	device->uniform_set_update_texture(bindless_set, 0, 1, texture1, sampler);
-	device->uniform_set_update_texture(bindless_set, 0, 2, texture2, sampler);
-	device->uniform_set_update_texture(bindless_set, 0, 3, texture3, sampler);
+	gpukit::uniform_set_update_texture(bindless_set, 0, 0, texture0, sampler);
+	gpukit::uniform_set_update_texture(bindless_set, 0, 1, texture1, sampler);
+	gpukit::uniform_set_update_texture(bindless_set, 0, 2, texture2, sampler);
+	gpukit::uniform_set_update_texture(bindless_set, 0, 3, texture3, sampler);
 
-	// Quad vertices (4 quads, each selecting a different texture index)
 	Vertex vertices[] = {
 		// Quad 0 (top-left, Red, index 0)
 		{ { -0.75f, 0.75f }, { 0.0f, 0.0f }, 0 },
@@ -223,15 +211,14 @@ int main(void) {
 		{ { 0.1f, -0.75f }, { 0.0f, 1.0f }, 3 },
 	};
 
-	gpukit::Buffer vertex_buffer =
-			device->buffer_create(sizeof(vertices), gpukit::BUFFER_USAGE_VERTEX_BUFFER_BIT,
-						  gpukit::MemoryAllocationType::CPU)
-					.value();
+	gpukit::Buffer vertex_buffer = gpukit::buffer_create(sizeof(vertices),
+			gpukit::BUFFER_USAGE_VERTEX_BUFFER_BIT, gpukit::MemoryAllocationType::CPU)
+										   .value();
 
-	void* raw_data = device->buffer_map(vertex_buffer).value();
+	void* raw_data = gpukit::buffer_map(vertex_buffer).value();
 	if (raw_data) {
 		std::memcpy(raw_data, vertices, sizeof(vertices));
-		device->buffer_unmap(vertex_buffer);
+		gpukit::buffer_unmap(vertex_buffer);
 	} else {
 		GPUKIT_LOG_FATAL("Failed to map vertex buffer!");
 		return 1;
@@ -247,27 +234,26 @@ int main(void) {
 				quit = true;
 			}
 			if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_RESIZED) {
-				device->device_wait();
-				device->swapchain_resize(graphics_queue, swapchain,
+				gpukit::device_wait();
+				gpukit::swapchain_resize(graphics_queue, swapchain,
 						{ (uint32_t)e.window.data1, (uint32_t)e.window.data2 }, true);
 
-				// Recreate frames and render_finished_sems in case image count changed
 				for (auto& frame : frames) {
-					frame.destroy(device.get());
+					frame.destroy();
 				}
 				for (auto sem : render_finished_sems) {
-					device->semaphore_free(sem);
+					gpukit::semaphore_free(sem);
 				}
 
-				image_count = device->swapchain_get_image_count(swapchain).value();
+				image_count = gpukit::swapchain_get_image_count(swapchain).value();
 				frames.resize(image_count);
 				for (auto& frame : frames) {
-					frame.init(device.get(), graphics_queue);
+					frame.init(graphics_queue);
 				}
 
 				render_finished_sems.resize(image_count);
 				for (uint32_t i = 0; i < image_count; i++) {
-					render_finished_sems[i] = device->semaphore_create();
+					render_finished_sems[i] = gpukit::semaphore_create();
 				}
 
 				current_frame_index = 0;
@@ -276,23 +262,22 @@ int main(void) {
 
 		FrameData& frame = frames[current_frame_index];
 
-		device->fence_wait(frame.frame_fence);
-		device->fence_reset(frame.frame_fence);
+		gpukit::fence_wait(frame.frame_fence);
+		gpukit::fence_reset(frame.frame_fence);
 
 		uint32_t image_index = 0;
 		auto acquire_result =
-				device->swapchain_acquire_image(swapchain, frame.image_available_sem, &image_index);
+				gpukit::swapchain_acquire_image(swapchain, frame.image_available_sem, &image_index);
 
 		if (!acquire_result)
 			continue;
 
 		gpukit::Image swapchain_image = *acquire_result;
 
-		device->command_reset(frame.cmd);
-		device->command_begin(frame.cmd);
+		gpukit::command_reset(frame.cmd);
+		gpukit::command_begin(frame.cmd);
 
-		// Transition layout for rendering
-		device->command_transition_image(frame.cmd, swapchain_image, gpukit::ImageLayout::UNDEFINED,
+		gpukit::command_transition_image(frame.cmd, swapchain_image, gpukit::ImageLayout::UNDEFINED,
 				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
 		gpukit::RenderingAttachment color_attachment{
@@ -303,64 +288,61 @@ int main(void) {
 			.clear_color = { 0.15f, 0.15f, 0.15f, 1.0f },
 		};
 
-		gpukit::Vec2u draw_extent = device->swapchain_get_extent(swapchain).value();
-		device->command_begin_rendering(frame.cmd, draw_extent, { &color_attachment, 1 });
+		gpukit::Vec2u draw_extent = gpukit::swapchain_get_extent(swapchain).value();
+		gpukit::command_begin_rendering(frame.cmd, draw_extent, { &color_attachment, 1 });
 
-		device->command_set_viewport(frame.cmd, draw_extent);
-		device->command_set_scissor(frame.cmd, draw_extent);
+		gpukit::command_set_viewport(frame.cmd, draw_extent);
+		gpukit::command_set_scissor(frame.cmd, draw_extent);
 
-		device->command_bind_graphics_pipeline(frame.cmd, pipeline);
+		gpukit::command_bind_graphics_pipeline(frame.cmd, pipeline);
 
 		std::vector<gpukit::Buffer> vertex_buffers = { vertex_buffer };
 		std::vector<uint64_t> offsets = { 0 };
-		device->command_bind_vertex_buffers(frame.cmd, 0, vertex_buffers, offsets);
+		gpukit::command_bind_vertex_buffers(frame.cmd, 0, vertex_buffers, offsets);
 
-		// Bind the bindless uniform set
 		std::vector<gpukit::UniformSet> uniform_sets = { bindless_set };
-		device->command_bind_uniform_sets(
+		gpukit::command_bind_uniform_sets(
 				frame.cmd, shader, 0, uniform_sets, gpukit::PipelineType::GRAPHICS);
 
-		device->command_draw(frame.cmd, 24);
+		gpukit::command_draw(frame.cmd, 24);
 
-		device->command_end_rendering(frame.cmd);
+		gpukit::command_end_rendering(frame.cmd);
 
-		// Transition layout for presentation
-		device->command_transition_image(frame.cmd, swapchain_image,
+		gpukit::command_transition_image(frame.cmd, swapchain_image,
 				gpukit::ImageLayout::COLOR_ATTACHMENT_OPTIMAL, gpukit::ImageLayout::PRESENT_SRC);
 
-		device->command_end(frame.cmd);
+		gpukit::command_end(frame.cmd);
 
-		device->queue_submit(graphics_queue, frame.cmd, frame.frame_fence,
+		gpukit::queue_submit(graphics_queue, frame.cmd, frame.frame_fence,
 				frame.image_available_sem, render_finished_sems[image_index]);
 
-		device->queue_present(present_queue, swapchain, render_finished_sems[image_index]);
+		gpukit::queue_present(present_queue, swapchain, render_finished_sems[image_index]);
 
 		current_frame_index = (current_frame_index + 1) % frames.size();
 	}
 
-	device->device_wait();
+	gpukit::device_wait();
 
-	// Cleanup
-	device->buffer_free(vertex_buffer);
-	device->uniform_set_free(bindless_set);
-	device->sampler_free(sampler);
-	device->image_free(texture0);
-	device->image_free(texture1);
-	device->image_free(texture2);
-	device->image_free(texture3);
-
-	device->pipeline_free(pipeline);
-	device->shader_free(shader);
+	gpukit::buffer_free(vertex_buffer);
+	gpukit::uniform_set_free(bindless_set);
+	gpukit::sampler_free(sampler);
+	gpukit::image_free(texture0);
+	gpukit::image_free(texture1);
+	gpukit::image_free(texture2);
+	gpukit::image_free(texture3);
+	gpukit::pipeline_free(pipeline);
+	gpukit::shader_free(shader);
 
 	for (auto& frame : frames) {
-		frame.destroy(device.get());
+		frame.destroy();
 	}
 
 	for (auto sem : render_finished_sems) {
-		device->semaphore_free(sem);
+		gpukit::semaphore_free(sem);
 	}
 
-	device->swapchain_free(swapchain);
+	gpukit::swapchain_free(swapchain);
+	gpukit::shutdown();
 
 	SDL_DestroyWindow(window);
 	SDL_Quit();
