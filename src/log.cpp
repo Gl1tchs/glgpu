@@ -1,38 +1,28 @@
 #include "gpukit/log.h"
 
 #include <chrono>
-#include <iomanip>
 #include <iostream>
 
 namespace gpukit {
 
-constexpr const char* VERBOSITY_TO_COLOR[] = {
-	[LOG_LEVEL_TRACE] = "\x1B[1m", // None
-	[LOG_LEVEL_INFO] = "\x1B[32m", // Green
-	[LOG_LEVEL_WARNING] = "\x1B[93m", // Yellow
-	[LOG_LEVEL_ERROR] = "\x1B[91m", // Light Red
-	[LOG_LEVEL_FATAL] = "\x1B[31m", // Red
+static constexpr const char* k_colors[] = {
+	[static_cast<uint8_t>(LogLevel::Trace)]   = "\x1B[1m",
+	[static_cast<uint8_t>(LogLevel::Info)]    = "\x1B[32m",
+	[static_cast<uint8_t>(LogLevel::Warning)] = "\x1B[93m",
+	[static_cast<uint8_t>(LogLevel::Error)]   = "\x1B[91m",
+	[static_cast<uint8_t>(LogLevel::Fatal)]   = "\x1B[31m",
 };
 
-static std::string _get_timestamp() {
-	const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-
-	std::tm tm_now{};
-	std::stringstream ss;
-#if GL_PLATFORM_WINDOWS
-	localtime_s(&tm_now, &now);
-#else
-	localtime_r(&now, &tm_now);
-#endif
-
-	ss << std::put_time(&tm_now, "%H:%M:%S");
-
-	return ss.str();
+Logger& Logger::get() noexcept {
+	static Logger instance;
+	return instance;
 }
 
-void Logger::log(LogLevel level, const std::string& fmt) {
-	std::clog << VERBOSITY_TO_COLOR[level] << std::format("[{}] {}", _get_timestamp(), fmt)
-			  << "\x1B[0m\n";
+void Logger::_write(LogLevel level, const std::string& msg) {
+	const auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+	std::clog << k_colors[static_cast<uint8_t>(level)]
+	          << std::format("[{:%H:%M:%S}] {}", now, msg)
+	          << "\x1B[0m\n";
 }
 
-} //namespace gpukit
+} // namespace gpukit
