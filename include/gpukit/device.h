@@ -168,6 +168,16 @@ GPUKIT_API Res<FrameBuffer> frame_buffer_create(
 GPUKIT_API Res<> frame_buffer_destroy(FrameBuffer frame_buffer);
 
 // =========================================================================
+// Query Pools
+// =========================================================================
+
+GPUKIT_API Res<QueryPool> query_pool_create(uint32_t count);
+GPUKIT_API Res<> query_pool_free(QueryPool pool);
+GPUKIT_API Res<std::vector<uint64_t>> query_pool_get_results(
+		QueryPool pool, uint32_t first = 0, uint32_t count = UINT32_MAX);
+GPUKIT_API double timestamps_to_ns(uint64_t ticks);
+
+// =========================================================================
 // Synchronization
 // =========================================================================
 
@@ -265,6 +275,10 @@ GPUKIT_API Res<> command_clear_color(CommandBuffer cmd, Image image, const Color
 		ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT);
 GPUKIT_API Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth = 1.0f,
 		uint32_t stencil = 0);
+GPUKIT_API Res<> command_reset_query_pool(
+		CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count);
+GPUKIT_API Res<> command_write_timestamp(CommandBuffer cmd, QueryPool pool, uint32_t index,
+		PipelineStageFlags stage = PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 // Copy / Barriers
 

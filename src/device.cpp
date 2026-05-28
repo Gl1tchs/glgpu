@@ -203,6 +203,27 @@ Res<FrameBuffer> frame_buffer_create(
 Res<> frame_buffer_destroy(FrameBuffer fb) { return g_device->frame_buffer_destroy(fb); }
 
 // =========================================================================
+// Query Pools
+// =========================================================================
+
+Res<QueryPool> query_pool_create(uint32_t count) {
+	return g_device->query_pool_create(count);
+}
+
+Res<> query_pool_free(QueryPool pool) {
+	return g_device->query_pool_free(pool);
+}
+
+Res<std::vector<uint64_t>> query_pool_get_results(
+		QueryPool pool, uint32_t first, uint32_t count) {
+	return g_device->query_pool_get_results(pool, first, count);
+}
+
+double timestamps_to_ns(uint64_t ticks) {
+	return g_device->timestamps_to_ns(ticks);
+}
+
+// =========================================================================
 // Synchronization
 // =========================================================================
 
@@ -372,6 +393,16 @@ Res<> command_clear_color(
 
 Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth, uint32_t stencil) {
 	return g_device->command_clear_depth(cmd, image, depth, stencil);
+}
+
+Res<> command_reset_query_pool(
+		CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count) {
+	return g_device->command_reset_query_pool(cmd, pool, first, count);
+}
+
+Res<> command_write_timestamp(
+		CommandBuffer cmd, QueryPool pool, uint32_t index, PipelineStageFlags stage) {
+	return g_device->command_write_timestamp(cmd, pool, index, stage);
 }
 
 // =========================================================================

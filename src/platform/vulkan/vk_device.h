@@ -263,6 +263,24 @@ public:
 	Res<> swapchain_free(Swapchain swapchain);
 
 	// =========================================================================
+	// Query Pools
+	// =========================================================================
+
+	struct VulkanQueryPool {
+		VkQueryPool vk_query_pool;
+		uint32_t count;
+	};
+
+	Res<QueryPool> query_pool_create(uint32_t count);
+
+	Res<> query_pool_free(QueryPool pool);
+
+	Res<std::vector<uint64_t>> query_pool_get_results(
+			QueryPool pool, uint32_t first, uint32_t count);
+
+	double timestamps_to_ns(uint64_t ticks) const;
+
+	// =========================================================================
 	// Synchronization
 	// =========================================================================
 
@@ -397,6 +415,12 @@ public:
 	Res<> command_clear_depth(
 			CommandBuffer cmd, Image image, float depth = 1.0f, uint32_t stencil = 0);
 
+	Res<> command_reset_query_pool(
+			CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count);
+
+	Res<> command_write_timestamp(CommandBuffer cmd, QueryPool pool, uint32_t index,
+			PipelineStageFlags stage = PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
 	Res<> command_transition_image(CommandBuffer cmd, Image image, ImageLayout current_layout,
 			ImageLayout new_layout, uint32_t base_mip_level = 0,
 			uint32_t level_count = GL_REMAINING_MIP_LEVELS);
@@ -472,7 +496,7 @@ private:
 
 private:
 	using VersatileResource = VersatileResourceTemplate<VulkanBuffer, VulkanImage, VulkanShader,
-			VulkanUniformSet, VulkanPipeline>;
+			VulkanUniformSet, VulkanPipeline, VulkanQueryPool>;
 
 	VkInstance _instance;
 	VkDevice _device;

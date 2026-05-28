@@ -1106,4 +1106,29 @@ Res<> VulkanDevice::command_generate_mipmaps(CommandBuffer cmd, Image image) {
 	return {};
 }
 
+Res<> VulkanDevice::command_reset_query_pool(
+		CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count) {
+	VulkanQueryPool* vk_pool = (VulkanQueryPool*)pool;
+	if (!cmd || !vk_pool) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdResetQueryPool((VkCommandBuffer)cmd, vk_pool->vk_query_pool, first, count);
+
+	return {};
+}
+
+Res<> VulkanDevice::command_write_timestamp(
+		CommandBuffer cmd, QueryPool pool, uint32_t index, PipelineStageFlags stage) {
+	VulkanQueryPool* vk_pool = (VulkanQueryPool*)pool;
+	if (!cmd || !vk_pool) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdWriteTimestamp2((VkCommandBuffer)cmd, static_cast<VkPipelineStageFlags2>(stage),
+			vk_pool->vk_query_pool, index);
+
+	return {};
+}
+
 } //namespace gpukit
