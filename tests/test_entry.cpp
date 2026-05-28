@@ -6,6 +6,20 @@
 
 #include "test_common.h"
 
+// Sanitizer hook functions — called by the runtime during initialization,
+// before ASAN_OPTIONS / LSAN_OPTIONS / UBSAN_OPTIONS env vars are processed.
+// Paths are set at compile time by CMake when GPUKIT_ENABLE_SANITIZERS is ON.
+#if defined(GPUKIT_LSAN_SUPPRESSIONS_PATH)
+extern "C" const char* __lsan_default_options() {
+	return "suppressions=" GPUKIT_LSAN_SUPPRESSIONS_PATH;
+}
+#endif
+#if defined(GPUKIT_UBSAN_SUPPRESSIONS_PATH)
+extern "C" const char* __ubsan_default_options() {
+	return "suppressions=" GPUKIT_UBSAN_SUPPRESSIONS_PATH ":print_stacktrace=1";
+}
+#endif
+
 int main(int argc, char* argv[]) {
 	Catch::Session session;
 

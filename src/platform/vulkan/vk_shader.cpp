@@ -516,6 +516,12 @@ Res<> VulkanDevice::shader_free(Shader shader) {
 		vkDestroyShaderModule(_device, shader_info->stage_create_infos[i].module, nullptr);
 	}
 
+	// Explicitly invoke the destructor so that std::vector / std::map members
+	// (stage_create_infos, reflected_bindings, etc.) free their heap storage.
+	// VersatileResource::free only returns the slot to the paged allocator and
+	// does not call destructors.
+	shader_info->~VulkanShader();
+
 	VersatileResource::free(_resources_allocator, shader_info);
 
 	return {};

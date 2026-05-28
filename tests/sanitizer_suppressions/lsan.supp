@@ -1,0 +1,4 @@
+# NVIDIA's Vulkan driver opens a D-Bus session on first use to communicate
+# with the Wayland/X11 compositor. D-Bus holds this connection open for the
+# lifetime of the process by design — this is not a real leak.
+leak:*dbus*

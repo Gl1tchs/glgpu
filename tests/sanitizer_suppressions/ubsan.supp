@@ -1,0 +1,9 @@
+# SPIRV-Reflect (vendored, external/SPIRV-Reflect) uses UINT_MAX (0xFFFFFFFF)
+# as a sentinel value for SpvStorageClass, SpvBuiltIn, and similar SPV enum
+# fields. UBSan flags loads of this value as invalid-enum violations, but the
+# pattern is intentional in the SPIR-V reflection code.
+enum:*spirv_reflect*
+
+# SPIRV-Reflect may pass a null destination to memcpy in codepaths that
+# process SPIR-V modules lacking certain optional sections.
+null:*spirv_reflect*

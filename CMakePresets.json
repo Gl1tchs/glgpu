@@ -32,6 +32,17 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {
+            "name": "sanitize",
+            "inherits": "base",
+            "displayName": "Sanitize",
+            "description": "Debug build with ASan + UBSan (Clang/GCC) or ASan (MSVC)",
+            "binaryDir": "${sourceDir}/build-san",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "GPUKIT_ENABLE_SANITIZERS": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -47,6 +58,14 @@
             "name": "release",
             "configurePreset": "release",
             "displayName": "Build Release",
+            "targets": [
+                "all"
+            ]
+        },
+        {
+            "name": "sanitize",
+            "configurePreset": "sanitize",
+            "displayName": "Build Sanitize",
             "targets": [
                 "all"
             ]

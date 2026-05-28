@@ -28,3 +28,13 @@ target_link_libraries(gpukit_tests
 )
 
 catch_discover_tests(gpukit_tests)
+
+# When sanitizers are active, bake suppression file paths into the binary so
+# the ASan/LSan/UBSan runtimes pick them up without requiring env var setup.
+if(GPUKIT_ENABLE_SANITIZERS AND NOT MSVC)
+    set(_sup_dir "${CMAKE_CURRENT_SOURCE_DIR}/sanitizer_suppressions")
+    target_compile_definitions(gpukit_tests PRIVATE
+        GPUKIT_LSAN_SUPPRESSIONS_PATH="${_sup_dir}/lsan.supp"
+        GPUKIT_UBSAN_SUPPRESSIONS_PATH="${_sup_dir}/ubsan.supp"
+    )
+endif()

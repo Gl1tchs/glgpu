@@ -129,6 +129,8 @@ Res<> VulkanDevice::render_pass_destroy(RenderPass render_pass) {
 
 	vkDestroyRenderPass(_device, render_pass_info->vk_render_pass, nullptr);
 
+	render_pass_info->~VulkanRenderPass();
+
 	VersatileResource::free(_resources_allocator, render_pass_info);
 
 	return {};

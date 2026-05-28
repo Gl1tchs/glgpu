@@ -51,6 +51,31 @@ if (GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE)
     set(VK_BOOTSTRAP_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
 endif()
 
+option(GPUKIT_ENABLE_SANITIZERS "Enable AddressSanitizer and UBSan on Clang/GCC" OFF)
+if(GPUKIT_ENABLE_SANITIZERS)
+    if(MSVC)
+        # MSVC ASan: available since VS 2019 16.4. UBSan has no MSVC equivalent.
+        # /INCREMENTAL:NO is required — ASan is incompatible with incremental linking.
+        message(STATUS "GPUKit: AddressSanitizer enabled (MSVC)")
+        add_compile_options(/fsanitize=address)
+        add_link_options(/INCREMENTAL:NO)
+    else()
+        message(STATUS "GPUKit: AddressSanitizer + UBSan enabled")
+        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address,undefined)
+
+        # Generate CTestCustom.cmake so CTest passes suppression files to every test.
+        # Suppressions cover known false positives in vendored code and GPU drivers.
+        set(_sup_dir "${CMAKE_CURRENT_SOURCE_DIR}/tests/sanitizer_suppressions")
+        file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake"
+            "set(CTEST_ENVIRONMENT\n"
+            "    \"ASAN_OPTIONS=detect_leaks=1:suppressions=${_sup_dir}/lsan.supp\"\n"
+            "    \"UBSAN_OPTIONS=suppressions=${_sup_dir}/ubsan.supp:print_stacktrace=1\"\n"
+            ")\n"
+        )
+    endif()
+endif()
+
 # ------------------------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------------------------

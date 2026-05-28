@@ -51,6 +51,7 @@ vcpkg_installed/
 *.VC.opendb
 
 build/
+build-san/
 bin/*
 out/*
 Testing/
