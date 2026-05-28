@@ -159,6 +159,9 @@ public:
 
 	Res<Pipeline> compute_pipeline_create(Shader shader);
 
+	Res<Pipeline> compute_pipeline_create(
+			Shader shader, VectorView<SpecializationConstant> specialization_constants);
+
 	Res<> pipeline_free(Pipeline pipeline);
 
 	// UniformSet

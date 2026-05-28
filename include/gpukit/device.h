@@ -92,8 +92,7 @@ GPUKIT_API Res<uint8_t*> buffer_map(Buffer buffer);
 GPUKIT_API Res<> buffer_unmap(Buffer buffer);
 GPUKIT_API Res<> buffer_invalidate(Buffer buffer); // GPU -> CPU
 GPUKIT_API Res<> buffer_flush(Buffer buffer); // CPU -> GPU
-GPUKIT_API Res<> buffer_upload(
-		Buffer buffer, const void* data, size_t size, size_t offset = 0);
+GPUKIT_API Res<> buffer_upload(Buffer buffer, const void* data, size_t size, size_t offset = 0);
 
 // Image
 
@@ -137,6 +136,8 @@ GPUKIT_API Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shad
 
 GPUKIT_API Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info);
 GPUKIT_API Res<Pipeline> compute_pipeline_create(Shader shader);
+GPUKIT_API Res<Pipeline> compute_pipeline_create(
+		Shader shader, VectorView<SpecializationConstant> specialization_constants);
 GPUKIT_API Res<> pipeline_free(Pipeline pipeline);
 
 // Descriptors / Uniforms
@@ -279,8 +280,8 @@ GPUKIT_API Res<> command_set_depth_bias(CommandBuffer cmd, float depth_bias_cons
 		float depth_bias_clamp, float depth_bias_slope_factor);
 GPUKIT_API Res<> command_clear_color(CommandBuffer cmd, Image image, const Color& clear_color,
 		ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT);
-GPUKIT_API Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth = 1.0f,
-		uint32_t stencil = 0);
+GPUKIT_API Res<> command_clear_depth(
+		CommandBuffer cmd, Image image, float depth = 1.0f, uint32_t stencil = 0);
 GPUKIT_API Res<> command_reset_query_pool(
 		CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count);
 GPUKIT_API Res<> command_write_timestamp(CommandBuffer cmd, QueryPool pool, uint32_t index,
@@ -299,8 +300,8 @@ GPUKIT_API Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buff
 GPUKIT_API Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
 		uint32_t dst_mip_level = 0);
-GPUKIT_API Res<> command_copy_image_to_buffer(CommandBuffer cmd, Image src_image,
-		Buffer dst_buffer, VectorView<BufferImageCopyRegion> regions);
+GPUKIT_API Res<> command_copy_image_to_buffer(CommandBuffer cmd, Image src_image, Buffer dst_buffer,
+		VectorView<BufferImageCopyRegion> regions);
 GPUKIT_API Res<> command_blit_image(CommandBuffer cmd, Image src_image, Image dst_image,
 		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
 		uint32_t dst_mip_level = 0, ImageFiltering filter = ImageFiltering::LINEAR);

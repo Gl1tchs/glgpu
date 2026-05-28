@@ -150,6 +150,11 @@ Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info) {
 }
 
 Res<Pipeline> compute_pipeline_create(Shader s) { return g_device->compute_pipeline_create(s); }
+
+Res<Pipeline> compute_pipeline_create(Shader s, VectorView<SpecializationConstant> c) {
+	return g_device->compute_pipeline_create(s, c);
+}
+
 Res<> pipeline_free(Pipeline p) { return g_device->pipeline_free(p); }
 
 // =========================================================================
@@ -220,22 +225,15 @@ Res<> frame_buffer_destroy(FrameBuffer fb) { return g_device->frame_buffer_destr
 // Query Pools
 // =========================================================================
 
-Res<QueryPool> query_pool_create(uint32_t count) {
-	return g_device->query_pool_create(count);
-}
+Res<QueryPool> query_pool_create(uint32_t count) { return g_device->query_pool_create(count); }
 
-Res<> query_pool_free(QueryPool pool) {
-	return g_device->query_pool_free(pool);
-}
+Res<> query_pool_free(QueryPool pool) { return g_device->query_pool_free(pool); }
 
-Res<std::vector<uint64_t>> query_pool_get_results(
-		QueryPool pool, uint32_t first, uint32_t count) {
+Res<std::vector<uint64_t>> query_pool_get_results(QueryPool pool, uint32_t first, uint32_t count) {
 	return g_device->query_pool_get_results(pool, first, count);
 }
 
-double timestamps_to_ns(uint64_t ticks) {
-	return g_device->timestamps_to_ns(ticks);
-}
+double timestamps_to_ns(uint64_t ticks) { return g_device->timestamps_to_ns(ticks); }
 
 // =========================================================================
 // Synchronization
@@ -409,8 +407,7 @@ Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth, uint32_t 
 	return g_device->command_clear_depth(cmd, image, depth, stencil);
 }
 
-Res<> command_reset_query_pool(
-		CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count) {
+Res<> command_reset_query_pool(CommandBuffer cmd, QueryPool pool, uint32_t first, uint32_t count) {
 	return g_device->command_reset_query_pool(cmd, pool, first, count);
 }
 

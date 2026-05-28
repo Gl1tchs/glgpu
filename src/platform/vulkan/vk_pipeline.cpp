@@ -266,6 +266,28 @@ static VkPipelineDynamicStateCreateInfo _get_dynamic_state_info(
 	return dynamic_state;
 }
 
+// Populates entries and data from constants, then fills info to point at them.
+// Callers must keep entries and data alive until after vkCreate*Pipelines.
+static void _build_specialization_info(VectorView<SpecializationConstant> constants,
+		std::vector<VkSpecializationMapEntry>& entries, std::vector<uint8_t>& data,
+		VkSpecializationInfo& info) {
+	entries.reserve(constants.size());
+	data.reserve(constants.size() * sizeof(uint32_t));
+	for (const auto& c : constants) {
+		VkSpecializationMapEntry entry = {};
+		entry.constantID = c.constant_id;
+		entry.offset = static_cast<uint32_t>(data.size());
+		entry.size = sizeof(uint32_t);
+		entries.push_back(entry);
+		const auto* bytes = reinterpret_cast<const uint8_t*>(&c.data);
+		data.insert(data.end(), bytes, bytes + sizeof(uint32_t));
+	}
+	info.mapEntryCount = static_cast<uint32_t>(entries.size());
+	info.pMapEntries = entries.data();
+	info.dataSize = data.size();
+	info.pData = data.data();
+}
+
 constexpr static VkPipelineViewportStateCreateInfo _get_viewport_state() {
 	VkPipelineViewportStateCreateInfo viewport_state = {};
 	viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -360,6 +382,18 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 		p_next_chain = &rendering_info;
 	}
 
+	// Build specialization info (locals must outlive vkCreateGraphicsPipelines)
+	std::vector<VkSpecializationMapEntry> spec_entries;
+	std::vector<uint8_t> spec_data;
+	VkSpecializationInfo spec_info = {};
+	std::vector<VkPipelineShaderStageCreateInfo> stage_infos = shader->stage_create_infos;
+	if (!info.specialization_constants.empty()) {
+		_build_specialization_info(info.specialization_constants, spec_entries, spec_data, spec_info);
+		for (auto& stage : stage_infos) {
+			stage.pSpecializationInfo = &spec_info;
+		}
+	}
+
 	VkGraphicsPipelineCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	create_info.pNext = p_next_chain;
@@ -370,8 +404,8 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 		create_info.subpass = 0;
 	}
 
-	create_info.stageCount = static_cast<uint32_t>(shader->stage_create_infos.size());
-	create_info.pStages = shader->stage_create_infos.data();
+	create_info.stageCount = static_cast<uint32_t>(stage_infos.size());
+	create_info.pStages = stage_infos.data();
 	create_info.pVertexInputState = &vertex_info;
 	create_info.pInputAssemblyState = &input_assembly;
 	create_info.pViewportState = &viewport_state;
@@ -394,14 +428,28 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 }
 
 Res<Pipeline> VulkanDevice::compute_pipeline_create(Shader shader) {
+	return compute_pipeline_create(shader, {});
+}
+
+Res<Pipeline> VulkanDevice::compute_pipeline_create(
+		Shader shader, VectorView<SpecializationConstant> specialization_constants) {
 	VulkanShader* vk_shader = (VulkanShader*)shader;
 	if (!vk_shader) {
 		return make_err<Pipeline>(Error::INVALID_ARGUMENT);
 	}
 
+	std::vector<VkSpecializationMapEntry> spec_entries;
+	std::vector<uint8_t> spec_data;
+	VkSpecializationInfo spec_info = {};
+	VkPipelineShaderStageCreateInfo stage = vk_shader->stage_create_infos[0];
+	if (specialization_constants.size() > 0) {
+		_build_specialization_info(specialization_constants, spec_entries, spec_data, spec_info);
+		stage.pSpecializationInfo = &spec_info;
+	}
+
 	VkComputePipelineCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-	create_info.stage = vk_shader->stage_create_infos[0];
+	create_info.stage = stage;
 	create_info.layout = vk_shader->pipeline_layout;
 
 	VkPipeline vk_pipeline = VK_NULL_HANDLE;

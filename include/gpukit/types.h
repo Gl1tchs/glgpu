@@ -5,6 +5,7 @@
 #include "gpukit/vector.h"
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include <string>
 
@@ -634,6 +635,29 @@ struct PipelineRenderingState {
 	DataFormat depth_attachment = DataFormat::UNDEFINED;
 };
 
+// 4-byte specialization constant set at pipeline creation time.
+struct SpecializationConstant {
+	uint32_t constant_id;
+	uint32_t data;
+
+	static SpecializationConstant from_bool(uint32_t id, bool value) {
+		return { id, value ? 1u : 0u };
+	}
+	static SpecializationConstant from_int(uint32_t id, int32_t value) {
+		uint32_t raw;
+		memcpy(&raw, &value, sizeof(raw));
+		return { id, raw };
+	}
+	static SpecializationConstant from_uint(uint32_t id, uint32_t value) {
+		return { id, value };
+	}
+	static SpecializationConstant from_float(uint32_t id, float value) {
+		uint32_t raw;
+		memcpy(&raw, &value, sizeof(raw));
+		return { id, raw };
+	}
+};
+
 struct GraphicsPipelineCreateInfo {
 	Shader shader = GL_NULL_HANDLE;
 	RenderPrimitive primitive = RenderPrimitive::TRIANGLE_LIST;
@@ -649,6 +673,8 @@ struct GraphicsPipelineCreateInfo {
 	// Target Definition (Legacy RenderPass OR Dynamic Rendering)
 	RenderPass render_pass = GL_NULL_HANDLE;
 	PipelineRenderingState rendering_info; // Used if render_pass is NULL
+
+	std::vector<SpecializationConstant> specialization_constants;
 };
 
 enum class PipelineType { GRAPHICS, COMPUTE };
