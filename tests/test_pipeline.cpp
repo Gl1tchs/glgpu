@@ -4,25 +4,11 @@
 
 using namespace gpukit;
 
-static Res<Shader> load_pass_shader() {
-	auto res = shader_create("tests/assets/test_pass.vert", "tests/assets/test_pass.frag");
-	if (res.is_error())
-		res = shader_create("../../tests/assets/test_pass.vert", "../../tests/assets/test_pass.frag");
-	return res;
-}
-
-static Res<Shader> load_compute_shader() {
-	auto res = shader_create("tests/assets/test_compute.comp");
-	if (res.is_error())
-		res = shader_create("../../tests/assets/test_compute.comp");
-	return res;
-}
-
 TEST_CASE("Graphics Pipeline", "[pipeline][graphics]") {
 	gpukit::test::ensure_test_device();
 
 	SECTION("Minimal pipeline with dynamic rendering") {
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -42,7 +28,7 @@ TEST_CASE("Graphics Pipeline", "[pipeline][graphics]") {
 	}
 
 	SECTION("Pipeline with depth attachment") {
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -65,7 +51,7 @@ TEST_CASE("Graphics Pipeline", "[pipeline][graphics]") {
 	}
 
 	SECTION("Pipeline with alpha blending") {
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -89,7 +75,7 @@ TEST_CASE("Compute Pipeline", "[pipeline][compute]") {
 	gpukit::test::ensure_test_device();
 
 	SECTION("Create and free") {
-		auto shader_res = load_compute_shader();
+		auto shader_res = gpukit::test::load_compute_shader("test_compute.comp");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -102,7 +88,7 @@ TEST_CASE("Compute Pipeline", "[pipeline][compute]") {
 
 	SECTION("Specialization constant overrides MULTIPLIER") {
 		// test_compute.comp declares layout(constant_id = 0) const uint MULTIPLIER = 2
-		auto shader_res = load_compute_shader();
+		auto shader_res = gpukit::test::load_compute_shader("test_compute.comp");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -116,7 +102,7 @@ TEST_CASE("Compute Pipeline", "[pipeline][compute]") {
 	}
 
 	SECTION("Full compute dispatch: buffer values are multiplied by 3") {
-		auto shader_res = load_compute_shader();
+		auto shader_res = gpukit::test::load_compute_shader("test_compute.comp");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 

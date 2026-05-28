@@ -35,6 +35,7 @@ int main(int argc, char* argv[]) {
 	const int num_failed = session.run();
 
 	std::cout << "[Test Entry] Destroying RenderBackend..." << std::endl;
+	gpukit::device_wait();
 	gpukit::test::destroy_test_device();
 
 	return num_failed;

@@ -6,13 +6,6 @@
 
 using namespace gpukit;
 
-static Res<Shader> load_pass_shader() {
-	auto res = shader_create("tests/assets/test_pass.vert", "tests/assets/test_pass.frag");
-	if (res.is_error())
-		res = shader_create("../../tests/assets/test_pass.vert", "../../tests/assets/test_pass.frag");
-	return res;
-}
-
 static Pipeline make_pass_pipeline(Shader shader, DataFormat color_fmt) {
 	GraphicsPipelineCreateInfo pci = {};
 	pci.shader = shader;
@@ -141,7 +134,7 @@ TEST_CASE("Legacy Render Pass", "[renderpass][legacy]") {
 		FrameBuffer fb = fb_res.value();
 
 		// Build a pipeline compatible with the legacy render pass
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -250,7 +243,7 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 		constexpr uint32_t W = 32, H = 32;
 		constexpr uint64_t PIXEL_BYTES = W * H * 4;
 
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 		Pipeline pipeline = make_pass_pipeline(shader, DataFormat::R8G8B8A8_UNORM);
@@ -342,7 +335,7 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 	SECTION("Dynamic rendering with depth attachment") {
 		constexpr uint32_t W = 32, H = 32;
 
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 

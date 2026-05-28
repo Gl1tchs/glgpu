@@ -9,12 +9,7 @@ using namespace gpukit;
 TEST_CASE("Bindless Uniform Management", "[uniform]") {
 	gpukit::test::ensure_test_device();
 
-	auto shader_res = shader_create(
-			"tests/assets/test_bindless.vert", "tests/assets/test_bindless.frag");
-	if (shader_res.is_error()) {
-		shader_res = shader_create(
-				"../../tests/assets/test_bindless.vert", "../../tests/assets/test_bindless.frag");
-	}
+	auto shader_res = gpukit::test::load_shader("test_bindless.vert", "test_bindless.frag");
 	REQUIRE(shader_res.is_ok());
 
 	Shader shader = shader_res.value();
@@ -63,12 +58,7 @@ TEST_CASE("Bindless Uniform Management", "[uniform]") {
 TEST_CASE("Automatic Shader Reflection & Empty Uniform Sets", "[uniform][reflection]") {
 	gpukit::test::ensure_test_device();
 
-	auto shader_res = shader_create(
-			"tests/assets/test_bindless.vert", "tests/assets/test_bindless.frag");
-	if (shader_res.is_error()) {
-		shader_res = shader_create(
-				"../../tests/assets/test_bindless.vert", "../../tests/assets/test_bindless.frag");
-	}
+	auto shader_res = gpukit::test::load_shader("test_bindless.vert", "test_bindless.frag");
 	REQUIRE(shader_res.is_ok());
 
 	Shader shader = shader_res.value();

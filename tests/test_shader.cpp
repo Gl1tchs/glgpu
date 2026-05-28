@@ -4,34 +4,11 @@
 
 using namespace gpukit;
 
-static Res<Shader> load_bindless_shader() {
-	auto res = shader_create(
-			"tests/assets/test_bindless.vert", "tests/assets/test_bindless.frag");
-	if (res.is_error())
-		res = shader_create(
-				"../../tests/assets/test_bindless.vert", "../../tests/assets/test_bindless.frag");
-	return res;
-}
-
-static Res<Shader> load_pass_shader() {
-	auto res = shader_create("tests/assets/test_pass.vert", "tests/assets/test_pass.frag");
-	if (res.is_error())
-		res = shader_create("../../tests/assets/test_pass.vert", "../../tests/assets/test_pass.frag");
-	return res;
-}
-
-static Res<Shader> load_compute_shader() {
-	auto res = shader_create("tests/assets/test_compute.comp");
-	if (res.is_error())
-		res = shader_create("../../tests/assets/test_compute.comp");
-	return res;
-}
-
 TEST_CASE("Shader", "[shader]") {
 	gpukit::test::ensure_test_device();
 
 	SECTION("Create and free graphics shader") {
-		auto res = load_pass_shader();
+		auto res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(res.is_ok());
 		Shader shader = res.value();
 		REQUIRE(shader != GL_NULL_HANDLE);
@@ -39,7 +16,7 @@ TEST_CASE("Shader", "[shader]") {
 	}
 
 	SECTION("Create and free compute shader") {
-		auto res = load_compute_shader();
+		auto res = gpukit::test::load_compute_shader("test_compute.comp");
 		REQUIRE(res.is_ok());
 		Shader shader = res.value();
 		REQUIRE(shader != GL_NULL_HANDLE);
@@ -58,7 +35,7 @@ TEST_CASE("Shader", "[shader]") {
 
 	SECTION("Vertex input reflection") {
 		// test_bindless.vert has location=0 (in_pos vec2) and location=1 (in_uv vec2)
-		auto shader_res = load_bindless_shader();
+		auto shader_res = gpukit::test::load_shader("test_bindless.vert", "test_bindless.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -82,7 +59,7 @@ TEST_CASE("Shader", "[shader]") {
 	}
 
 	SECTION("No vertex inputs on passthrough shader") {
-		auto shader_res = load_pass_shader();
+		auto shader_res = gpukit::test::load_shader("test_pass.vert", "test_pass.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -94,7 +71,7 @@ TEST_CASE("Shader", "[shader]") {
 	}
 
 	SECTION("Resource reflection: bindless shader has all binding types") {
-		auto shader_res = load_bindless_shader();
+		auto shader_res = gpukit::test::load_shader("test_bindless.vert", "test_bindless.frag");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
@@ -131,7 +108,7 @@ TEST_CASE("Shader", "[shader]") {
 	}
 
 	SECTION("Resource reflection: compute shader exposes storage buffer at set=0 binding=0") {
-		auto shader_res = load_compute_shader();
+		auto shader_res = gpukit::test::load_compute_shader("test_compute.comp");
 		REQUIRE(shader_res.is_ok());
 		Shader shader = shader_res.value();
 
