@@ -17,9 +17,22 @@ option(GPUKIT_BUILD_TESTS "Build tests" ON)
 option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
 option(GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 
-set(CMAKE_CXX_STANDARD 20)
+# Disable runtime shader compilation by default on Android
+# Use {fmt} instead of std::format. Auto-ON for Android and required when building with C++17.
+if(ANDROID)
+    option(GPUKIT_USE_FMT "Use {fmt} for string formatting" ON)
+else()
+    option(GPUKIT_USE_FMT "Use {fmt} for string formatting" OFF)
+endif()
+
+set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard version 17+")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(CMAKE_CXX_STANDARD LESS 20 AND NOT GPUKIT_USE_FMT)
+    set(GPUKIT_USE_FMT ON CACHE BOOL "Use {fmt} for string formatting" FORCE)
+    message(STATUS "GPUKit: C++17 detected — GPUKIT_USE_FMT automatically enabled")
+endif()
 
 if (GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -35,7 +48,7 @@ set(VENDOR_DIR ${CMAKE_CURRENT_LIST_DIR}/external)
 set(SPIRV_REFLECT_FILES "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp")
 
 # ------------------------------------------------------------------------------
-# Target: gpukit
+# GpuKit target
 # ------------------------------------------------------------------------------
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
@@ -118,18 +131,25 @@ if(UNIX AND NOT APPLE)
     endif()
 endif()
 
-# ------------------------------------------------------------------------------
-# Installation & Exporting
-# ------------------------------------------------------------------------------
+if(GPUKIT_USE_FMT)
+    find_package(fmt QUIET)
+    if(fmt_FOUND)
+        message(STATUS "GPUKit: Found system {fmt} ${fmt_VERSION}")
+    else()
+        include(FetchContent)
+        FetchContent_Declare(fmt
+            GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+            GIT_TAG        10.2.1
+            GIT_SHALLOW    ON
+        )
+        set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(fmt)
+        message(STATUS "GPUKit: {fmt} not found on system — fetched via FetchContent")
+    endif()
+    target_link_libraries(gpukit PUBLIC fmt::fmt-header-only)
+    target_compile_definitions(gpukit PUBLIC GPUKIT_USE_FMT_FORMAT)
+endif()
 
-# Install the library binary
-install(TARGETS gpukit
-    EXPORT gpukitTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
 
 # Install the headers
 install(DIRECTORY include/
