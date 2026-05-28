@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
 
 project(gpukit
-    VERSION 1.3.0
+    VERSION 1.4.5
     DESCRIPTION "Low-Level, low dependency rendering interface over the Vulkan API"
     LANGUAGES CXX
 )

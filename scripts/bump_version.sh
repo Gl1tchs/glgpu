@@ -11,9 +11,9 @@ fi
 # Update CMakeLists.txt
 # This searches for the project() line and replaces the version number
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "/project(/ s/VERSION [0-9.]*/VERSION $NEW_VERSION/" CMakeLists.txt
+    sed -i '' "/project(/,/)/ s/VERSION [0-9.]*/VERSION $NEW_VERSION/" CMakeLists.txt
 else
-    sed -i "/project(/ s/VERSION [0-9.]*/VERSION $NEW_VERSION/" CMakeLists.txt
+    sed -i "/project(/,/)/ s/VERSION [0-9.]*/VERSION $NEW_VERSION/" CMakeLists.txt
 fi
 
 echo "Updated CMakeLists.txt to version $NEW_VERSION"
