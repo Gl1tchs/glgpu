@@ -19,9 +19,11 @@
 #include <vulkan/vulkan_android.h>
 #elif defined(__linux__)
 #include <X11/Xlib.h>
-#include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xlib.h>
+#ifdef GPUKIT_HAS_WAYLAND
+#include <vulkan/vulkan_wayland.h>
 #include <wayland-client.h>
+#endif
 #endif
 
 #define VMA_IMPLEMENTATION
@@ -93,9 +95,11 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		instance_extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
 		switch (get_window_compositor()) {
+#ifdef GPUKIT_HAS_WAYLAND
 			case WindowCompositor::WAYLAND:
 				instance_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 				break;
+#endif
 			case WindowCompositor::X11:
 				instance_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
 				break;
@@ -854,6 +858,7 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 	}
 
 	switch (get_window_compositor()) {
+#ifdef GPUKIT_HAS_WAYLAND
 		case WindowCompositor::WAYLAND: {
 			VkWaylandSurfaceCreateInfoKHR create_info = {};
 			create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
@@ -862,6 +867,7 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 			return vkCreateWaylandSurfaceKHR(_instance, &create_info, nullptr, &_surface) ==
 					VK_SUCCESS;
 		}
+#endif
 		case WindowCompositor::X11: {
 			VkXlibSurfaceCreateInfoKHR create_info = {};
 			create_info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
