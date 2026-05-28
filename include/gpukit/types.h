@@ -376,6 +376,8 @@ struct ImageCreateInfo {
 	ImageUsageFlags usage = IMAGE_USAGE_SAMPLED_BIT;
 	bool mipmapped = false;
 	uint32_t samples = 1;
+	uint32_t array_layers = 1;
+	bool cube_map = false; // requires array_layers == 6, incompatible with mipmapped
 };
 
 struct SamplerCreateInfo {

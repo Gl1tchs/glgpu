@@ -27,7 +27,8 @@ static VkImageUsageFlags _gl_to_vk_image_usage_flags(ImageUsageFlags usage) {
 }
 
 VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent3D size,
-		VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples) {
+		VkImageUsageFlags usage, bool mipmapped, VkSampleCountFlagBits samples,
+		uint32_t array_layers, bool cube_map) {
 	const uint32_t mip_levels = mipmapped
 			? static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1
 			: 1;
@@ -38,22 +39,20 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 	img_info.imageType = VK_IMAGE_TYPE_2D;
 	img_info.format = format;
 	img_info.extent = size;
-	// Set mipmap levels
 	img_info.mipLevels = mip_levels;
-	img_info.arrayLayers = 1;
-	// MSAA
+	img_info.arrayLayers = array_layers;
 	img_info.samples = samples;
-	// optimal tiling, which means the image is stored on the best gpu format
 	img_info.tiling = VK_IMAGE_TILING_OPTIMAL;
 	img_info.usage = usage;
+	if (cube_map) {
+		img_info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	}
 
-	// always allocate images on dedicated GPU memory
 	VmaAllocationCreateInfo alloc_info = {};
 	alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	alloc_info.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	alloc_info.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	// allocate and create the image
 	VkImage vk_image = VK_NULL_HANDLE;
 	VmaAllocation vma_allocation = {};
 
@@ -63,23 +62,28 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 		return nullptr;
 	}
 
-	// if the format is a depth format, we will need to have it use the correct aspect flag
 	VkImageAspectFlags aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
 	if (img_info.format == VK_FORMAT_D32_SFLOAT) {
 		aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT;
 	}
 
-	// build image view for the image
+	VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
+	if (cube_map) {
+		view_type = VK_IMAGE_VIEW_TYPE_CUBE;
+	} else if (array_layers > 1) {
+		view_type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+	}
+
 	VkImageViewCreateInfo view_info = {};
 	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	view_info.pNext = nullptr;
-	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.viewType = view_type;
 	view_info.image = vk_image;
 	view_info.format = format;
 	view_info.subresourceRange.baseMipLevel = 0;
 	view_info.subresourceRange.levelCount = mip_levels;
 	view_info.subresourceRange.baseArrayLayer = 0;
-	view_info.subresourceRange.layerCount = 1;
+	view_info.subresourceRange.layerCount = array_layers;
 	view_info.subresourceRange.aspectMask = aspect_flags;
 
 	VkImageView vk_image_view = VK_NULL_HANDLE;
@@ -89,7 +93,6 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 		return nullptr;
 	}
 
-	// Bookkeep
 	VulkanImage* image = VersatileResource::allocate<VulkanImage>(_resources_allocator);
 	if (!image) {
 		vkDestroyImageView(_device, vk_image_view, nullptr);
@@ -104,6 +107,7 @@ VulkanDevice::VulkanImage* VulkanDevice::_image_create(VkFormat format, VkExtent
 	image->image_format = format;
 	image->mip_levels = mip_levels;
 	image->image_usage = usage;
+	image->array_layers = array_layers;
 
 	return image;
 }
@@ -138,21 +142,31 @@ void VulkanDevice::_generate_image_mipmaps(CommandBuffer cmd, Image image, Vec2u
 }
 
 Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
+	if (info.cube_map && info.array_layers != 6) {
+		GPUKIT_LOG_ERROR("[VULKAN] Cubemap requires exactly 6 array layers");
+		return make_err<Image>(Error::INVALID_ARGUMENT);
+	}
+	if (info.cube_map && info.mipmapped) {
+		GPUKIT_LOG_ERROR("[VULKAN] Mipmapped cubemaps are not supported");
+		return make_err<Image>(Error::INVALID_ARGUMENT);
+	}
+
 	VkExtent3D vk_size = { info.size.x, info.size.y, 1 };
 	VkFormat vk_format = static_cast<VkFormat>(info.format);
-
 	VkImageUsageFlags vk_usage = _gl_to_vk_image_usage_flags(info.usage);
 
 	if (!info.data) {
 		VulkanImage* raw_img = _image_create(vk_format, vk_size, vk_usage, info.mipmapped,
-				static_cast<VkSampleCountFlagBits>(info.samples));
+				static_cast<VkSampleCountFlagBits>(info.samples), info.array_layers, info.cube_map);
 
 		if (!raw_img)
 			return make_err<Image>(Error::IMAGE_CREATION_FAILED);
 
 		return Image(raw_img);
 	} else {
-		const size_t data_size = vk_size.depth * vk_size.width * vk_size.height * 4;
+		const size_t layer_size =
+				vk_size.width * vk_size.height * get_data_format_size(info.format);
+		const size_t data_size = layer_size * info.array_layers;
 
 		Res<Buffer> staging_res =
 				buffer_create(data_size, BUFFER_USAGE_TRANSFER_SRC_BIT, MemoryAllocationType::CPU);
@@ -167,8 +181,7 @@ Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
 			return make_err<Image>(map_res.error());
 		}
 
-		uint8_t* mapped_data = map_res.value();
-		memcpy(mapped_data, info.data, data_size);
+		memcpy(map_res.value(), info.data, data_size);
 		buffer_unmap(staging_buffer);
 
 		VkImageUsageFlags image_usage = vk_usage;
@@ -176,7 +189,7 @@ Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
 		image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 		VulkanImage* new_image_raw = _image_create(vk_format, vk_size, image_usage, info.mipmapped,
-				static_cast<VkSampleCountFlagBits>(info.samples));
+				static_cast<VkSampleCountFlagBits>(info.samples), info.array_layers, info.cube_map);
 
 		if (!new_image_raw) {
 			buffer_free(staging_buffer);
@@ -185,27 +198,26 @@ Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
 
 		Image new_image = (Image)new_image_raw;
 
+		std::vector<BufferImageCopyRegion> copy_regions;
+		copy_regions.reserve(info.array_layers);
+		for (uint32_t layer = 0; layer < info.array_layers; layer++) {
+			BufferImageCopyRegion region = {};
+			region.buffer_offset = layer * layer_size;
+			region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
+			region.image_subresource.mip_level = 0;
+			region.image_subresource.base_array_layer = layer;
+			region.image_subresource.layer_count = 1;
+			region.image_extent = { info.size.x, info.size.y, 1 };
+			copy_regions.push_back(region);
+		}
+
 		Res<> submit_res = command_immediate_submit(
 				[&](CommandBuffer cmd) {
 					command_transition_image(cmd, new_image, ImageLayout::UNDEFINED,
 							ImageLayout::TRANSFER_DST_OPTIMAL);
 
-					BufferImageCopyRegion copy_region = {};
-					copy_region.buffer_offset = 0;
-					copy_region.buffer_row_length = 0;
-					copy_region.buffer_image_height = 0;
-					copy_region.image_subresource = {};
-					copy_region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
-					copy_region.image_subresource.mip_level = 0;
-					copy_region.image_subresource.base_array_layer = 0;
-					copy_region.image_subresource.layer_count = 1;
-					copy_region.image_extent = { info.size.x, info.size.y, 1 };
-					copy_region.image_offset = { 0, 0, 0 };
+					command_copy_buffer_to_image(cmd, staging_buffer, new_image, copy_regions);
 
-					// copy the buffer into the image
-					command_copy_buffer_to_image(cmd, staging_buffer, new_image, { copy_region });
-
-					// generate mipmaps
 					if (info.mipmapped) {
 						_generate_image_mipmaps(cmd, new_image, info.size);
 					} else {
@@ -218,7 +230,6 @@ Res<Image> VulkanDevice::image_create(const ImageCreateInfo& info) {
 		buffer_free(staging_buffer);
 
 		if (submit_res.is_error()) {
-			// If immediate submit failed, we should probably destroy the image too
 			image_free(new_image);
 			return make_err<Image>(submit_res.error());
 		}
@@ -353,19 +364,29 @@ Res<> VulkanDevice::image_upload(Image image, const void* data, size_t size) {
 	buffer_unmap(staging);
 
 	const bool needs_mipmaps = vk_image->mip_levels > 1;
+	const uint32_t array_layers = vk_image->array_layers;
+	const size_t layer_size = vk_image->image_extent.width * vk_image->image_extent.height *
+			get_data_format_size(static_cast<DataFormat>(vk_image->image_format));
+
+	std::vector<BufferImageCopyRegion> regions;
+	regions.reserve(array_layers);
+	for (uint32_t layer = 0; layer < array_layers; layer++) {
+		BufferImageCopyRegion region = {};
+		region.buffer_offset = layer * layer_size;
+		region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
+		region.image_subresource.base_array_layer = layer;
+		region.image_subresource.layer_count = 1;
+		region.image_extent = {
+			vk_image->image_extent.width, vk_image->image_extent.height, 1
+		};
+		regions.push_back(region);
+	}
 
 	Res<> submit_res = command_immediate_submit([&](CommandBuffer cmd) {
 		command_transition_image(
 				cmd, image, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL);
 
-		BufferImageCopyRegion region = {};
-		region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
-		region.image_subresource.layer_count = 1;
-		region.image_extent = {
-			vk_image->image_extent.width, vk_image->image_extent.height, 1
-		};
-
-		command_copy_buffer_to_image(cmd, staging, image, { region });
+		command_copy_buffer_to_image(cmd, staging, image, regions);
 
 		if (needs_mipmaps) {
 			command_transition_image(cmd, image, ImageLayout::TRANSFER_DST_OPTIMAL,

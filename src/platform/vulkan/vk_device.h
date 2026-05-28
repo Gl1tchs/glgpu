@@ -89,6 +89,7 @@ public:
 		VkFormat image_format;
 		uint32_t mip_levels;
 		VkImageUsageFlags image_usage;
+		uint32_t array_layers = 1;
 	};
 
 	Res<Image> image_create(const ImageCreateInfo& info);
@@ -490,7 +491,8 @@ private:
 	// API Helpers
 
 	VulkanImage* _image_create(VkFormat format, VkExtent3D size, VkImageUsageFlags usage,
-			bool mipmapped, VkSampleCountFlagBits samples);
+			bool mipmapped, VkSampleCountFlagBits samples, uint32_t array_layers = 1,
+			bool cube_map = false);
 
 	void _generate_image_mipmaps(CommandBuffer cmd, Image image, Vec2u size);
 
