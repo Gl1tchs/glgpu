@@ -1,0 +1,75 @@
+name: CI
+
+# Run on pull requests targeting master only.
+# Skips direct pushes to reduce noise on personal/WIP branches.
+on:
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Build and test on Linux using Mesa lavapipe (software Vulkan renderer).
+  # -------------------------------------------------------------------------
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK (Lunarg PPA)
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-noble.list \
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-noble.list
+          sudo apt-get update -qq
+          sudo apt-get install -y vulkan-sdk
+
+      - name: Install CMake, Ninja and Vulkan
+        run: |
+          sudo apt-get install -y cmake ninja-build vulkan-tools libvulkan-dev mesa-vulkan-drivers
+
+      - name: Find and setup lavapipe ICD
+        run: |
+          # Find the actual lavapipe ICD path
+          ICD_PATH=$(find /usr/share/vulkan /usr/lib -name "*lvp*.json" 2>/dev/null | head -1)
+          if [ -z "$ICD_PATH" ]; then
+            echo "ERROR: Lavapipe ICD not found!"
+            ls -la /usr/share/vulkan/icd.d/ || true
+            exit 1
+          fi
+          echo "Found lavapipe at: $ICD_PATH"
+          echo "VK_ICD_FILENAMES=$ICD_PATH" >> $GITHUB_ENV
+
+      - name: Configure (Debug)
+        run: |
+          cmake --preset debug \
+            -DGPUKIT_BUILD_EXAMPLES=OFF
+
+      - name: Build tests
+        run: cmake --build --preset debug --target gpukit_tests -j$(nproc)
+
+      - name: Run tests
+        run: |
+          ctest --test-dir build --output-on-failure --timeout 120
+
+  # -------------------------------------------------------------------------
+  # Verify that all source files are correctly formatted.
+  # -------------------------------------------------------------------------
+  lint:
+    name: Formatting
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: |
+          find src include -name '*.cpp' -o -name '*.h' \
+            | xargs clang-format --dry-run --Werror
