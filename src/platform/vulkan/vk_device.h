@@ -464,6 +464,7 @@ private:
 	VkPhysicalDeviceProperties _physical_device_properties;
 	VkPhysicalDeviceFeatures _physical_device_features;
 	bool _swapchain_supported;
+	uint32_t _max_bindless_descriptors = 1000;
 
 	// Debug ressources
 	VkDebugUtilsMessengerEXT _debug_messenger = VK_NULL_HANDLE;

@@ -432,6 +432,8 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			VK_VERSION_PATCH(_physical_device_properties.apiVersion));
 #endif
 
+	_max_bindless_descriptors = info.max_bindless_descriptors;
+
 	return {};
 }
 
@@ -483,7 +485,7 @@ uint32_t VulkanDevice::get_max_msaa_samples() const {
 	return 1;
 }
 
-uint32_t VulkanDevice::get_max_bindless_instances() const { return 1000; }
+uint32_t VulkanDevice::get_max_bindless_instances() const { return _max_bindless_descriptors; }
 
 bool VulkanDevice::is_swapchain_supported() { return _swapchain_supported; }
 
