@@ -288,7 +288,10 @@ Res<Shader> VulkanDevice::shader_create(VectorView<SpirvEntry> shaders) {
 
 			// add input variables
 			for (const auto* input : inputs) {
-				if (input->name == nullptr || input->location == UINT32_MAX) {
+				if (input->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
+					continue;
+				}
+				if (input->location == UINT32_MAX) {
 					continue;
 				}
 

@@ -76,6 +76,25 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
                 IMPORTED_LOCATION "${GPUKIT_SHADERC_LIB}"
                 INTERFACE_INCLUDE_DIRECTORIES "${GPUKIT_SHADERC_INCLUDE}"
             )
+
+            find_library(GPUKIT_GLSLANG_LIB NAMES glslang)
+            find_library(GPUKIT_SPIRV_LIB NAMES SPIRV)
+            find_library(GPUKIT_SPIRV_TOOLS_LIB NAMES SPIRV-Tools)
+            find_library(GPUKIT_SPIRV_TOOLS_OPT_LIB NAMES SPIRV-Tools-opt)
+
+            set(_shaderc_extra "")
+            foreach(_dep GPUKIT_GLSLANG_LIB GPUKIT_SPIRV_LIB GPUKIT_SPIRV_TOOLS_LIB GPUKIT_SPIRV_TOOLS_OPT_LIB)
+                if(${_dep})
+                    list(APPEND _shaderc_extra "${${_dep}}")
+                endif()
+            endforeach()
+
+            if(_shaderc_extra)
+                set_target_properties(_gpukit_shaderc_imported PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${_shaderc_extra}"
+                )
+            endif()
+
             set(GPUKIT_SHADERC_TARGET _gpukit_shaderc_imported)
             message(STATUS "GPUKit: Found shaderc library at ${GPUKIT_SHADERC_LIB}")
         else()
@@ -201,6 +220,18 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
     if(GPUKIT_SHADERC_TARGET)
         target_link_libraries(gpukit PRIVATE ${GPUKIT_SHADERC_TARGET})
         target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_SHADERC)
+        # shaderc_combined may not be self-contained (e.g. Arch Linux); probe and
+        # add glslang / SPIRV-Tools explicitly so the linker can resolve all symbols.
+        find_library(GPUKIT_GLSLANG_LIB        NAMES glslang)
+        find_library(GPUKIT_SPIRV_LIB           NAMES SPIRV)
+        find_library(GPUKIT_SPIRV_TOOLS_LIB     NAMES SPIRV-Tools)
+        find_library(GPUKIT_SPIRV_TOOLS_OPT_LIB NAMES SPIRV-Tools-opt)
+        foreach(_dep GPUKIT_GLSLANG_LIB GPUKIT_SPIRV_LIB
+                     GPUKIT_SPIRV_TOOLS_LIB GPUKIT_SPIRV_TOOLS_OPT_LIB)
+            if(${_dep})
+                target_link_libraries(gpukit PRIVATE "${${_dep}}")
+            endif()
+        endforeach()
     elseif(GPUKIT_USE_GLSLC_BINARY)
         target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_GLSLC_BINARY)
     endif()
