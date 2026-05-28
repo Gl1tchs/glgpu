@@ -5,7 +5,7 @@
 using namespace gpukit;
 
 TEST_CASE("Timeline Semaphore", "[sync][timeline_semaphore]") {
-	gpukit::test::get_test_device();
+	gpukit::test::ensure_test_device();
 
 	SECTION("Create and free") {
 		auto sem_res = timeline_semaphore_create(0);

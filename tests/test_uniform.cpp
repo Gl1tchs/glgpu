@@ -7,7 +7,7 @@
 using namespace gpukit;
 
 TEST_CASE("Bindless Uniform Management", "[uniform]") {
-	gpukit::test::get_test_device();
+	gpukit::test::ensure_test_device();
 
 	auto shader_res = shader_create(
 			"tests/assets/test_bindless.vert", "tests/assets/test_bindless.frag");
@@ -61,7 +61,7 @@ TEST_CASE("Bindless Uniform Management", "[uniform]") {
 }
 
 TEST_CASE("Automatic Shader Reflection & Empty Uniform Sets", "[uniform][reflection]") {
-	gpukit::test::get_test_device();
+	gpukit::test::ensure_test_device();
 
 	auto shader_res = shader_create(
 			"tests/assets/test_bindless.vert", "tests/assets/test_bindless.frag");

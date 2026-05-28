@@ -9,7 +9,7 @@ namespace gpukit::test {
 /**
  * Initialize the backend if not already done. Terminates on failure.
  */
-inline void get_test_device() {
+inline void ensure_test_device() {
 	static bool initialized = false;
 	if (initialized)
 		return;

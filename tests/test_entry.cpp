@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::cout << "[Test Entry] Initializing RenderBackend..." << std::endl;
-	gpukit::test::get_test_device();
+	gpukit::test::ensure_test_device();
 
 	std::cout << "[Test Entry] Running tests..." << std::endl;
 	const int num_failed = session.run();

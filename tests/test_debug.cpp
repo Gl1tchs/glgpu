@@ -5,7 +5,7 @@
 using namespace gpukit;
 
 TEST_CASE("Debug Utils Operations", "[debug]") {
-	gpukit::test::get_test_device();
+	gpukit::test::ensure_test_device();
 
 	SECTION("Setting Debug Name on Buffer") {
 		auto buf_res = buffer_create(256, BUFFER_USAGE_STORAGE_BUFFER_BIT, MemoryAllocationType::GPU);
