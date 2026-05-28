@@ -187,8 +187,7 @@ VmaPool VulkanDevice::_find_or_create_small_allocs_pool(uint32_t mem_type_index)
 	return pool;
 }
 
-Res<> VulkanDevice::buffer_upload(
-		Buffer buffer, const void* data, size_t size, size_t offset) {
+Res<> VulkanDevice::buffer_upload(Buffer buffer, const void* data, size_t size, size_t offset) {
 	if (!buffer || !data || size == 0) {
 		return Error::INVALID_ARGUMENT;
 	}
@@ -230,4 +229,4 @@ Res<> VulkanDevice::buffer_upload(
 	return submit_res;
 }
 
-} // namespace gl
+} //namespace gpukit

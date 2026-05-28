@@ -10,8 +10,8 @@
 	do {                                                                                           \
 		VkResult err = x;                                                                          \
 		if (err) {                                                                                 \
-			GPUKIT_LOG_ERROR("[VULKAN] [VK_CHECK] {}", vk_result_to_string(err));                      \
-			GPUKIT_ASSERT(false);                                                                      \
+			GPUKIT_LOG_ERROR("[VULKAN] [VK_CHECK] {}", vk_result_to_string(err));                  \
+			GPUKIT_ASSERT(false);                                                                  \
 		}                                                                                          \
 	} while (false)
 
@@ -20,7 +20,7 @@
 	do {                                                                                           \
 		VkResult err = x;                                                                          \
 		if (err) {                                                                                 \
-			GPUKIT_LOG_ERROR(                                                                          \
+			GPUKIT_LOG_ERROR(                                                                      \
 					"[VULKAN] Error: {} -> returning {}", vk_result_to_string(err), #error_code);  \
 			return error_code;                                                                     \
 		}                                                                                          \
@@ -71,4 +71,4 @@ inline const char* vk_result_to_string(VkResult res) {
 #undef CASE
 }
 
-} // namespace gl
+} //namespace gpukit

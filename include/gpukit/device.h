@@ -199,7 +199,8 @@ GPUKIT_API Res<> semaphore_free(Semaphore semaphore);
 
 // CPU-side timeline semaphore operations
 GPUKIT_API Res<> semaphore_signal(Semaphore semaphore, uint64_t value);
-GPUKIT_API Res<> semaphore_wait(Semaphore semaphore, uint64_t value, uint64_t timeout_ns = UINT64_MAX);
+GPUKIT_API Res<> semaphore_wait(
+		Semaphore semaphore, uint64_t value, uint64_t timeout_ns = UINT64_MAX);
 GPUKIT_API Res<uint64_t> semaphore_get_value(Semaphore semaphore);
 
 // =========================================================================

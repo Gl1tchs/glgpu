@@ -298,4 +298,4 @@ Res<> VulkanDevice::swapchain_free(Swapchain swapchain) {
 	return {};
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

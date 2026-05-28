@@ -45,4 +45,4 @@ private:
 	size_t _count = 0;
 };
 
-} //namespace gpukitkit
+} //namespace gpukit

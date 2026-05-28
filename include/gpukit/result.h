@@ -173,4 +173,4 @@ template <typename T, typename E> constexpr Result<T, E> make_err(E p_err) {
 	return Result<T, E>(std::forward<E>(p_err), typename Result<T, E>::ErrorTag{});
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

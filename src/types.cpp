@@ -120,4 +120,4 @@ bool is_depth_format(DataFormat format) {
 			format == DataFormat::D16_UNORM || format == DataFormat::D32_SFLOAT);
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

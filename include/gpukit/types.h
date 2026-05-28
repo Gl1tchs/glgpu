@@ -6,8 +6,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace gpukit {
 
@@ -648,9 +648,7 @@ struct SpecializationConstant {
 		memcpy(&raw, &value, sizeof(raw));
 		return { id, raw };
 	}
-	static SpecializationConstant from_uint(uint32_t id, uint32_t value) {
-		return { id, value };
-	}
+	static SpecializationConstant from_uint(uint32_t id, uint32_t value) { return { id, value }; }
 	static SpecializationConstant from_float(uint32_t id, float value) {
 		uint32_t raw;
 		memcpy(&raw, &value, sizeof(raw));

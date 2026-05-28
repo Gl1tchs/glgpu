@@ -68,7 +68,7 @@ constexpr Color COLOR_GRAY(0.5f, 0.5f, 0.5f, 1.0f);
 constexpr Color COLOR_ORANGE(1.0f, 0.5f, 0.0f, 1.0f);
 constexpr Color COLOR_TRANSPARENT(0.0f, 0.0f, 0.0f, 0.0f);
 
-} //namespace gpukitkit
+} //namespace gpukit
 
 namespace std {
 template <> struct hash<gpukit::Color> {

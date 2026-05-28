@@ -175,4 +175,4 @@ Res<> VulkanDevice::queue_present(
 	}
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

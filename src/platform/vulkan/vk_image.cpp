@@ -376,9 +376,7 @@ Res<> VulkanDevice::image_upload(Image image, const void* data, size_t size) {
 		region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
 		region.image_subresource.base_array_layer = layer;
 		region.image_subresource.layer_count = 1;
-		region.image_extent = {
-			vk_image->image_extent.width, vk_image->image_extent.height, 1
-		};
+		region.image_extent = { vk_image->image_extent.width, vk_image->image_extent.height, 1 };
 		regions.push_back(region);
 	}
 
@@ -403,4 +401,4 @@ Res<> VulkanDevice::image_upload(Image image, const void* data, size_t size) {
 	return submit_res;
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

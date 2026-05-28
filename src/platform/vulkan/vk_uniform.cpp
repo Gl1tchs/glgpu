@@ -180,7 +180,8 @@ Res<UniformSet> VulkanDevice::uniform_set_create(
 
 	if (res != VK_SUCCESS) {
 		_uniform_pool_unreference(pool_key, vk_pool);
-		GPUKIT_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR(
+				"[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
 		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
 	}
 
@@ -280,7 +281,8 @@ Res<UniformSet> VulkanDevice::uniform_set_create(Shader shader, uint32_t set_ind
 
 	if (res != VK_SUCCESS) {
 		_uniform_pool_unreference(pool_key, vk_pool);
-		GPUKIT_LOG_ERROR("[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
+		GPUKIT_LOG_ERROR(
+				"[VULKAN] Failed to allocate descriptor sets: {}", vk_result_to_string(res));
 		return make_err<UniformSet>(Error::DESCRIPTOR_POOL_EXHAUSTED);
 	}
 
@@ -619,4 +621,4 @@ Res<> VulkanDevice::uniform_set_update_buffer_range(UniformSet set, uint32_t bin
 	return {};
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

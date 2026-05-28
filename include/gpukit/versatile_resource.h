@@ -24,4 +24,4 @@ template <typename... RESOURCE_TYPES> struct VersatileResourceTemplate {
 	}
 };
 
-} //namespace gpukitkit
+} //namespace gpukit

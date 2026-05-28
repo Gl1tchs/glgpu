@@ -131,4 +131,4 @@ Res<uint64_t> VulkanDevice::semaphore_get_value(Semaphore semaphore) {
 	return value;
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

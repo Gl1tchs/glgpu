@@ -178,4 +178,4 @@ Res<> VulkanDevice::frame_buffer_destroy(FrameBuffer frame_buffer) {
 	return {};
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

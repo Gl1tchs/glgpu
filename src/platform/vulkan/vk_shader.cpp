@@ -38,8 +38,7 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 	if (!file.is_open()) {
 		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
 	}
-	std::string source(
-			(std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+	std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
@@ -624,4 +623,4 @@ Res<std::vector<ShaderResourceInfo>> VulkanDevice::shader_get_resources(Shader s
 	return resources;
 }
 
-} //namespace gpukitkit
+} //namespace gpukit

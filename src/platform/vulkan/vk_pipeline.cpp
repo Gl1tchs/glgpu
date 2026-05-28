@@ -388,7 +388,8 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 	VkSpecializationInfo spec_info = {};
 	std::vector<VkPipelineShaderStageCreateInfo> stage_infos = shader->stage_create_infos;
 	if (!info.specialization_constants.empty()) {
-		_build_specialization_info(info.specialization_constants, spec_entries, spec_data, spec_info);
+		_build_specialization_info(
+				info.specialization_constants, spec_entries, spec_data, spec_info);
 		for (auto& stage : stage_infos) {
 			stage.pSpecializationInfo = &spec_info;
 		}
@@ -477,4 +478,4 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 	return {};
 }
 
-} //namespace gpukitkit
+} //namespace gpukit
