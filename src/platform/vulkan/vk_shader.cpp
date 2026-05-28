@@ -3,15 +3,64 @@
 #include <spirv_reflect.h>
 #include <vulkan/vulkan_core.h>
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
+#if defined(GPUKIT_HAS_SHADERC)
+#include <shaderc/shaderc.hpp>
+#elif defined(GPUKIT_HAS_GLSLC_BINARY)
+#include <cstdlib>
+#endif
+
 namespace gpukit {
+
+#if defined(GPUKIT_HAS_SHADERC)
+
+static shaderc_shader_kind _stage_to_shaderc_kind(ShaderStageFlags stage) {
+	if (stage & SHADER_STAGE_VERTEX_BIT)
+		return shaderc_glsl_vertex_shader;
+	if (stage & SHADER_STAGE_FRAGMENT_BIT)
+		return shaderc_glsl_fragment_shader;
+	if (stage & SHADER_STAGE_COMPUTE_BIT)
+		return shaderc_glsl_compute_shader;
+	return shaderc_glsl_infer_from_source;
+}
+
+static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
+		const std::string& source_path, ShaderStageFlags stage) {
+	std::error_code ec;
+	if (!std::filesystem::exists(source_path, ec)) {
+		GPUKIT_LOG_ERROR("[GPUKit] Shader source not found: {}", source_path);
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+	}
+
+	std::ifstream file(source_path);
+	if (!file.is_open()) {
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+	}
+	std::string source(
+			(std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+	shaderc::Compiler compiler;
+	shaderc::CompileOptions options;
+	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+	options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+	auto result = compiler.CompileGlslToSpv(
+			source, _stage_to_shaderc_kind(stage), source_path.c_str(), options);
+
+	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+		GPUKIT_LOG_ERROR("[GPUKit] Shader compilation failed: {}", result.GetErrorMessage());
+		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	}
+
+	return std::vector<uint32_t>(result.cbegin(), result.cend());
+}
+
+#elif defined(GPUKIT_HAS_GLSLC_BINARY)
 
 static bool _is_safe_path(const std::string& path) {
 	for (char c : path) {
-		// Allow only alphanumeric, spaces, and standard path characters
 		if (!std::isalnum(c) && c != ' ' && c != '.' && c != '_' && c != '-' && c != '/' &&
 				c != '\\' && c != ':') {
 			return false;
@@ -55,7 +104,6 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 		}
 	}
 
-	// Load compiled spv
 	std::ifstream spv_file(spv_path, std::ios::binary | std::ios::ate);
 	if (!spv_file.is_open()) {
 		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
@@ -67,6 +115,8 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 
 	return buffer;
 }
+
+#endif // shader compilation backends
 
 static Res<std::vector<uint32_t>> load_or_compile_shader(
 		const std::string& filepath, ShaderStageFlags stage) {
@@ -80,9 +130,19 @@ static Res<std::vector<uint32_t>> load_or_compile_shader(
 		file.seekg(0);
 		file.read(reinterpret_cast<char*>(buffer.data()), size);
 		return buffer;
-	} else {
+	}
+#if defined(GPUKIT_HAS_SHADERC) || defined(GPUKIT_HAS_GLSLC_BINARY)
+	else {
 		return _compile_glsl_to_spirv(filepath, stage);
 	}
+#else
+	else {
+		GPUKIT_LOG_ERROR(
+				"[GPUKit] Runtime shader compilation is disabled. Provide precompiled .spv: {}",
+				filepath);
+		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	}
+#endif
 }
 
 static VkDescriptorType _spv_reflect_descriptor_type_to_vk(SpvReflectDescriptorType type) {

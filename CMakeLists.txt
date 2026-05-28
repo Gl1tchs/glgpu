@@ -18,6 +18,12 @@ option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
 option(GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 
 # Disable runtime shader compilation by default on Android
+if(ANDROID)
+    option(GPUKIT_ENABLE_SHADER_COMPILATION "Enable runtime GLSL->SPIRV via shaderc" OFF)
+else()
+    option(GPUKIT_ENABLE_SHADER_COMPILATION "Enable runtime GLSL->SPIRV via shaderc" ON)
+endif()
+
 # Use {fmt} instead of std::format. Auto-ON for Android and required when building with C++17.
 if(ANDROID)
     option(GPUKIT_USE_FMT "Use {fmt} for string formatting" ON)
@@ -43,6 +49,36 @@ endif()
 # Dependencies
 # ------------------------------------------------------------------------------
 find_package(Vulkan REQUIRED)
+
+if(GPUKIT_ENABLE_SHADER_COMPILATION)
+    # Try Vulkan SDK's bundled shaderc first
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+        find_package(Vulkan QUIET OPTIONAL_COMPONENTS shaderc_combined)
+    endif()
+
+    if(TARGET Vulkan::shaderc_combined)
+        set(GPUKIT_SHADERC_TARGET Vulkan::shaderc_combined)
+        message(STATUS "GPUKit: Found shaderc via Vulkan SDK (CMake component)")
+    else()
+        # Fall back to a standalone shaderc installation
+        find_library(GPUKIT_SHADERC_LIB NAMES shaderc_combined shaderc)
+        find_path(GPUKIT_SHADERC_INCLUDE NAMES shaderc/shaderc.hpp shaderc/shaderc.h)
+
+        if(GPUKIT_SHADERC_LIB AND GPUKIT_SHADERC_INCLUDE)
+            add_library(_gpukit_shaderc_imported UNKNOWN IMPORTED)
+            set_target_properties(_gpukit_shaderc_imported PROPERTIES
+                IMPORTED_LOCATION "${GPUKIT_SHADERC_LIB}"
+                INTERFACE_INCLUDE_DIRECTORIES "${GPUKIT_SHADERC_INCLUDE}"
+            )
+            set(GPUKIT_SHADERC_TARGET _gpukit_shaderc_imported)
+            message(STATUS "GPUKit: Found shaderc library at ${GPUKIT_SHADERC_LIB}")
+        else()
+            set(GPUKIT_SHADERC_TARGET "")
+            set(GPUKIT_USE_GLSLC_BINARY ON)
+            message(STATUS "GPUKit: shaderc not found — falling back to glslc binary")
+        endif()
+    endif()
+endif()
 
 set(VENDOR_DIR ${CMAKE_CURRENT_LIST_DIR}/external)
 set(SPIRV_REFLECT_FILES "${VENDOR_DIR}/SPIRV-Reflect/spirv_reflect.cpp")
@@ -148,6 +184,16 @@ if(GPUKIT_USE_FMT)
     endif()
     target_link_libraries(gpukit PUBLIC fmt::fmt-header-only)
     target_compile_definitions(gpukit PUBLIC GPUKIT_USE_FMT_FORMAT)
+endif()
+
+# Shader compilation backend
+if(GPUKIT_ENABLE_SHADER_COMPILATION)
+    if(GPUKIT_SHADERC_TARGET)
+        target_link_libraries(gpukit PRIVATE ${GPUKIT_SHADERC_TARGET})
+        target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_SHADERC)
+    elseif(GPUKIT_USE_GLSLC_BINARY)
+        target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_GLSLC_BINARY)
+    endif()
 endif()
 
 
