@@ -262,6 +262,7 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	features_12.descriptorBindingPartiallyBound = VK_TRUE;
 	features_12.runtimeDescriptorArray = VK_TRUE;
 	features_12.bufferDeviceAddress = VK_TRUE;
+	features_12.timelineSemaphore = VK_TRUE;
 
 	VkPhysicalDeviceFeatures2 device_features2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,

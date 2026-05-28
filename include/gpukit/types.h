@@ -757,4 +757,13 @@ struct RenderingAttachment {
 enum class QueueType { GRAPHICS, PRESENT, TRANSFER, COMPUTE };
 enum class IndexType : uint32_t { UINT16 = 1, UINT32 = 2 };
 
+// Used with the timeline-aware queue_submit overload.
+// For binary semaphores, value is ignored. For timeline semaphores, value is the
+// counter to wait for (wait) or signal to (signal).
+struct SemaphoreSubmitInfo {
+	Semaphore semaphore = GL_NULL_HANDLE;
+	uint64_t value = 0;
+	PipelineStageFlags stage_mask = PIPELINE_STAGE_ALL_COMMANDS_BIT;
+};
+
 } // namespace gpukit

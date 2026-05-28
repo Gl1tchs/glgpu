@@ -194,7 +194,13 @@ GPUKIT_API Res<> fence_wait(Fence fence);
 GPUKIT_API Res<> fence_reset(Fence fence);
 
 GPUKIT_API Semaphore semaphore_create();
+GPUKIT_API Res<Semaphore> timeline_semaphore_create(uint64_t initial_value = 0);
 GPUKIT_API Res<> semaphore_free(Semaphore semaphore);
+
+// CPU-side timeline semaphore operations
+GPUKIT_API Res<> semaphore_signal(Semaphore semaphore, uint64_t value);
+GPUKIT_API Res<> semaphore_wait(Semaphore semaphore, uint64_t value, uint64_t timeout_ns = UINT64_MAX);
+GPUKIT_API Res<uint64_t> semaphore_get_value(Semaphore semaphore);
 
 // =========================================================================
 // Command Submission & Presentation
@@ -202,6 +208,10 @@ GPUKIT_API Res<> semaphore_free(Semaphore semaphore);
 
 GPUKIT_API Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence = GL_NULL_HANDLE,
 		Semaphore wait_semaphore = GL_NULL_HANDLE, Semaphore signal_semaphore = GL_NULL_HANDLE);
+// Timeline-aware submit: value fields in SemaphoreSubmitInfo are used for timeline semaphores.
+GPUKIT_API Res<> queue_submit(CommandQueue queue, CommandBuffer cmd,
+		SemaphoreSubmitInfo wait_semaphore, SemaphoreSubmitInfo signal_semaphore,
+		Fence fence = GL_NULL_HANDLE);
 GPUKIT_API Res<> queue_present(
 		CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore = GL_NULL_HANDLE);
 

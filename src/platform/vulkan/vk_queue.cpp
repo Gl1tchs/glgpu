@@ -87,6 +87,54 @@ Res<> VulkanDevice::queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fe
 	return {};
 }
 
+Res<> VulkanDevice::queue_submit(CommandQueue queue, CommandBuffer cmd,
+		SemaphoreSubmitInfo wait_semaphore, SemaphoreSubmitInfo signal_semaphore, Fence fence) {
+	if (!queue || !cmd) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VkCommandBufferSubmitInfo cmd_info = {};
+	cmd_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+	cmd_info.commandBuffer = (VkCommandBuffer)cmd;
+
+	VkSemaphoreSubmitInfo wait_info = {};
+	if (wait_semaphore.semaphore) {
+		wait_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		wait_info.semaphore = (VkSemaphore)wait_semaphore.semaphore;
+		wait_info.value = wait_semaphore.value;
+		wait_info.stageMask = static_cast<VkPipelineStageFlags2>(wait_semaphore.stage_mask);
+	}
+
+	VkSemaphoreSubmitInfo signal_info = {};
+	if (signal_semaphore.semaphore) {
+		signal_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+		signal_info.semaphore = (VkSemaphore)signal_semaphore.semaphore;
+		signal_info.value = signal_semaphore.value;
+		signal_info.stageMask = static_cast<VkPipelineStageFlags2>(signal_semaphore.stage_mask);
+	}
+
+	VkSubmitInfo2 submit_info = {};
+	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+	submit_info.commandBufferInfoCount = 1;
+	submit_info.pCommandBufferInfos = &cmd_info;
+	submit_info.waitSemaphoreInfoCount = wait_semaphore.semaphore ? 1 : 0;
+	submit_info.pWaitSemaphoreInfos = wait_semaphore.semaphore ? &wait_info : nullptr;
+	submit_info.signalSemaphoreInfoCount = signal_semaphore.semaphore ? 1 : 0;
+	submit_info.pSignalSemaphoreInfos = signal_semaphore.semaphore ? &signal_info : nullptr;
+
+	VulkanQueue* vk_queue = (VulkanQueue*)queue;
+	if (vk_queue->mutex) {
+		std::lock_guard<std::mutex> lock(*vk_queue->mutex);
+		VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
+				Error::COMMAND_SUBMISSION_FAILED);
+	} else {
+		VK_CHECK_RET(vkQueueSubmit2(vk_queue->queue, 1, &submit_info, (VkFence)fence),
+				Error::COMMAND_SUBMISSION_FAILED);
+	}
+
+	return {};
+}
+
 Res<> VulkanDevice::queue_present(
 		CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore) {
 	if (!queue || !swapchain) {

@@ -245,7 +245,20 @@ Res<> fence_wait(Fence f) { return g_device->fence_wait(f); }
 Res<> fence_reset(Fence f) { return g_device->fence_reset(f); }
 
 Semaphore semaphore_create() { return g_device->semaphore_create(); }
+
+Res<Semaphore> timeline_semaphore_create(uint64_t initial_value) {
+	return g_device->timeline_semaphore_create(initial_value);
+}
+
 Res<> semaphore_free(Semaphore s) { return g_device->semaphore_free(s); }
+
+Res<> semaphore_signal(Semaphore s, uint64_t value) { return g_device->semaphore_signal(s, value); }
+
+Res<> semaphore_wait(Semaphore s, uint64_t value, uint64_t timeout_ns) {
+	return g_device->semaphore_wait(s, value, timeout_ns);
+}
+
+Res<uint64_t> semaphore_get_value(Semaphore s) { return g_device->semaphore_get_value(s); }
 
 // =========================================================================
 // Command Submission & Presentation
@@ -254,6 +267,10 @@ Res<> semaphore_free(Semaphore s) { return g_device->semaphore_free(s); }
 Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, Fence fence, Semaphore wait_semaphore,
 		Semaphore signal_semaphore) {
 	return g_device->queue_submit(queue, cmd, fence, wait_semaphore, signal_semaphore);
+}
+Res<> queue_submit(CommandQueue queue, CommandBuffer cmd, SemaphoreSubmitInfo wait,
+		SemaphoreSubmitInfo signal, Fence fence) {
+	return g_device->queue_submit(queue, cmd, wait, signal, fence);
 }
 
 Res<> queue_present(CommandQueue queue, Swapchain swapchain, Semaphore wait_semaphore) {
