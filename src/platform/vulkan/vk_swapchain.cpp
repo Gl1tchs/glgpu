@@ -158,6 +158,7 @@ Res<> VulkanDevice::swapchain_resize(
 	}
 
 	create_info.preTransform = capabilities.currentTransform;
+	swapchain->pre_transform = capabilities.currentTransform;
 	create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	create_info.presentMode = present_mode;
 	create_info.clipped = VK_TRUE;
@@ -274,6 +275,15 @@ Res<DataFormat> VulkanDevice::swapchain_get_format(Swapchain swapchain) {
 	}
 
 	return static_cast<DataFormat>(vk_swapchain->format);
+}
+
+Res<uint32_t> VulkanDevice::swapchain_get_pre_transform(Swapchain swapchain) {
+	VulkanSwapchain* vk_swapchain = (VulkanSwapchain*)swapchain;
+	if (!vk_swapchain) {
+		return make_err<uint32_t>(Error::INVALID_HANDLE);
+	}
+
+	return static_cast<uint32_t>(vk_swapchain->pre_transform);
 }
 
 Res<> VulkanDevice::swapchain_free(Swapchain swapchain) {

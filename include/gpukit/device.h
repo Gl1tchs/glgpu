@@ -21,8 +21,9 @@ typedef uint32_t DeviceFeatureFlags;
 struct DeviceCreateInfo {
 	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
 	void* native_connection_handle =
-			nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display*
-	void* native_window_handle = nullptr; // Win32: HWND      | X11: Window   | Wayland: wl_surface*
+			nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display* | Android: nullptr
+	void* native_window_handle =
+			nullptr; // Win32: HWND | X11: Window | Wayland: wl_surface* | Android: ANativeWindow*
 };
 
 /**
@@ -70,6 +71,9 @@ GPUKIT_API Res<Image> swapchain_acquire_image(
 		Swapchain swapchain, Semaphore semaphore, uint32_t* o_image_index = nullptr);
 GPUKIT_API Res<Vec2u> swapchain_get_extent(Swapchain swapchain);
 GPUKIT_API Res<DataFormat> swapchain_get_format(Swapchain swapchain);
+// Returns the VkSurfaceTransformFlagBitsKHR value set at last swapchain_resize.
+// Use this to apply the inverse pre-rotation transform in your vertex shader on Android.
+GPUKIT_API Res<uint32_t> swapchain_get_pre_transform(Swapchain swapchain);
 GPUKIT_API Res<> swapchain_free(Swapchain swapchain);
 
 // =========================================================================

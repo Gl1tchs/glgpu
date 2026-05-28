@@ -14,6 +14,9 @@
 #if defined(_WIN32)
 #include <vulkan/vulkan_win32.h>
 #include <windows.h>
+#elif defined(__ANDROID__)
+#include <android/native_window.h>
+#include <vulkan/vulkan_android.h>
 #elif defined(__linux__)
 #include <X11/Xlib.h>
 #include <vulkan/vulkan_wayland.h>
@@ -86,6 +89,8 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(_WIN32)
 		instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined(__ANDROID__)
+		instance_extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
 		switch (get_window_compositor()) {
 			case WindowCompositor::WAYLAND:
@@ -829,6 +834,11 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 	create_info.hinstance = connection ? (HINSTANCE)connection : GetModuleHandle(nullptr);
 	create_info.hwnd = (HWND)window;
 	return vkCreateWin32SurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
+#elif defined(__ANDROID__)
+	VkAndroidSurfaceCreateInfoKHR create_info = {};
+	create_info.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	create_info.window = static_cast<ANativeWindow*>(window);
+	return vkCreateAndroidSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
 #elif defined(__linux__)
 	if (!connection) {
 		return false;

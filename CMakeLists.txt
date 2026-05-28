@@ -14,7 +14,13 @@ include(CMakePackageConfigHelpers)
 # ------------------------------------------------------------------------------
 option(GPUKIT_BUILD_EXAMPLES "Build examples" ON)
 option(GPUKIT_BUILD_TESTS "Build tests" ON)
-option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
+
+# SIMD intrinsics are x86/x86_64 only; default OFF on every other architecture
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|x86|i686|AMD64)$" AND NOT ANDROID)
+    option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" ON)
+else()
+    option(GPUKIT_USE_SIMD_INTRINSICS "Enable SIMD optimizations" OFF)
+endif()
 option(GPUKIT_ENABLE_POSITION_INDEPENDENT_CODE "Enable PIC" OFF)
 
 # Disable runtime shader compilation by default on Android
@@ -155,8 +161,8 @@ else()
     target_include_directories(gpukit PRIVATE ${Vulkan_INCLUDE_DIRS})
 endif()
 
-# Link wayland-client on Linux for Wayland surface support
-if(UNIX AND NOT APPLE)
+# Link wayland-client on Linux (desktop only) for Wayland surface support
+if(UNIX AND NOT APPLE AND NOT ANDROID)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(WAYLAND_CLIENT wayland-client)
@@ -186,6 +192,10 @@ if(GPUKIT_USE_FMT)
     target_compile_definitions(gpukit PUBLIC GPUKIT_USE_FMT_FORMAT)
 endif()
 
+if(ANDROID)
+    target_link_libraries(gpukit PRIVATE log)
+endif()
+
 # Shader compilation backend
 if(GPUKIT_ENABLE_SHADER_COMPILATION)
     if(GPUKIT_SHADERC_TARGET)
@@ -196,66 +206,81 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
     endif()
 endif()
 
+if(NOT ANDROID)
+    # Install the library binary
+    install(TARGETS gpukit
+        EXPORT gpukitTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-# Install the headers
-install(DIRECTORY include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+    # Install the headers
+    install(DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-# Install generated version header
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/gpukit/version.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gpukit
-)
+    # Install generated version header
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/gpukit/version.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gpukit
+    )
 
-# Install SDL2 glue
-install(FILES misc/gpukit_sdl2_glue.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+    # Install SDL2 glue
+    install(FILES misc/gpukit_sdl2_glue.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-# Install GLFW glue
-install(FILES misc/gpukit_glfw_glue.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+    # Install GLFW glue
+    install(FILES misc/gpukit_glfw_glue.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-# Install ImGui glue
-install(FILES misc/gpukit_imgui_glue.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+    # Install ImGui glue
+    install(FILES misc/gpukit_imgui_glue.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-#  Create the *Targets.cmake file
-install(EXPORT gpukitTargets
-    FILE gpukitTargets.cmake
-    NAMESPACE gpukit::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
-)
+    # Install Android glue (NDK-only; not compiled on desktop)
+    install(FILES misc/gpukit_android_glue.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-# Create *Config.cmake files
-write_basic_package_version_file(
-    gpukitConfigVersion.cmake
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
+    #  Create the *Targets.cmake file
+    install(EXPORT gpukitTargets
+        FILE gpukitTargets.cmake
+        NAMESPACE gpukit::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
+    )
 
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/gpukitConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
-)
+    # Create *Config.cmake files
+    write_basic_package_version_file(
+        gpukitConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
 
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
-)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/gpukitConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfig.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
+    )
+
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/gpukitConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gpukit
+    )
+endif() # NOT ANDROID
 
 # ------------------------------------------------------------------------------
 # Subdirectories
 # ------------------------------------------------------------------------------
-if(GPUKIT_BUILD_EXAMPLES)
+if(GPUKIT_BUILD_EXAMPLES AND NOT ANDROID)
     add_subdirectory(examples)
 endif()
 
-if(GPUKIT_BUILD_TESTS)
+if(GPUKIT_BUILD_TESTS AND NOT ANDROID)
     enable_testing()
     add_subdirectory(tests)
 endif()
