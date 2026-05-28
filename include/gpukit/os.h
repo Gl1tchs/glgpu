@@ -11,6 +11,7 @@ enum class WindowCompositor {
 	WAYLAND,
 	X11,
 	MACOS,
+	ANDROID_SURFACE,
 	UNKNOWN,
 };
 

@@ -14,6 +14,8 @@ WindowCompositor get_window_compositor() {
 
 #if defined(_WIN32)
 	return WindowCompositor::WIN32;
+#elif defined(__ANDROID__)
+	return WindowCompositor::ANDROID_SURFACE;
 #elif defined(__APPLE__)
 	return WindowCompositor::MACOS;
 #elif defined(__linux__) || defined(__unix__) || defined(__FreeBSD__)

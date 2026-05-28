@@ -63,6 +63,7 @@ Res<Image> swapchain_acquire_image(Swapchain sc, Semaphore sem, uint32_t* o_idx)
 
 Res<Vec2u> swapchain_get_extent(Swapchain sc) { return g_device->swapchain_get_extent(sc); }
 Res<DataFormat> swapchain_get_format(Swapchain sc) { return g_device->swapchain_get_format(sc); }
+Res<uint32_t> swapchain_get_pre_transform(Swapchain sc) { return g_device->swapchain_get_pre_transform(sc); }
 Res<> swapchain_free(Swapchain sc) { return g_device->swapchain_free(sc); }
 
 // =========================================================================

@@ -1,5 +1,6 @@
 #include "platform/vulkan/vk_device.h"
 
+#include "gpukit/log.h"
 #include "platform/vulkan/vk_common.h"
 
 #include <filesystem>
@@ -376,7 +377,7 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 
 	// Pipeline Cache
 	const auto tmp = std::filesystem::temp_directory_path();
-	const auto cache_path = tmp / std::format("glitch/cache/{}.cache", shader->shader_hash);
+	const auto cache_path = tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",shader->shader_hash);
 
 	Res<VkPipelineCache> cache_res =
 			_load_pipeline_cache(_device, cache_path, _physical_device_properties);
@@ -413,7 +414,7 @@ Res<Pipeline> VulkanDevice::compute_pipeline_create(Shader shader) {
 	create_info.layout = vk_shader->pipeline_layout;
 
 	const auto tmp = std::filesystem::temp_directory_path();
-	const auto cache_path = tmp / std::format("glitch/cache/{}.cache", vk_shader->shader_hash);
+	const auto cache_path = tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",vk_shader->shader_hash);
 
 	Res<VkPipelineCache> cache_res =
 			_load_pipeline_cache(_device, cache_path, _physical_device_properties);
@@ -458,7 +459,7 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 				// Unified path with creation logic
 				const auto tmp = std::filesystem::temp_directory_path();
 				std::filesystem::path path =
-						tmp / std::format("glitch/cache/{}.cache", vk_pipeline->shader_hash);
+						tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",vk_pipeline->shader_hash);
 
 				if (!std::filesystem::exists(path.parent_path())) {
 					std::error_code ec;

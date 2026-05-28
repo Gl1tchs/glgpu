@@ -236,6 +236,7 @@ public:
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkColorSpaceKHR color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 		VkExtent2D extent;
+		VkSurfaceTransformFlagBitsKHR pre_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 		std::vector<VulkanImage> images;
 		uint32_t image_index;
 		bool initialized;
@@ -256,6 +257,8 @@ public:
 	Res<Vec2u> swapchain_get_extent(Swapchain swapchain);
 
 	Res<DataFormat> swapchain_get_format(Swapchain swapchain);
+
+	Res<uint32_t> swapchain_get_pre_transform(Swapchain swapchain);
 
 	Res<> swapchain_free(Swapchain swapchain);
 
