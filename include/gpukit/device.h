@@ -92,11 +92,14 @@ GPUKIT_API Res<uint8_t*> buffer_map(Buffer buffer);
 GPUKIT_API Res<> buffer_unmap(Buffer buffer);
 GPUKIT_API Res<> buffer_invalidate(Buffer buffer); // GPU -> CPU
 GPUKIT_API Res<> buffer_flush(Buffer buffer); // CPU -> GPU
+GPUKIT_API Res<> buffer_upload(
+		Buffer buffer, const void* data, size_t size, size_t offset = 0);
 
 // Image
 
 GPUKIT_API Res<Image> image_create(const ImageCreateInfo& info);
 GPUKIT_API Res<> image_free(Image image);
+GPUKIT_API Res<> image_upload(Image image, const void* data, size_t size);
 GPUKIT_API Res<Vec3u> image_get_size(Image image);
 GPUKIT_API Res<DataFormat> image_get_format(Image image);
 GPUKIT_API Res<uint32_t> image_get_mip_levels(Image image);
@@ -155,6 +158,8 @@ GPUKIT_API Res<> uniform_set_update_storage_image(
 		UniformSet set, uint32_t binding, uint32_t array_index, Image image);
 GPUKIT_API Res<> uniform_set_update_buffer(
 		UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer);
+GPUKIT_API Res<> uniform_set_update_buffer_range(UniformSet set, uint32_t binding,
+		uint32_t array_index, Buffer buffer, uint64_t offset, uint64_t range);
 
 // =========================================================================
 // Render Pass & Framebuffer (Legacy)

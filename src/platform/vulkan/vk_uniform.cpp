@@ -589,4 +589,34 @@ void VulkanDevice::_uniform_pool_unreference(
 	}
 }
 
+Res<> VulkanDevice::uniform_set_update_buffer_range(UniformSet set, uint32_t binding,
+		uint32_t array_index, Buffer buffer, uint64_t offset, uint64_t range) {
+	VulkanUniformSet* usi = (VulkanUniformSet*)set;
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!usi || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VkDescriptorType descriptor_type =
+			_resolve_descriptor_type(usi, binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = vk_buffer->vk_buffer;
+	buffer_info.offset = offset;
+	buffer_info.range = range;
+
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.dstSet = usi->vk_descriptor_set;
+	write.dstBinding = binding;
+	write.dstArrayElement = array_index;
+	write.descriptorType = descriptor_type;
+	write.descriptorCount = 1;
+	write.pBufferInfo = &buffer_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
+
+	return {};
+}
+
 } //namespace gpukitkit

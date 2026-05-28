@@ -64,6 +64,7 @@ Res<Buffer> VulkanDevice::buffer_create(
 	buf_info->allocation.handle = allocation;
 	buf_info->allocation.size = alloc_info.size;
 	buf_info->size = size;
+	buf_info->allocation_type = allocation_type;
 
 	return Buffer(buf_info);
 }
@@ -184,6 +185,49 @@ VmaPool VulkanDevice::_find_or_create_small_allocs_pool(uint32_t mem_type_index)
 	_small_allocs_pools[mem_type_index] = pool;
 
 	return pool;
+}
+
+Res<> VulkanDevice::buffer_upload(
+		Buffer buffer, const void* data, size_t size, size_t offset) {
+	if (!buffer || !data || size == 0) {
+		return Error::INVALID_ARGUMENT;
+	}
+
+	VulkanBuffer* vk_buf = (VulkanBuffer*)buffer;
+
+	if (vk_buf->allocation_type == MemoryAllocationType::CPU) {
+		auto map_res = buffer_map(buffer);
+		if (map_res.is_error()) {
+			return map_res.error();
+		}
+		memcpy(map_res.value() + offset, data, size);
+		buffer_unmap(buffer);
+		return {};
+	}
+
+	auto staging_res =
+			buffer_create(size, BUFFER_USAGE_TRANSFER_SRC_BIT, MemoryAllocationType::CPU);
+	if (staging_res.is_error()) {
+		return staging_res.error();
+	}
+
+	Buffer staging = staging_res.value();
+
+	auto smap_res = buffer_map(staging);
+	if (smap_res.is_error()) {
+		buffer_free(staging);
+		return smap_res.error();
+	}
+	memcpy(smap_res.value(), data, size);
+	buffer_unmap(staging);
+
+	Res<> submit_res = command_immediate_submit([&](CommandBuffer cmd) {
+		BufferCopyRegion region = { 0, offset, size };
+		command_copy_buffer(cmd, staging, buffer, { region });
+	});
+
+	buffer_free(staging);
+	return submit_res;
 }
 
 } // namespace gl

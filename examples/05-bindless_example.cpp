@@ -1,4 +1,3 @@
-#include <cstring>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -57,41 +56,7 @@ gpukit::Image create_checkered_texture(uint32_t r, uint32_t g, uint32_t b) {
 
 	gpukit::Image img = gpukit::image_create(img_info).value();
 
-	uint64_t buffer_size = width * height * 4;
-	gpukit::Buffer staging = gpukit::buffer_create(
-			buffer_size, gpukit::BUFFER_USAGE_TRANSFER_SRC_BIT, gpukit::MemoryAllocationType::CPU)
-									 .value();
-
-	void* mapped = gpukit::buffer_map(staging).value();
-	std::memcpy(mapped, pixels.data(), buffer_size);
-	gpukit::buffer_flush(staging);
-	gpukit::buffer_unmap(staging);
-
-	gpukit::command_immediate_submit(
-			[&](gpukit::CommandBuffer cmd) {
-				gpukit::command_transition_image(cmd, img, gpukit::ImageLayout::UNDEFINED,
-						gpukit::ImageLayout::TRANSFER_DST_OPTIMAL);
-
-				gpukit::BufferImageCopyRegion copy_region = {};
-				copy_region.buffer_offset = 0;
-				copy_region.buffer_row_length = width;
-				copy_region.buffer_image_height = height;
-				copy_region.image_subresource = { .aspect_mask = gpukit::IMAGE_ASPECT_COLOR_BIT,
-					.mip_level = 0,
-					.base_array_layer = 0,
-					.layer_count = 1 };
-				copy_region.image_offset = { 0, 0, 0 };
-				copy_region.image_extent = { width, height, 1 };
-
-				gpukit::command_copy_buffer_to_image(cmd, staging, img, { &copy_region, 1 });
-
-				gpukit::command_transition_image(cmd, img,
-						gpukit::ImageLayout::TRANSFER_DST_OPTIMAL,
-						gpukit::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-			},
-			gpukit::QueueType::TRANSFER);
-
-	gpukit::buffer_free(staging);
+	gpukit::image_upload(img, pixels.data(), pixels.size() * sizeof(uint32_t));
 
 	return img;
 }
@@ -215,14 +180,7 @@ int main(void) {
 			gpukit::BUFFER_USAGE_VERTEX_BUFFER_BIT, gpukit::MemoryAllocationType::CPU)
 										   .value();
 
-	void* raw_data = gpukit::buffer_map(vertex_buffer).value();
-	if (raw_data) {
-		std::memcpy(raw_data, vertices, sizeof(vertices));
-		gpukit::buffer_unmap(vertex_buffer);
-	} else {
-		GPUKIT_LOG_FATAL("Failed to map vertex buffer!");
-		return 1;
-	}
+	gpukit::buffer_upload(vertex_buffer, vertices, sizeof(vertices));
 
 	bool quit = false;
 	uint32_t current_frame_index = 0;

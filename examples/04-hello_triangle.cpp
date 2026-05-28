@@ -1,4 +1,3 @@
-#include <cstring>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -106,14 +105,7 @@ int main(void) {
 			gpukit::BUFFER_USAGE_VERTEX_BUFFER_BIT, gpukit::MemoryAllocationType::CPU)
 										   .value();
 
-	void* raw_data = gpukit::buffer_map(vertex_buffer).value();
-	if (raw_data) {
-		std::memcpy(raw_data, vertices, sizeof(vertices));
-		gpukit::buffer_unmap(vertex_buffer);
-	} else {
-		GPUKIT_LOG_FATAL("Failed to map vertex buffer!");
-		return 1;
-	}
+	gpukit::buffer_upload(vertex_buffer, vertices, sizeof(vertices));
 
 	bool quit = false;
 	uint32_t current_frame_index = 0;

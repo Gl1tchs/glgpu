@@ -331,4 +331,55 @@ Res<> VulkanDevice::sampler_free(Sampler sampler) {
 	return {};
 }
 
+Res<> VulkanDevice::image_upload(Image image, const void* data, size_t size) {
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!vk_image || !data || size == 0) {
+		return Error::INVALID_ARGUMENT;
+	}
+
+	auto staging_res =
+			buffer_create(size, BUFFER_USAGE_TRANSFER_SRC_BIT, MemoryAllocationType::CPU);
+	if (staging_res.is_error()) {
+		return staging_res.error();
+	}
+	Buffer staging = staging_res.value();
+
+	auto map_res = buffer_map(staging);
+	if (map_res.is_error()) {
+		buffer_free(staging);
+		return map_res.error();
+	}
+	memcpy(map_res.value(), data, size);
+	buffer_unmap(staging);
+
+	const bool needs_mipmaps = vk_image->mip_levels > 1;
+
+	Res<> submit_res = command_immediate_submit([&](CommandBuffer cmd) {
+		command_transition_image(
+				cmd, image, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL);
+
+		BufferImageCopyRegion region = {};
+		region.image_subresource.aspect_mask = IMAGE_ASPECT_COLOR_BIT;
+		region.image_subresource.layer_count = 1;
+		region.image_extent = {
+			vk_image->image_extent.width, vk_image->image_extent.height, 1
+		};
+
+		command_copy_buffer_to_image(cmd, staging, image, { region });
+
+		if (needs_mipmaps) {
+			command_transition_image(cmd, image, ImageLayout::TRANSFER_DST_OPTIMAL,
+					ImageLayout::TRANSFER_SRC_OPTIMAL, 0, 1);
+			command_generate_mipmaps(cmd, image);
+		} else {
+			command_transition_image(cmd, image, ImageLayout::TRANSFER_DST_OPTIMAL,
+					ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+		}
+	});
+
+	buffer_free(staging);
+
+	return submit_res;
+}
+
 } //namespace gpukitkit

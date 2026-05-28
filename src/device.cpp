@@ -87,12 +87,20 @@ Res<> buffer_unmap(Buffer b) { return g_device->buffer_unmap(b); }
 Res<> buffer_invalidate(Buffer b) { return g_device->buffer_invalidate(b); }
 Res<> buffer_flush(Buffer b) { return g_device->buffer_flush(b); }
 
+Res<> buffer_upload(Buffer b, const void* data, size_t size, size_t offset) {
+	return g_device->buffer_upload(b, data, size, offset);
+}
+
 // =========================================================================
 // Image
 // =========================================================================
 
 Res<Image> image_create(const ImageCreateInfo& info) { return g_device->image_create(info); }
 Res<> image_free(Image img) { return g_device->image_free(img); }
+
+Res<> image_upload(Image img, const void* data, size_t size) {
+	return g_device->image_upload(img, data, size);
+}
 Res<Vec3u> image_get_size(Image img) { return g_device->image_get_size(img); }
 Res<DataFormat> image_get_format(Image img) { return g_device->image_get_format(img); }
 Res<uint32_t> image_get_mip_levels(Image img) { return g_device->image_get_mip_levels(img); }
@@ -182,6 +190,12 @@ Res<> uniform_set_update_storage_image(
 Res<> uniform_set_update_buffer(
 		UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer) {
 	return g_device->uniform_set_update_buffer(set, binding, array_index, buffer);
+}
+
+Res<> uniform_set_update_buffer_range(UniformSet set, uint32_t binding, uint32_t array_index,
+		Buffer buffer, uint64_t offset, uint64_t range) {
+	return g_device->uniform_set_update_buffer_range(
+			set, binding, array_index, buffer, offset, range);
 }
 
 // =========================================================================

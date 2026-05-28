@@ -60,6 +60,7 @@ public:
 		} allocation;
 		uint64_t size = 0;
 		VkBufferView vk_view = VK_NULL_HANDLE;
+		MemoryAllocationType allocation_type = MemoryAllocationType::GPU;
 	};
 
 	Res<Buffer> buffer_create(
@@ -77,6 +78,8 @@ public:
 
 	Res<> buffer_flush(Buffer buffer);
 
+	Res<> buffer_upload(Buffer buffer, const void* data, size_t size, size_t offset = 0);
+
 	// Image
 	struct VulkanImage {
 		VkImage vk_image;
@@ -91,6 +94,8 @@ public:
 	Res<Image> image_create(const ImageCreateInfo& info);
 
 	Res<> image_free(Image image);
+
+	Res<> image_upload(Image image, const void* data, size_t size);
 
 	Res<Vec3u> image_get_size(Image image);
 
@@ -203,6 +208,9 @@ public:
 
 	Res<> uniform_set_update_buffer(
 			UniformSet set, uint32_t binding, uint32_t array_index, Buffer buffer);
+
+	Res<> uniform_set_update_buffer_range(UniformSet set, uint32_t binding, uint32_t array_index,
+			Buffer buffer, uint64_t offset, uint64_t range);
 
 	// =========================================================================
 	// Render Pass & Framebuffer
