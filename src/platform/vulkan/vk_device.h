@@ -147,8 +147,6 @@ public:
 	// Pipeline
 	struct VulkanPipeline {
 		VkPipeline vk_pipeline;
-		VkPipelineCache vk_pipeline_cache;
-		size_t shader_hash;
 	};
 
 	Res<Pipeline> graphics_pipeline_create(const GraphicsPipelineCreateInfo& info);
@@ -435,6 +433,9 @@ public:
 private:
 	// Vulkan helpers
 
+	VkPipelineCache _load_pipeline_cache();
+	void _save_and_destroy_pipeline_cache();
+
 	bool _check_validation_layer_support();
 
 	struct QueueFamilyIndices {
@@ -506,6 +507,8 @@ private:
 	VkPhysicalDeviceFeatures _physical_device_features;
 	bool _swapchain_supported;
 	uint32_t _max_bindless_descriptors = 1000;
+	VkPipelineCache _pipeline_cache = VK_NULL_HANDLE;
+	std::string _pipeline_cache_path;
 
 	// Debug ressources
 	VkDebugUtilsMessengerEXT _debug_messenger = VK_NULL_HANDLE;

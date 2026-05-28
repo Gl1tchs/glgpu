@@ -25,6 +25,7 @@ struct DeviceCreateInfo {
 	void* native_window_handle =
 			nullptr; // Win32: HWND | X11: Window | Wayland: wl_surface* | Android: ANativeWindow*
 	uint32_t max_bindless_descriptors = 1000;
+	const char* pipeline_cache_path = nullptr; // If null, cache is not persisted to disk
 };
 
 /**

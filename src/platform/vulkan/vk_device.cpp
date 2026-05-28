@@ -433,6 +433,12 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 #endif
 
 	_max_bindless_descriptors = info.max_bindless_descriptors;
+	if (info.pipeline_cache_path) {
+		_pipeline_cache_path = info.pipeline_cache_path;
+	}
+
+	_pipeline_cache = _load_pipeline_cache();
+	_deletion_queue.push_function([this]() { _save_and_destroy_pipeline_cache(); });
 
 	return {};
 }

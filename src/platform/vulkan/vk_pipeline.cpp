@@ -21,77 +21,84 @@ static VkCullModeFlagBits _gl_to_vk_cull_mode(PolygonCullMode cull_mode) {
 	}
 }
 
-constexpr uint32_t PIPELINE_CACHE_MAGIC_NUMBER = 0xbba786cf;
+constexpr uint32_t PIPELINE_CACHE_MAGIC = 0xbba786cf;
 
 struct PipelineCacheHeader {
-	uint32_t magic_number; // PIPELINE_MAGIC_NUMBER
-	size_t data_size; // size of the data
-	uint32_t vendor_id; // VkPhysicalDeviceProperties::vendorID
-	uint32_t device_id; // VkPhysicalDeviceProperties::deviceID
-	uint32_t driver_version; // VkPhysicalDeviceProperties::driverVersion
-	uint8_t uuid[VK_UUID_SIZE]; // VkPhysicalDeviceProperties::pipelineCacheUUID
+	uint32_t magic;
+	uint32_t vendor_id;
+	uint32_t device_id;
+	uint32_t driver_version;
+	uint8_t uuid[VK_UUID_SIZE];
 };
 
-// Returns a valid cache or VK_NULL_HANDLE if not found/invalid.
-// Returns Error only on API failure (OOM).
-static Res<VkPipelineCache> _load_pipeline_cache(VkDevice device, const std::filesystem::path& path,
-		const VkPhysicalDeviceProperties& device_props) {
-	VkPipelineCacheCreateInfo cache_create_info = {};
-	cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+VkPipelineCache VulkanDevice::_load_pipeline_cache() {
+	VkPipelineCacheCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
-	// Data buffer to hold file content
-	std::vector<char> cache_buffer;
+	std::vector<char> buf;
+	if (!_pipeline_cache_path.empty() && std::filesystem::exists(_pipeline_cache_path)) {
+		std::ifstream f(_pipeline_cache_path, std::ios::binary | std::ios::ate);
+		if (f) {
+			const size_t sz = f.tellg();
+			f.seekg(0);
+			buf.resize(sz);
+			f.read(buf.data(), sz);
 
-	// if cache already exists on disk try to load it
-	if (std::filesystem::exists(path)) {
-		std::ifstream file(path, std::ios::binary | std::ios::ate);
-		if (file) {
-			const size_t file_size = file.tellg();
-			file.seekg(0, std::ios::beg);
-
-			cache_buffer.resize(file_size);
-			file.read(cache_buffer.data(), file_size);
-			file.close();
-
-			// Validate header
-			if (file_size > sizeof(PipelineCacheHeader)) {
-				const PipelineCacheHeader* header =
-						reinterpret_cast<const PipelineCacheHeader*>(cache_buffer.data());
-
-				int64_t data_size = file_size - sizeof(PipelineCacheHeader);
-
-				bool valid = true;
-				if (header->magic_number != PIPELINE_CACHE_MAGIC_NUMBER)
-					valid = false;
-				if (header->data_size != data_size)
-					valid = false;
-				if (header->vendor_id != device_props.vendorID)
-					valid = false;
-				if (header->device_id != device_props.deviceID)
-					valid = false;
-				if (header->driver_version != device_props.driverVersion)
-					valid = false;
-				if (memcmp(header->uuid, device_props.pipelineCacheUUID, VK_UUID_SIZE) != 0)
-					valid = false;
-
-				if (valid) {
-					cache_create_info.initialDataSize = data_size;
-					cache_create_info.pInitialData =
-							cache_buffer.data() + sizeof(PipelineCacheHeader);
+			if (sz > sizeof(PipelineCacheHeader)) {
+				const auto* h = reinterpret_cast<const PipelineCacheHeader*>(buf.data());
+				const size_t data_size = sz - sizeof(PipelineCacheHeader);
+				if (h->magic == PIPELINE_CACHE_MAGIC &&
+						h->vendor_id == _physical_device_properties.vendorID &&
+						h->device_id == _physical_device_properties.deviceID &&
+						h->driver_version == _physical_device_properties.driverVersion &&
+						memcmp(h->uuid, _physical_device_properties.pipelineCacheUUID,
+								VK_UUID_SIZE) == 0) {
+					info.initialDataSize = data_size;
+					info.pInitialData = buf.data() + sizeof(PipelineCacheHeader);
 				} else {
-					GPUKIT_LOG_WARNING("[VULKAN] Pipeline cache invalid or outdated, creating new.");
+					GPUKIT_LOG_WARNING("[VULKAN] Pipeline cache stale, discarding.");
 				}
 			}
-		} else {
-			GPUKIT_LOG_ERROR("[VULKAN] Unable to read pipeline cache at '{}'", path.string());
 		}
 	}
 
-	VkPipelineCache vk_pipeline_cache = VK_NULL_HANDLE;
-	VK_CHECK_RET(vkCreatePipelineCache(device, &cache_create_info, nullptr, &vk_pipeline_cache),
-			make_err<VkPipelineCache>(Error::OUT_OF_HOST_MEMORY));
+	VkPipelineCache cache = VK_NULL_HANDLE;
+	vkCreatePipelineCache(_device, &info, nullptr, &cache);
+	return cache;
+}
 
-	return vk_pipeline_cache;
+void VulkanDevice::_save_and_destroy_pipeline_cache() {
+	if (_pipeline_cache == VK_NULL_HANDLE) {
+		return;
+	}
+
+	size_t data_size = 0;
+	if (!_pipeline_cache_path.empty() &&
+			vkGetPipelineCacheData(_device, _pipeline_cache, &data_size, nullptr) == VK_SUCCESS &&
+			data_size > 0) {
+		std::vector<char> data(data_size);
+		if (vkGetPipelineCacheData(_device, _pipeline_cache, &data_size, data.data()) ==
+				VK_SUCCESS) {
+			std::filesystem::path path(_pipeline_cache_path);
+			std::error_code ec;
+			std::filesystem::create_directories(path.parent_path(), ec);
+
+			std::ofstream f(path, std::ios::binary);
+			if (f) {
+				PipelineCacheHeader h = {};
+				h.magic = PIPELINE_CACHE_MAGIC;
+				h.vendor_id = _physical_device_properties.vendorID;
+				h.device_id = _physical_device_properties.deviceID;
+				h.driver_version = _physical_device_properties.driverVersion;
+				memcpy(h.uuid, _physical_device_properties.pipelineCacheUUID, VK_UUID_SIZE);
+				f.write(reinterpret_cast<const char*>(&h), sizeof(h));
+				f.write(data.data(), data_size);
+			}
+		}
+	}
+
+	vkDestroyPipelineCache(_device, _pipeline_cache, nullptr);
+	_pipeline_cache = VK_NULL_HANDLE;
 }
 
 static VkPipelineVertexInputStateCreateInfo _get_vertex_input_state_info(
@@ -375,29 +382,13 @@ Res<Pipeline> VulkanDevice::graphics_pipeline_create(const GraphicsPipelineCreat
 	create_info.pDynamicState = &dynamic_state;
 	create_info.layout = shader->pipeline_layout;
 
-	// Pipeline Cache
-	const auto tmp = std::filesystem::temp_directory_path();
-	const auto cache_path = tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",shader->shader_hash);
-
-	Res<VkPipelineCache> cache_res =
-			_load_pipeline_cache(_device, cache_path, _physical_device_properties);
-	// If cache creation fails (OOM), we propagate the error.
-	// If cache just didn't exist, it returned VK_NULL_HANDLE (valid).
-	if (cache_res.is_error()) {
-		return make_err<Pipeline>(cache_res.error());
-	}
-
-	VkPipelineCache vk_pipeline_cache = cache_res.value();
-
 	VkPipeline vk_pipeline = VK_NULL_HANDLE;
 	VK_CHECK_RET(vkCreateGraphicsPipelines(
-						 _device, vk_pipeline_cache, 1, &create_info, nullptr, &vk_pipeline),
+						 _device, _pipeline_cache, 1, &create_info, nullptr, &vk_pipeline),
 			make_err<Pipeline>(Error::PIPELINE_CREATION_FAILED));
 
 	VulkanPipeline* pipeline = VersatileResource::allocate<VulkanPipeline>(_resources_allocator);
 	pipeline->vk_pipeline = vk_pipeline;
-	pipeline->vk_pipeline_cache = vk_pipeline_cache;
-	pipeline->shader_hash = shader->shader_hash;
 
 	return Pipeline(pipeline);
 }
@@ -413,26 +404,13 @@ Res<Pipeline> VulkanDevice::compute_pipeline_create(Shader shader) {
 	create_info.stage = vk_shader->stage_create_infos[0];
 	create_info.layout = vk_shader->pipeline_layout;
 
-	const auto tmp = std::filesystem::temp_directory_path();
-	const auto cache_path = tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",vk_shader->shader_hash);
-
-	Res<VkPipelineCache> cache_res =
-			_load_pipeline_cache(_device, cache_path, _physical_device_properties);
-	if (cache_res.is_error()) {
-		return make_err<Pipeline>(cache_res.error());
-	}
-
-	VkPipelineCache vk_pipeline_cache = cache_res.value();
-
 	VkPipeline vk_pipeline = VK_NULL_HANDLE;
 	VK_CHECK_RET(vkCreateComputePipelines(
-						 _device, vk_pipeline_cache, 1, &create_info, nullptr, &vk_pipeline),
+						 _device, _pipeline_cache, 1, &create_info, nullptr, &vk_pipeline),
 			make_err<Pipeline>(Error::PIPELINE_CREATION_FAILED));
 
 	VulkanPipeline* pipeline = VersatileResource::allocate<VulkanPipeline>(_resources_allocator);
 	pipeline->vk_pipeline = vk_pipeline;
-	pipeline->vk_pipeline_cache = vk_pipeline_cache;
-	pipeline->shader_hash = vk_shader->shader_hash;
 
 	return Pipeline(pipeline);
 }
@@ -444,53 +422,7 @@ Res<> VulkanDevice::pipeline_free(Pipeline pipeline) {
 
 	VulkanPipeline* vk_pipeline = (VulkanPipeline*)pipeline;
 
-	// Save the pipeline cache
-	if (vk_pipeline->vk_pipeline_cache != VK_NULL_HANDLE) {
-		size_t cache_size = 0;
-		VkResult res = vkGetPipelineCacheData(
-				_device, vk_pipeline->vk_pipeline_cache, &cache_size, nullptr);
-
-		if (res == VK_SUCCESS && cache_size > 0) {
-			std::vector<char> cache_data(cache_size);
-			res = vkGetPipelineCacheData(
-					_device, vk_pipeline->vk_pipeline_cache, &cache_size, cache_data.data());
-
-			if (res == VK_SUCCESS) {
-				// Unified path with creation logic
-				const auto tmp = std::filesystem::temp_directory_path();
-				std::filesystem::path path =
-						tmp / GPUKIT_FMT_FORMAT("glitch/cache/{}.cache",vk_pipeline->shader_hash);
-
-				if (!std::filesystem::exists(path.parent_path())) {
-					std::error_code ec;
-					std::filesystem::create_directories(path.parent_path(), ec);
-					if (ec) {
-						GPUKIT_LOG_ERROR("Failed to create cache directory: {}", ec.message());
-					}
-				}
-
-				std::ofstream file(path, std::ios::binary);
-				if (file) {
-					PipelineCacheHeader header = {};
-					header.magic_number = PIPELINE_CACHE_MAGIC_NUMBER;
-					header.data_size = cache_size;
-					header.vendor_id = _physical_device_properties.vendorID;
-					header.device_id = _physical_device_properties.deviceID;
-					header.driver_version = _physical_device_properties.driverVersion;
-					memcpy(header.uuid, _physical_device_properties.pipelineCacheUUID,
-							VK_UUID_SIZE * sizeof(char));
-
-					file.write((const char*)&header, sizeof(PipelineCacheHeader));
-					file.write(cache_data.data(), cache_size);
-				} else {
-					GPUKIT_LOG_ERROR("[VULKAN] Unable to write pipeline cache data to file!");
-				}
-			}
-		}
-	}
-
 	vkDestroyPipeline(_device, vk_pipeline->vk_pipeline, nullptr);
-	vkDestroyPipelineCache(_device, vk_pipeline->vk_pipeline_cache, nullptr);
 
 	VersatileResource::free(_resources_allocator, pipeline);
 
