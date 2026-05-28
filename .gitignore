@@ -52,6 +52,7 @@ vcpkg_installed/
 
 build/
 build-san/
+build-cov/
 bin/*
 out/*
 Testing/
