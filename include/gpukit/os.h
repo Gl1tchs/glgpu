@@ -12,6 +12,7 @@ enum class WindowCompositor {
 	X11,
 	MACOS,
 	ANDROID_SURFACE,
+	HEADLESS, // no display server — offscreen / compute-only
 	UNKNOWN,
 };
 

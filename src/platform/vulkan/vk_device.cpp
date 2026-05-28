@@ -162,6 +162,10 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	const bool distinct_compute_queue_required =
 			(info.required_features & DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT);
 
+	if (!swapchain_support_required && !surface_support_required) {
+		override_window_compositor(WindowCompositor::HEADLESS);
+	}
+
 	// Try to create a surface
 	if (surface_support_required && !info.native_window_handle) {
 		GPUKIT_LOG_ERROR("Surface support required but no window provided.");
