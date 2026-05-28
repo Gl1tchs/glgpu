@@ -324,11 +324,7 @@ Res<Shader> VulkanDevice::shader_create(VectorView<SpirvEntry> shaders) {
 							(binding->type_description->traits.array.dims_count > 0 &&
 									binding->type_description->traits.array.dims[0] == 0);
 
-					bool is_explicitly_named = binding->name != nullptr
-							? std::string(binding->name).starts_with("h_")
-							: false;
-
-					if (is_runtime_array || is_explicitly_named) {
+					if (is_runtime_array) {
 						count = get_max_bindless_instances();
 
 						per_binding_flags[descriptor_set->set][binding->binding] =
