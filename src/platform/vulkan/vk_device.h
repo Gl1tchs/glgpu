@@ -345,11 +345,16 @@ public:
 	Res<> command_draw_indexed(CommandBuffer cmd, uint32_t index_count, uint32_t instance_count = 1,
 			uint32_t first_index = 0, int32_t vertex_offset = 0, uint32_t first_instance = 0);
 
+	Res<> command_draw_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset,
+			uint32_t draw_count, uint32_t stride);
+
 	Res<> command_draw_indexed_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset,
 			uint32_t draw_count, uint32_t stride);
 
 	Res<> command_dispatch(CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y,
 			uint32_t group_count_z);
+
+	Res<> command_dispatch_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset);
 
 	Res<> command_bind_uniform_sets(CommandBuffer cmd, Shader shader, uint32_t first_set,
 			VectorView<UniformSet> uniform_sets, PipelineType type = PipelineType::GRAPHICS);
@@ -379,6 +384,18 @@ public:
 	Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
 			uint32_t dst_mip_level = 0);
+
+	Res<> command_copy_image_to_buffer(CommandBuffer cmd, Image src_image, Buffer dst_buffer,
+			VectorView<BufferImageCopyRegion> regions);
+
+	Res<> command_blit_image(CommandBuffer cmd, Image src_image, Image dst_image,
+			const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
+			uint32_t dst_mip_level = 0, ImageFiltering filter = ImageFiltering::LINEAR);
+
+	Res<> command_generate_mipmaps(CommandBuffer cmd, Image image);
+
+	Res<> command_clear_depth(
+			CommandBuffer cmd, Image image, float depth = 1.0f, uint32_t stencil = 0);
 
 	Res<> command_transition_image(CommandBuffer cmd, Image image, ImageLayout current_layout,
 			ImageLayout new_layout, uint32_t base_mip_level = 0,

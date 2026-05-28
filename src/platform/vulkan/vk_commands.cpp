@@ -548,6 +548,18 @@ Res<> VulkanDevice::command_draw_indexed(CommandBuffer cmd, uint32_t index_count
 	return {};
 }
 
+Res<> VulkanDevice::command_draw_indirect(
+		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!cmd || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdDrawIndirect((VkCommandBuffer)cmd, vk_buffer->vk_buffer, offset, draw_count, stride);
+
+	return {};
+}
+
 Res<> VulkanDevice::command_draw_indexed_indirect(
 		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
 	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
@@ -568,6 +580,17 @@ Res<> VulkanDevice::command_dispatch(
 	}
 
 	vkCmdDispatch((VkCommandBuffer)cmd, group_count_x, group_count_y, group_count_z);
+
+	return {};
+}
+
+Res<> VulkanDevice::command_dispatch_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset) {
+	VulkanBuffer* vk_buffer = (VulkanBuffer*)buffer;
+	if (!cmd || !vk_buffer) {
+		return Error::INVALID_HANDLE;
+	}
+
+	vkCmdDispatchIndirect((VkCommandBuffer)cmd, vk_buffer->vk_buffer, offset);
 
 	return {};
 }
@@ -907,6 +930,178 @@ Res<> VulkanDevice::command_transition_image(CommandBuffer cmd, Image image,
 	dep_info.pImageMemoryBarriers = &image_barrier;
 
 	vkCmdPipelineBarrier2((VkCommandBuffer)cmd, &dep_info);
+
+	return {};
+}
+
+Res<> VulkanDevice::command_clear_depth(
+		CommandBuffer cmd, Image image, float depth, uint32_t stencil) {
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!cmd || !vk_image) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VkClearDepthStencilValue clear_value = {};
+	clear_value.depth = depth;
+	clear_value.stencil = stencil;
+
+	VkImageSubresourceRange range = {};
+	range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	range.levelCount = 1;
+	range.layerCount = 1;
+
+	vkCmdClearDepthStencilImage((VkCommandBuffer)cmd, vk_image->vk_image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+
+	return {};
+}
+
+Res<> VulkanDevice::command_copy_image_to_buffer(CommandBuffer cmd, Image src_image,
+		Buffer dst_buffer, VectorView<BufferImageCopyRegion> regions) {
+	VulkanImage* vk_src = (VulkanImage*)src_image;
+	VulkanBuffer* vk_dst = (VulkanBuffer*)dst_buffer;
+	if (!cmd || !vk_src || !vk_dst) {
+		return Error::INVALID_HANDLE;
+	}
+
+	std::vector<VkBufferImageCopy> vk_regions(regions.size());
+	for (uint32_t i = 0; i < regions.size(); i++) {
+		memcpy(&vk_regions[i], &regions[i], sizeof(VkBufferImageCopy));
+	}
+
+	vkCmdCopyImageToBuffer((VkCommandBuffer)cmd, vk_src->vk_image,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk_dst->vk_buffer,
+			static_cast<uint32_t>(vk_regions.size()), vk_regions.data());
+
+	return {};
+}
+
+Res<> VulkanDevice::command_blit_image(CommandBuffer cmd, Image src_image, Image dst_image,
+		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level,
+		uint32_t dst_mip_level, ImageFiltering filter) {
+	VulkanImage* vk_src = (VulkanImage*)src_image;
+	VulkanImage* vk_dst = (VulkanImage*)dst_image;
+	if (!cmd || !vk_src || !vk_dst) {
+		return Error::INVALID_HANDLE;
+	}
+
+	VkImageBlit2 region = {};
+	region.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+	region.srcOffsets[1] = { (int32_t)src_extent.x, (int32_t)src_extent.y, 1 };
+	region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.srcSubresource.mipLevel = src_mip_level;
+	region.srcSubresource.layerCount = 1;
+	region.dstOffsets[1] = { (int32_t)dst_extent.x, (int32_t)dst_extent.y, 1 };
+	region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.dstSubresource.mipLevel = dst_mip_level;
+	region.dstSubresource.layerCount = 1;
+
+	VkBlitImageInfo2 blit_info = {};
+	blit_info.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+	blit_info.srcImage = vk_src->vk_image;
+	blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	blit_info.dstImage = vk_dst->vk_image;
+	blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	blit_info.regionCount = 1;
+	blit_info.pRegions = &region;
+	blit_info.filter = filter == ImageFiltering::NEAREST ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+
+	vkCmdBlitImage2((VkCommandBuffer)cmd, &blit_info);
+
+	return {};
+}
+
+Res<> VulkanDevice::command_generate_mipmaps(CommandBuffer cmd, Image image) {
+	VulkanImage* vk_image = (VulkanImage*)image;
+	if (!cmd || !vk_image) {
+		return Error::INVALID_HANDLE;
+	}
+	if (vk_image->mip_levels <= 1) {
+		return {};
+	}
+
+	auto emit_barrier = [&](uint32_t mip, VkImageLayout old_layout, VkImageLayout new_layout) {
+		VkImageMemoryBarrier2 barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+		barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+		barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+		barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+		barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+		barrier.oldLayout = old_layout;
+		barrier.newLayout = new_layout;
+		barrier.image = vk_image->vk_image;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseMipLevel = mip;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+		VkDependencyInfo dep = {};
+		dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+		dep.imageMemoryBarrierCount = 1;
+		dep.pImageMemoryBarriers = &barrier;
+
+		vkCmdPipelineBarrier2((VkCommandBuffer)cmd, &dep);
+	};
+
+	int32_t mip_w = (int32_t)vk_image->image_extent.width;
+	int32_t mip_h = (int32_t)vk_image->image_extent.height;
+
+	for (uint32_t i = 1; i < vk_image->mip_levels; i++) {
+		int32_t next_w = mip_w > 1 ? mip_w / 2 : 1;
+		int32_t next_h = mip_h > 1 ? mip_h / 2 : 1;
+
+		emit_barrier(i, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		VkImageBlit2 blit = {};
+		blit.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+		blit.srcOffsets[1] = { mip_w, mip_h, 1 };
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = i - 1;
+		blit.srcSubresource.layerCount = 1;
+		blit.dstOffsets[1] = { next_w, next_h, 1 };
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = i;
+		blit.dstSubresource.layerCount = 1;
+
+		VkBlitImageInfo2 blit_info = {};
+		blit_info.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+		blit_info.srcImage = vk_image->vk_image;
+		blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		blit_info.dstImage = vk_image->vk_image;
+		blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		blit_info.regionCount = 1;
+		blit_info.pRegions = &blit;
+		blit_info.filter = VK_FILTER_LINEAR;
+
+		vkCmdBlitImage2((VkCommandBuffer)cmd, &blit_info);
+
+		emit_barrier(i, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		mip_w = next_w;
+		mip_h = next_h;
+	}
+
+	// Transition all mip levels to SHADER_READ_ONLY_OPTIMAL
+	VkImageMemoryBarrier2 final_barrier = {};
+	final_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+	final_barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	final_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+	final_barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	final_barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+	final_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	final_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	final_barrier.image = vk_image->vk_image;
+	final_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	final_barrier.subresourceRange.baseMipLevel = 0;
+	final_barrier.subresourceRange.levelCount = vk_image->mip_levels;
+	final_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+	VkDependencyInfo final_dep = {};
+	final_dep.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	final_dep.imageMemoryBarrierCount = 1;
+	final_dep.pImageMemoryBarriers = &final_barrier;
+
+	vkCmdPipelineBarrier2((VkCommandBuffer)cmd, &final_dep);
 
 	return {};
 }

@@ -246,10 +246,13 @@ GPUKIT_API Res<> command_draw(CommandBuffer cmd, uint32_t vertex_count, uint32_t
 GPUKIT_API Res<> command_draw_indexed(CommandBuffer cmd, uint32_t index_count,
 		uint32_t instance_count = 1, uint32_t first_index = 0, int32_t vertex_offset = 0,
 		uint32_t first_instance = 0);
+GPUKIT_API Res<> command_draw_indirect(
+		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride);
 GPUKIT_API Res<> command_draw_indexed_indirect(
 		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride);
 GPUKIT_API Res<> command_dispatch(
 		CommandBuffer cmd, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z);
+GPUKIT_API Res<> command_dispatch_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset);
 
 // Operations & State
 
@@ -260,6 +263,8 @@ GPUKIT_API Res<> command_set_depth_bias(CommandBuffer cmd, float depth_bias_cons
 		float depth_bias_clamp, float depth_bias_slope_factor);
 GPUKIT_API Res<> command_clear_color(CommandBuffer cmd, Image image, const Color& clear_color,
 		ImageAspectFlags image_aspect = IMAGE_ASPECT_COLOR_BIT);
+GPUKIT_API Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth = 1.0f,
+		uint32_t stencil = 0);
 
 // Copy / Barriers
 
@@ -274,6 +279,12 @@ GPUKIT_API Res<> command_copy_buffer_to_image(CommandBuffer cmd, Buffer src_buff
 GPUKIT_API Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_image,
 		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
 		uint32_t dst_mip_level = 0);
+GPUKIT_API Res<> command_copy_image_to_buffer(CommandBuffer cmd, Image src_image,
+		Buffer dst_buffer, VectorView<BufferImageCopyRegion> regions);
+GPUKIT_API Res<> command_blit_image(CommandBuffer cmd, Image src_image, Image dst_image,
+		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level = 0,
+		uint32_t dst_mip_level = 0, ImageFiltering filter = ImageFiltering::LINEAR);
+GPUKIT_API Res<> command_generate_mipmaps(CommandBuffer cmd, Image image);
 GPUKIT_API Res<> command_transition_image(CommandBuffer cmd, Image image,
 		ImageLayout current_layout, ImageLayout new_layout, uint32_t base_mip_level = 0,
 		uint32_t level_count = GL_REMAINING_MIP_LEVELS);

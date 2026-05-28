@@ -63,7 +63,9 @@ Res<Image> swapchain_acquire_image(Swapchain sc, Semaphore sem, uint32_t* o_idx)
 
 Res<Vec2u> swapchain_get_extent(Swapchain sc) { return g_device->swapchain_get_extent(sc); }
 Res<DataFormat> swapchain_get_format(Swapchain sc) { return g_device->swapchain_get_format(sc); }
-Res<uint32_t> swapchain_get_pre_transform(Swapchain sc) { return g_device->swapchain_get_pre_transform(sc); }
+Res<uint32_t> swapchain_get_pre_transform(Swapchain sc) {
+	return g_device->swapchain_get_pre_transform(sc);
+}
 Res<> swapchain_free(Swapchain sc) { return g_device->swapchain_free(sc); }
 
 // =========================================================================
@@ -328,6 +330,11 @@ Res<> command_draw_indexed(CommandBuffer cmd, uint32_t index_count, uint32_t ins
 			cmd, index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
+Res<> command_draw_indirect(
+		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
+	return g_device->command_draw_indirect(cmd, buffer, offset, draw_count, stride);
+}
+
 Res<> command_draw_indexed_indirect(
 		CommandBuffer cmd, Buffer buffer, uint64_t offset, uint32_t draw_count, uint32_t stride) {
 	return g_device->command_draw_indexed_indirect(cmd, buffer, offset, draw_count, stride);
@@ -335,6 +342,10 @@ Res<> command_draw_indexed_indirect(
 
 Res<> command_dispatch(CommandBuffer cmd, uint32_t x, uint32_t y, uint32_t z) {
 	return g_device->command_dispatch(cmd, x, y, z);
+}
+
+Res<> command_dispatch_indirect(CommandBuffer cmd, Buffer buffer, uint64_t offset) {
+	return g_device->command_dispatch_indirect(cmd, buffer, offset);
 }
 
 // =========================================================================
@@ -357,6 +368,10 @@ Res<> command_set_depth_bias(
 Res<> command_clear_color(
 		CommandBuffer cmd, Image image, const Color& clear_color, ImageAspectFlags image_aspect) {
 	return g_device->command_clear_color(cmd, image, clear_color, image_aspect);
+}
+
+Res<> command_clear_depth(CommandBuffer cmd, Image image, float depth, uint32_t stencil) {
+	return g_device->command_clear_depth(cmd, image, depth, stencil);
 }
 
 // =========================================================================
@@ -388,6 +403,22 @@ Res<> command_copy_image_to_image(CommandBuffer cmd, Image src_image, Image dst_
 		uint32_t dst_mip_level) {
 	return g_device->command_copy_image_to_image(
 			cmd, src_image, dst_image, src_extent, dst_extent, src_mip_level, dst_mip_level);
+}
+
+Res<> command_copy_image_to_buffer(CommandBuffer cmd, Image src_image, Buffer dst_buffer,
+		VectorView<BufferImageCopyRegion> regions) {
+	return g_device->command_copy_image_to_buffer(cmd, src_image, dst_buffer, regions);
+}
+
+Res<> command_blit_image(CommandBuffer cmd, Image src_image, Image dst_image,
+		const Vec2u& src_extent, const Vec2u& dst_extent, uint32_t src_mip_level,
+		uint32_t dst_mip_level, ImageFiltering filter) {
+	return g_device->command_blit_image(cmd, src_image, dst_image, src_extent, dst_extent,
+			src_mip_level, dst_mip_level, filter);
+}
+
+Res<> command_generate_mipmaps(CommandBuffer cmd, Image image) {
+	return g_device->command_generate_mipmaps(cmd, image);
 }
 
 Res<> command_transition_image(CommandBuffer cmd, Image image, ImageLayout current_layout,
