@@ -15,19 +15,20 @@ endif()
 
 include(Catch)
 
-# Add Test Executable
-file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+# Core test executable — flat glob, compute tests live in tests/compute/
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 add_executable(gpukit_tests ${TEST_SOURCES})
 
-# Link Dependencies
 target_link_libraries(gpukit_tests
     PRIVATE
         gpukit::gpukit
         Catch2::Catch2
 )
 
-catch_discover_tests(gpukit_tests)
+catch_discover_tests(gpukit_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
 # Coverage report target — only wired up when lcov + genhtml are present.
 if(GPUKIT_ENABLE_COVERAGE AND NOT MSVC)
@@ -40,24 +41,20 @@ if(GPUKIT_ENABLE_COVERAGE AND NOT MSVC)
 
         add_custom_target(coverage
             COMMENT "Collecting coverage and generating HTML report..."
-            # Reset stale counters from any previous run
             COMMAND ${LCOV_EXECUTABLE} --zerocounters --directory "${CMAKE_BINARY_DIR}"
-            # Run the full test suite
             COMMAND ${CMAKE_CTEST_COMMAND} --test-dir "${CMAKE_BINARY_DIR}" --output-on-failure -j1
-            # Capture all counter data
             COMMAND ${CMAKE_COMMAND} -E make_directory "${_cov_dir}"
             COMMAND ${LCOV_EXECUTABLE}
                 --capture
                 --ignore-errors inconsistent
                 --directory "${CMAKE_BINARY_DIR}"
                 --output-file "${_cov_info}"
-            # Extract and filter the data
             COMMAND ${LCOV_EXECUTABLE}
                 --extract "${_cov_info}"
                 --ignore-errors inconsistent
                 "${CMAKE_SOURCE_DIR}/src/*"
+                "${CMAKE_SOURCE_DIR}/compute/src/*"
                 --output-file "${_cov_info}"
-            # Render the HTML report
             COMMAND ${GENHTML_EXECUTABLE}
                 "${_cov_info}"
                 --output-directory "${_cov_dir}/html"
@@ -74,12 +71,14 @@ if(GPUKIT_ENABLE_COVERAGE AND NOT MSVC)
     endif()
 endif()
 
-# When sanitizers are active, bake suppression file paths into the binary so
-# the ASan/LSan/UBSan runtimes pick them up without requiring env var setup.
 if(GPUKIT_ENABLE_SANITIZERS AND NOT MSVC)
     set(_sup_dir "${CMAKE_CURRENT_SOURCE_DIR}/sanitizer_suppressions")
     target_compile_definitions(gpukit_tests PRIVATE
         GPUKIT_LSAN_SUPPRESSIONS_PATH="${_sup_dir}/lsan.supp"
         GPUKIT_UBSAN_SUPPRESSIONS_PATH="${_sup_dir}/ubsan.supp"
     )
+endif()
+
+if(GPUKIT_BUILD_COMPUTE_MODULE)
+    add_subdirectory(compute)
 endif()

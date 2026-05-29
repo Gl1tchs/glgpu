@@ -49,7 +49,7 @@ jobs:
             -DGPUKIT_BUILD_EXAMPLES=OFF
 
       - name: Build tests
-        run: cmake --build --preset debug --target gpukit_tests -j$(nproc)
+        run: cmake --build --preset debug -j$(nproc)
 
       - name: Run tests
         run: |

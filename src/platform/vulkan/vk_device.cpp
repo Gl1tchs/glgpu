@@ -443,9 +443,7 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	return {};
 }
 
-VulkanDevice::~VulkanDevice() {
-	_deletion_queue.flush();
-}
+VulkanDevice::~VulkanDevice() { _deletion_queue.flush(); }
 
 Res<> VulkanDevice::attach_surface(void* connection_handle, void* window_handle) {
 	if (!is_swapchain_supported()) {

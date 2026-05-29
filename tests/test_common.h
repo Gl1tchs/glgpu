@@ -1,6 +1,7 @@
 #pragma once
 
 #include <catch2/catch_test_macros.hpp>
+#include <fstream>
 #include <string>
 
 #include "gpukit/device.h"
@@ -37,8 +38,7 @@ inline void destroy_test_device() {
 inline Res<Shader> load_shader(const char* vert, const char* frag) {
 	auto try_prefix = [&](const char* prefix) {
 		return shader_create(
-				(std::string(prefix) + vert).c_str(),
-				(std::string(prefix) + frag).c_str());
+				(std::string(prefix) + vert).c_str(), (std::string(prefix) + frag).c_str());
 	};
 	auto res = try_prefix("tests/assets/");
 	if (res.is_error())
@@ -51,6 +51,15 @@ inline Res<Shader> load_compute_shader(const char* comp) {
 	if (res.is_error())
 		res = shader_create(("../../tests/assets/" + std::string(comp)).c_str());
 	return res;
+}
+
+// Resolves a test asset path by trying "tests/assets/<name>" first (project root),
+// then "../../tests/assets/<name>" (build subdirectory). Use with Kernel constructor.
+inline std::string compute_asset(const char* name) {
+	std::string primary = std::string("tests/assets/") + name;
+	if (std::ifstream(primary).good())
+		return primary;
+	return std::string("../../tests/assets/") + name;
 }
 
 } // namespace gpukit::test

@@ -68,6 +68,14 @@ macro(add_imgui_example example_name source_file)
     )
 endmacro()
 
+# Headless compute examples — no window, no SDL2; links gpukit::compute only.
+macro(add_compute_example example_name source_file)
+    if(GPUKIT_BUILD_COMPUTE_MODULE)
+        add_executable(${example_name} ${source_file})
+        target_link_libraries(${example_name} PRIVATE gpukit::compute)
+    endif()
+endmacro()
+
 # ---------------------------------------------------------------------------
 # Examples
 # ---------------------------------------------------------------------------
@@ -76,3 +84,4 @@ add_example(02_compute_example "02-compute_example.cpp")
 add_imgui_example(03_imgui_example "03-imgui_example.cpp")
 add_example(04_hello_triangle "04-hello_triangle.cpp")
 add_example(05_bindless_example "05-bindless_example.cpp")
+add_compute_example(06_compute_module "06-compute_module.cpp")
