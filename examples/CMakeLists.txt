@@ -27,10 +27,6 @@ target_include_directories(imgui PUBLIC
 
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL2::SDL2)
 
-# ---------------------------------------------------------------------------
-# Macros
-# ---------------------------------------------------------------------------
-
 macro(add_example example_name source_file)
     add_executable(${example_name} ${source_file})
 
@@ -68,7 +64,20 @@ macro(add_imgui_example example_name source_file)
     )
 endmacro()
 
-# Headless compute examples — no window, no SDL2; links gpukit::compute only.
+macro(add_headless_example example_name source_file)
+    add_executable(${example_name} ${source_file})
+
+    target_link_libraries(${example_name}
+        PRIVATE
+            gpukit::gpukit
+    )
+
+    target_include_directories(${example_name}
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/../misc
+    )
+endmacro()
+
 macro(add_compute_example example_name source_file)
     if(GPUKIT_BUILD_COMPUTE_MODULE)
         add_executable(${example_name} ${source_file})
@@ -85,3 +94,4 @@ add_imgui_example(03_imgui_example "03-imgui_example.cpp")
 add_example(04_hello_triangle "04-hello_triangle.cpp")
 add_example(05_bindless_example "05-bindless_example.cpp")
 add_compute_example(06_compute_module "06-compute_module.cpp")
+add_headless_example(07_expose_vulkan "07-expose_vulkan.cpp")
