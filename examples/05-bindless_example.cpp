@@ -128,8 +128,8 @@ int main(void) {
 	gpukit::Image texture3 = create_checkered_texture(255, 255, 0);
 
 	gpukit::SamplerCreateInfo sampler_info{};
-	sampler_info.min_filter = gpukit::ImageFiltering::LINEAR;
-	sampler_info.mag_filter = gpukit::ImageFiltering::LINEAR;
+	sampler_info.min_filter = gpukit::ImageFiltering::NEAREST;
+	sampler_info.mag_filter = gpukit::ImageFiltering::NEAREST;
 	sampler_info.wrap_u = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
 	sampler_info.wrap_v = gpukit::ImageWrappingMode::CLAMP_TO_EDGE;
 	gpukit::Sampler sampler = gpukit::sampler_create(sampler_info).value();

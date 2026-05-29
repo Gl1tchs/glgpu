@@ -56,14 +56,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _vk_debug_callback(
 	return VK_FALSE;
 }
 
-static bool s_initialized = false;
-
 Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
-	if (s_initialized) {
-		GPUKIT_LOG_ERROR("Only one backend can exist at a time.");
-		return Error::INITIALIZATION_FAILED;
-	}
-
 	bool use_validation_layers = info.required_features & DEVICE_FEATURE_VALIDATION_LAYERS;
 	if (use_validation_layers && !_check_validation_layer_support()) {
 		GPUKIT_LOG_WARNING("[VULKAN] Validation layers requested but not available!");
@@ -153,8 +146,6 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 			_instance, "vkCmdEndDebugUtilsLabelEXT");
 	_vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(
 			_instance, "vkSetDebugUtilsObjectNameEXT");
-
-	s_initialized = true;
 
 	const bool swapchain_support_required = info.required_features & DEVICE_FEATURE_SWAPCHAIN_BIT;
 	const bool surface_support_required =
@@ -454,7 +445,6 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 
 VulkanDevice::~VulkanDevice() {
 	_deletion_queue.flush();
-	s_initialized = false;
 }
 
 Res<> VulkanDevice::attach_surface(void* connection_handle, void* window_handle) {

@@ -7,24 +7,32 @@
 
 namespace gpukit::test {
 
+inline DeviceHandle g_test_device = GL_NULL_HANDLE;
+
 inline void ensure_test_device() {
-	static bool initialized = false;
-	if (initialized)
+	if (g_test_device != GL_NULL_HANDLE)
 		return;
 
 	DeviceCreateInfo info = {};
 	info.required_features = DEVICE_FEATURE_VALIDATION_LAYERS;
 
-	if (auto res = init(info); !res) {
+	auto res = init(info);
+	if (!res) {
 		fprintf(stderr, "FATAL: Could not initialize Vulkan Backend. Error: %d\n",
 				(int)res.error());
 		std::terminate();
 	}
 
-	initialized = true;
+	g_test_device = res.value();
 }
 
-inline void destroy_test_device() { shutdown(); }
+inline void destroy_test_device() {
+	if (g_test_device == GL_NULL_HANDLE)
+		return;
+	select_device(g_test_device);
+	shutdown(g_test_device);
+	g_test_device = GL_NULL_HANDLE;
+}
 
 inline Res<Shader> load_shader(const char* vert, const char* frag) {
 	auto try_prefix = [&](const char* prefix) {

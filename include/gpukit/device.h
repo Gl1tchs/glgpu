@@ -45,8 +45,11 @@ struct NativeContext {
 // Lifecycle
 // =========================================================================
 
-GPUKIT_API Res<> init(const DeviceCreateInfo& info);
+GPUKIT_API Res<DeviceHandle> init(const DeviceCreateInfo& info);
+GPUKIT_API void shutdown(DeviceHandle device);
+// Shutdown current device
 GPUKIT_API void shutdown();
+GPUKIT_API void select_device(DeviceHandle device);
 
 // =========================================================================
 // Device & Surface
