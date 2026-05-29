@@ -14,6 +14,7 @@ include(CMakePackageConfigHelpers)
 # ------------------------------------------------------------------------------
 option(GPUKIT_BUILD_EXAMPLES "Build examples" ON)
 option(GPUKIT_BUILD_TESTS "Build tests" ON)
+option(GPUKIT_BUILD_COMPUTE_MODULE "Build the high-level compute module" ON)
 
 # SIMD intrinsics are x86/x86_64 only; default OFF on every other architecture
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|x86|i686|AMD64)$" AND NOT ANDROID)
@@ -344,6 +345,10 @@ endif() # NOT ANDROID
 # ------------------------------------------------------------------------------
 # Subdirectories
 # ------------------------------------------------------------------------------
+if(GPUKIT_BUILD_COMPUTE_MODULE)
+    add_subdirectory(compute)
+endif()
+
 if(GPUKIT_BUILD_EXAMPLES AND NOT ANDROID)
     add_subdirectory(examples)
 endif()

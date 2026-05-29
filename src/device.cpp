@@ -35,6 +35,8 @@ void shutdown(DeviceHandle device) {
 }
 
 void shutdown() {
+	gpukit::device_wait();
+
 	if (!t_current) {
 		GPUKIT_LOG_ERROR("Unable to shutdown current device");
 		return;

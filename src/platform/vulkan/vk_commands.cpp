@@ -220,9 +220,9 @@ Res<> VulkanDevice::command_pool_reset(CommandPool command_pool) {
 	VkResult res = VK_SUCCESS;
 	if (pool_mutex) {
 		std::lock_guard<std::mutex> pool_lock(*pool_mutex);
-		res = vkResetCommandPool(_device, vk_pool, VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM);
+		res = vkResetCommandPool(_device, vk_pool, 0);
 	} else {
-		res = vkResetCommandPool(_device, vk_pool, VK_COMMAND_POOL_RESET_FLAG_BITS_MAX_ENUM);
+		res = vkResetCommandPool(_device, vk_pool, 0);
 	}
 
 	if (res != VK_SUCCESS) {
