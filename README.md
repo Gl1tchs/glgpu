@@ -50,6 +50,7 @@ cmake --install build # after building
 ## Documentation
 
 - **[Architecture & API Guide](docs/architecture.md)** — core concepts, resource lifecycle, pipelines, synchronization, and swapchain usage with code examples.
+- **[Compute API](docs/compute.md)** — compute API showcase, usage and details.
 - **[Contributing Guide](CONTRIBUTING.md)** — build presets, commit conventions, test requirements, and PR checklist.
 
 ## Examples
@@ -63,5 +64,8 @@ The `examples/` directory contains reference implementations demonstrating API u
 | `03-imgui_example.cpp` | Dear ImGui integration |
 | `04-hello_triangle.cpp` | Graphics pipeline, vertex buffers, indexed draw |
 | `05-bindless_example.cpp` | Bindless descriptor arrays |
+| `06-compute_module.cpp` | Compute module |
+| `07-expose_vulkan.cpp` | How to use vulkan in gpukit |
+| `08-raii_example.cpp` | RAII wrappers |
 
 If `GPUKIT_BUILD_EXAMPLES` is enabled, binaries are generated in the build output directory.
