@@ -16,7 +16,9 @@ target_link_libraries(gpukit_compute_tests
         Catch2::Catch2
 )
 
-catch_discover_tests(gpukit_compute_tests)
+catch_discover_tests(gpukit_compute_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
 if(GPUKIT_ENABLE_SANITIZERS AND NOT MSVC)
     set(_sup_dir "${CMAKE_SOURCE_DIR}/tests/sanitizer_suppressions")

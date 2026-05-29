@@ -26,7 +26,9 @@ target_link_libraries(gpukit_tests
         Catch2::Catch2
 )
 
-catch_discover_tests(gpukit_tests)
+catch_discover_tests(gpukit_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
 
 # Coverage report target — only wired up when lcov + genhtml are present.
 if(GPUKIT_ENABLE_COVERAGE AND NOT MSVC)
