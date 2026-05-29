@@ -681,11 +681,43 @@ Res<> VulkanDevice::command_buffer_memory_barrier(
 		return Error::INVALID_HANDLE;
 	}
 
-	VkAccessFlags src_access = static_cast<VkAccessFlags>(src_usage);
-	VkAccessFlags dst_access = static_cast<VkAccessFlags>(dst_usage);
+	auto usage_to_access = [](BufferUsageFlags u) -> VkAccessFlags {
+		VkAccessFlags f = 0;
+		if (u & BUFFER_USAGE_TRANSFER_SRC_BIT)
+			f |= VK_ACCESS_TRANSFER_READ_BIT;
+		if (u & BUFFER_USAGE_TRANSFER_DST_BIT)
+			f |= VK_ACCESS_TRANSFER_WRITE_BIT;
+		if (u & BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+			f |= VK_ACCESS_UNIFORM_READ_BIT;
+		if (u & BUFFER_USAGE_STORAGE_BUFFER_BIT)
+			f |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+		if (u & BUFFER_USAGE_INDEX_BUFFER_BIT)
+			f |= VK_ACCESS_INDEX_READ_BIT;
+		if (u & BUFFER_USAGE_VERTEX_BUFFER_BIT)
+			f |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+		if (u & BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+			f |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+		return f;
+	};
 
-	VkPipelineStageFlags src_stage = static_cast<VkPipelineStageFlags>(src_usage);
-	VkPipelineStageFlags dst_stage = static_cast<VkPipelineStageFlags>(dst_usage);
+	auto usage_to_stage = [](BufferUsageFlags u) -> VkPipelineStageFlags {
+		VkPipelineStageFlags f = 0;
+		if (u & (BUFFER_USAGE_TRANSFER_SRC_BIT | BUFFER_USAGE_TRANSFER_DST_BIT))
+			f |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		if (u & (BUFFER_USAGE_UNIFORM_BUFFER_BIT | BUFFER_USAGE_STORAGE_BUFFER_BIT))
+			f |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+		if (u & (BUFFER_USAGE_INDEX_BUFFER_BIT | BUFFER_USAGE_VERTEX_BUFFER_BIT))
+			f |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+		if (u & BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+			f |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+		return f ? f : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	};
+
+	VkAccessFlags src_access = usage_to_access(src_usage);
+	VkAccessFlags dst_access = usage_to_access(dst_usage);
+	VkPipelineStageFlags src_stage = usage_to_stage(src_usage);
+	VkPipelineStageFlags dst_stage = usage_to_stage(dst_usage);
 
 	VkBufferMemoryBarrier buffer_barrier = {};
 	buffer_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -893,16 +925,15 @@ Res<> VulkanDevice::command_transition_image(CommandBuffer cmd, Image image,
 		return Error::INVALID_HANDLE;
 	}
 
+	VulkanImage* vk_image = (VulkanImage*)image;
+
 	VkImageAspectFlags aspect_mask =
-			(current_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
-					new_layout == ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+			is_depth_format(static_cast<DataFormat>(vk_image->image_format))
 			? VK_IMAGE_ASPECT_DEPTH_BIT
 			: VK_IMAGE_ASPECT_COLOR_BIT;
 
 	VkImageLayout vk_current_layout = static_cast<VkImageLayout>(current_layout);
 	VkImageLayout vk_new_layout = static_cast<VkImageLayout>(new_layout);
-
-	VulkanImage* vk_image = (VulkanImage*)image;
 
 	VkImageSubresourceRange sub_image = {};
 	sub_image.aspectMask = aspect_mask;
@@ -950,8 +981,8 @@ Res<> VulkanDevice::command_clear_depth(
 	range.levelCount = 1;
 	range.layerCount = 1;
 
-	vkCmdClearDepthStencilImage((VkCommandBuffer)cmd, vk_image->vk_image,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_value, 1, &range);
+	vkCmdClearDepthStencilImage((VkCommandBuffer)cmd, vk_image->vk_image, VK_IMAGE_LAYOUT_GENERAL,
+			&clear_value, 1, &range);
 
 	return {};
 }

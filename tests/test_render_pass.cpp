@@ -1,7 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <cstring>
-
 #include "test_common.h"
 
 using namespace gpukit;
@@ -47,16 +45,10 @@ TEST_CASE("Legacy Render Pass", "[renderpass][legacy]") {
 
 	SECTION("Create render pass with depth attachment") {
 		std::vector<RenderPassAttachment> atts = {
-			{ DataFormat::R8G8B8A8_UNORM,
-					AttachmentLoadOp::CLEAR,
-					AttachmentStoreOp::STORE,
-					ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-					1, false },
-			{ DataFormat::D32_SFLOAT,
-					AttachmentLoadOp::CLEAR,
-					AttachmentStoreOp::DONT_CARE,
-					ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-					1, true },
+			{ DataFormat::R8G8B8A8_UNORM, AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE,
+					ImageLayout::COLOR_ATTACHMENT_OPTIMAL, 1, false },
+			{ DataFormat::D32_SFLOAT, AttachmentLoadOp::CLEAR, AttachmentStoreOp::DONT_CARE,
+					ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, true },
 		};
 		SubpassAttachment color_sub = { 0, SUBPASS_ATTACHMENT_COLOR };
 		SubpassAttachment depth_sub = { 1, SUBPASS_ATTACHMENT_DEPTH_STENCIL };
@@ -183,7 +175,6 @@ TEST_CASE("Legacy Render Pass", "[renderpass][legacy]") {
 		REQUIRE(image_free(img).is_ok());
 		REQUIRE(render_pass_destroy(rp).is_ok());
 	}
-
 }
 
 // =========================================================================
@@ -224,8 +215,9 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 		color_att.clear_color = COLOR_BLACK;
 
 		REQUIRE(command_begin(cmd).is_ok());
-		REQUIRE(command_transition_image(cmd, img, ImageLayout::UNDEFINED,
-					ImageLayout::COLOR_ATTACHMENT_OPTIMAL).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, img, ImageLayout::UNDEFINED, ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+						.is_ok());
 		REQUIRE(command_begin_rendering(cmd, { 64, 64 }, color_att).is_ok());
 		REQUIRE(command_end_rendering(cmd).is_ok());
 		REQUIRE(command_end(cmd).is_ok());
@@ -258,7 +250,8 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 		REQUIRE(img_res.is_ok());
 		Image img = img_res.value();
 
-		auto readback_res = buffer_create(PIXEL_BYTES, BUFFER_USAGE_TRANSFER_DST_BIT, MemoryAllocationType::CPU);
+		auto readback_res = buffer_create(
+				PIXEL_BYTES, BUFFER_USAGE_TRANSFER_DST_BIT, MemoryAllocationType::CPU);
 		REQUIRE(readback_res.is_ok());
 		Buffer readback = readback_res.value();
 
@@ -283,8 +276,9 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 
 		REQUIRE(command_begin(cmd).is_ok());
 
-		REQUIRE(command_transition_image(cmd, img, ImageLayout::UNDEFINED,
-					ImageLayout::COLOR_ATTACHMENT_OPTIMAL).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, img, ImageLayout::UNDEFINED, ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+						.is_ok());
 
 		REQUIRE(command_begin_rendering(cmd, { W, H }, color_att).is_ok());
 		REQUIRE(command_bind_graphics_pipeline(cmd, pipeline).is_ok());
@@ -293,8 +287,9 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 		REQUIRE(command_draw(cmd, 3, 1).is_ok());
 		REQUIRE(command_end_rendering(cmd).is_ok());
 
-		REQUIRE(command_transition_image(cmd, img, ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-					ImageLayout::TRANSFER_SRC_OPTIMAL).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, img, ImageLayout::COLOR_ATTACHMENT_OPTIMAL, ImageLayout::TRANSFER_SRC_OPTIMAL)
+						.is_ok());
 
 		BufferImageCopyRegion copy_region = {};
 		copy_region.image_subresource = { IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
@@ -395,10 +390,12 @@ TEST_CASE("Dynamic Rendering", "[renderpass][dynamic]") {
 		color_att.clear_color = COLOR_BLACK;
 
 		REQUIRE(command_begin(cmd).is_ok());
-		REQUIRE(command_transition_image(cmd, color_img,
-					ImageLayout::UNDEFINED, ImageLayout::COLOR_ATTACHMENT_OPTIMAL).is_ok());
-		REQUIRE(command_transition_image(cmd, depth_img,
-					ImageLayout::UNDEFINED, ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, color_img, ImageLayout::UNDEFINED, ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+						.is_ok());
+		REQUIRE(command_transition_image(cmd, depth_img, ImageLayout::UNDEFINED,
+				ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+						.is_ok());
 		REQUIRE(command_begin_rendering(cmd, { W, H }, color_att, depth_img).is_ok());
 		REQUIRE(command_bind_graphics_pipeline(cmd, pipeline).is_ok());
 		REQUIRE(command_set_viewport(cmd, { W, H }).is_ok());
@@ -451,8 +448,8 @@ TEST_CASE("Command Operations", "[command]") {
 		CommandBuffer cmd = cmd_res.value();
 
 		REQUIRE(command_begin(cmd).is_ok());
-		REQUIRE(command_transition_image(cmd, img,
-					ImageLayout::UNDEFINED, ImageLayout::GENERAL).is_ok());
+		REQUIRE(command_transition_image(cmd, img, ImageLayout::UNDEFINED, ImageLayout::GENERAL)
+						.is_ok());
 		REQUIRE(command_clear_color(cmd, img, COLOR_BLACK).is_ok());
 		REQUIRE(command_end(cmd).is_ok());
 
@@ -469,19 +466,14 @@ TEST_CASE("Command Operations", "[command]") {
 		ImageCreateInfo img_info = {};
 		img_info.size = { 128, 128 };
 		img_info.format = DataFormat::R8G8B8A8_UNORM;
-		img_info.usage = IMAGE_USAGE_SAMPLED_BIT | IMAGE_USAGE_TRANSFER_DST_BIT | IMAGE_USAGE_TRANSFER_SRC_BIT;
+		img_info.usage = IMAGE_USAGE_SAMPLED_BIT | IMAGE_USAGE_TRANSFER_DST_BIT |
+				IMAGE_USAGE_TRANSFER_SRC_BIT;
 		img_info.mipmapped = true;
 		img_info.samples = 1;
 
 		auto img_res = image_create(img_info);
 		REQUIRE(img_res.is_ok());
 		Image img = img_res.value();
-
-		// Upload initial data so mip generation has something to work with
-		constexpr size_t SIZE = 128 * 128 * 4;
-		uint8_t pixels[SIZE];
-		memset(pixels, 0x80, SIZE);
-		REQUIRE(image_upload(img, pixels, SIZE).is_ok());
 
 		auto queue_res = queue_get(QueueType::GRAPHICS);
 		REQUIRE(queue_res.is_ok());
@@ -495,7 +487,14 @@ TEST_CASE("Command Operations", "[command]") {
 		REQUIRE(cmd_res.is_ok());
 		CommandBuffer cmd = cmd_res.value();
 
+		// Transition the whole image to TRANSFER_DST, then move mip 0 to TRANSFER_SRC
 		REQUIRE(command_begin(cmd).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, img, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL)
+						.is_ok());
+		REQUIRE(command_transition_image(cmd, img, ImageLayout::TRANSFER_DST_OPTIMAL,
+				ImageLayout::TRANSFER_SRC_OPTIMAL, 0, 1)
+						.is_ok());
 		REQUIRE(command_generate_mipmaps(cmd, img).is_ok());
 		REQUIRE(command_end(cmd).is_ok());
 
@@ -512,7 +511,8 @@ TEST_CASE("Command Operations", "[command]") {
 		ImageCreateInfo info = {};
 		info.size = { 64, 64 };
 		info.format = DataFormat::R8G8B8A8_UNORM;
-		info.usage = IMAGE_USAGE_TRANSFER_SRC_BIT | IMAGE_USAGE_TRANSFER_DST_BIT | IMAGE_USAGE_SAMPLED_BIT;
+		info.usage = IMAGE_USAGE_TRANSFER_SRC_BIT | IMAGE_USAGE_TRANSFER_DST_BIT |
+				IMAGE_USAGE_SAMPLED_BIT;
 		info.samples = 1;
 
 		auto src_res = image_create(info);
@@ -537,12 +537,15 @@ TEST_CASE("Command Operations", "[command]") {
 		CommandBuffer cmd = cmd_res.value();
 
 		REQUIRE(command_begin(cmd).is_ok());
-		REQUIRE(command_transition_image(cmd, src,
-					ImageLayout::UNDEFINED, ImageLayout::TRANSFER_SRC_OPTIMAL).is_ok());
-		REQUIRE(command_transition_image(cmd, dst,
-					ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL).is_ok());
-		REQUIRE(command_blit_image(cmd, src, dst, { 64, 64 }, { 32, 32 },
-					0, 0, ImageFiltering::LINEAR).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, src, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_SRC_OPTIMAL)
+						.is_ok());
+		REQUIRE(command_transition_image(
+				cmd, dst, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL)
+						.is_ok());
+		REQUIRE(command_blit_image(
+				cmd, src, dst, { 64, 64 }, { 32, 32 }, 0, 0, ImageFiltering::LINEAR)
+						.is_ok());
 		REQUIRE(command_end(cmd).is_ok());
 
 		Fence fence = fence_create(false);
@@ -559,7 +562,8 @@ TEST_CASE("Command Operations", "[command]") {
 		ImageCreateInfo info = {};
 		info.size = { 32, 32 };
 		info.format = DataFormat::R8G8B8A8_UNORM;
-		info.usage = IMAGE_USAGE_TRANSFER_SRC_BIT | IMAGE_USAGE_TRANSFER_DST_BIT | IMAGE_USAGE_SAMPLED_BIT;
+		info.usage = IMAGE_USAGE_TRANSFER_SRC_BIT | IMAGE_USAGE_TRANSFER_DST_BIT |
+				IMAGE_USAGE_SAMPLED_BIT;
 		info.samples = 1;
 
 		auto src_res = image_create(info);
@@ -583,10 +587,12 @@ TEST_CASE("Command Operations", "[command]") {
 		CommandBuffer cmd = cmd_res.value();
 
 		REQUIRE(command_begin(cmd).is_ok());
-		REQUIRE(command_transition_image(cmd, src,
-					ImageLayout::UNDEFINED, ImageLayout::TRANSFER_SRC_OPTIMAL).is_ok());
-		REQUIRE(command_transition_image(cmd, dst,
-					ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL).is_ok());
+		REQUIRE(command_transition_image(
+				cmd, src, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_SRC_OPTIMAL)
+						.is_ok());
+		REQUIRE(command_transition_image(
+				cmd, dst, ImageLayout::UNDEFINED, ImageLayout::TRANSFER_DST_OPTIMAL)
+						.is_ok());
 		REQUIRE(command_copy_image_to_image(cmd, src, dst, { 32, 32 }, { 32, 32 }).is_ok());
 		REQUIRE(command_end(cmd).is_ok());
 
