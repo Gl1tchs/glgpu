@@ -13,27 +13,20 @@ namespace gpukit {
 // buffers touched in prior dispatches (conservative but correct for V1).
 class Stream {
 public:
-	static constexpr uint32_t DEFAULT_LOCAL_SIZE = 64;
-
 	Stream();
 	~Stream();
 
 	Stream(const Stream&) = delete;
 	Stream& operator=(const Stream&) = delete;
 
-	// Dispatch kernel over n elements using Tensor<T> arguments bound positionally
-	// to layout(binding=0), layout(binding=1), ... in the shader.
-	// local_size must match the local_size_x declared in the shader (default 64).
-	template <typename... Ts>
-	Res<> dispatch(const Kernel& kernel, uint32_t n, Tensor<Ts>&... tensors) {
-		std::vector<Buffer> bufs = { tensors.handle()... };
-		return dispatch_impl(kernel, n, DEFAULT_LOCAL_SIZE, bufs);
-	}
-
-	template <typename... Ts>
-	Res<> dispatch(const Kernel& kernel, uint32_t n, uint32_t local_size, Tensor<Ts>&... tensors) {
-		std::vector<Buffer> bufs = { tensors.handle()... };
-		return dispatch_impl(kernel, n, local_size, bufs);
+	// Dispatch kernel over all elements in the tensors. The element count is taken from
+	// the first tensor; local_size is taken from kernel.local_size(). Tensors are bound
+	// positionally to layout(binding=0), layout(binding=1), ... in the shader.
+	template <typename First, typename... Rest>
+	Res<> dispatch(const Kernel& kernel, First& first, Rest&... rest) {
+		const uint32_t n = static_cast<uint32_t>(first.count());
+		std::vector<Buffer> bufs = { first.handle(), rest.handle()... };
+		return dispatch_impl(kernel, n, kernel.local_size(), bufs);
 	}
 
 	// Submit accumulated commands to GPU and wait for completion.

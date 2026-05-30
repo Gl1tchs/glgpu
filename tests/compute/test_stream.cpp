@@ -29,7 +29,7 @@ TEST_CASE("Stream single-buffer dispatch", "[compute][stream]") {
 	REQUIRE(t.upload(in).is_ok());
 
 	Stream s;
-	REQUIRE(s.dispatch(k, N, t).is_ok());
+	REQUIRE(s.dispatch(k, t).is_ok());
 	REQUIRE(s.sync().is_ok());
 
 	std::vector<float> out(N, 0.0f);
@@ -51,7 +51,7 @@ TEST_CASE("Stream two-buffer dispatch", "[compute][stream]") {
 	REQUIRE(src.upload(in).is_ok());
 
 	Stream s;
-	REQUIRE(s.dispatch(k, N, src, dst).is_ok());
+	REQUIRE(s.dispatch(k, src, dst).is_ok());
 	REQUIRE(s.sync().is_ok());
 
 	std::vector<float> out(N, 0.0f);
@@ -71,8 +71,8 @@ TEST_CASE("Stream chained dispatches with auto-barrier", "[compute][stream]") {
 	REQUIRE(t.upload(std::vector<float>(N, 1.0f)).is_ok());
 
 	Stream s;
-	REQUIRE(s.dispatch(k, N, t).is_ok());
-	REQUIRE(s.dispatch(k, N, t).is_ok());
+	REQUIRE(s.dispatch(k, t).is_ok());
+	REQUIRE(s.dispatch(k, t).is_ok());
 	REQUIRE(s.sync().is_ok());
 
 	std::vector<float> out(N, 0.0f);
@@ -91,10 +91,10 @@ TEST_CASE("Stream reuse after sync", "[compute][stream]") {
 
 	Stream s;
 
-	REQUIRE(s.dispatch(k, N, t).is_ok());
+	REQUIRE(s.dispatch(k, t).is_ok());
 	REQUIRE(s.sync().is_ok()); // 1 → 2
 
-	REQUIRE(s.dispatch(k, N, t).is_ok());
+	REQUIRE(s.dispatch(k, t).is_ok());
 	REQUIRE(s.sync().is_ok()); // 2 → 4
 
 	std::vector<float> out(N, 0.0f);

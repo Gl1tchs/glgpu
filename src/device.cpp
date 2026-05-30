@@ -156,6 +156,11 @@ Res<Shader> shader_create(const char* vert, const char* frag) {
 }
 
 Res<Shader> shader_create(const char* compute) { return current().shader_create(compute); }
+
+Res<Shader> shader_create_from_source(const char* glsl_source, ShaderStageFlags stage) {
+	return current().shader_create_from_source(glsl_source, stage);
+}
+
 Res<> shader_free(Shader s) { return current().shader_free(s); }
 
 Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader s) {

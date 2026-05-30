@@ -133,6 +133,10 @@ GPUKIT_API Res<Shader> shader_create(const char* vertex_filepath, const char* fr
 // Create and compile compute shader from glsl file
 GPUKIT_API Res<Shader> shader_create(const char* compute_filepath);
 
+// Create and compile a shader from a raw GLSL source string (JIT, no file required).
+// Requires runtime shader compilation support via GPUKIT_HAS_SHADERC or shaderc binary installed.
+GPUKIT_API Res<Shader> shader_create_from_source(const char* glsl_source, ShaderStageFlags stage);
+
 GPUKIT_API Res<> shader_free(Shader shader);
 GPUKIT_API Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader);
 GPUKIT_API Res<std::vector<ShaderResourceInfo>> shader_get_resources(Shader shader);

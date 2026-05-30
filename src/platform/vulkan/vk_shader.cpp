@@ -56,6 +56,24 @@ static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
 	return std::vector<uint32_t>(result.cbegin(), result.cend());
 }
 
+static Res<std::vector<uint32_t>> _compile_glsl_source_to_spirv(
+		const std::string& source, ShaderStageFlags stage) {
+	shaderc::Compiler compiler;
+	shaderc::CompileOptions options;
+	options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+	options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+	auto result =
+			compiler.CompileGlslToSpv(source, _stage_to_shaderc_kind(stage), "<inline>", options);
+
+	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+		GPUKIT_LOG_ERROR("[GPUKit] JIT shader compilation failed: {}", result.GetErrorMessage());
+		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	}
+
+	return std::vector<uint32_t>(result.cbegin(), result.cend());
+}
+
 #elif defined(GPUKIT_HAS_GLSLC_BINARY)
 
 static bool _is_safe_path(const std::string& path) {
@@ -66,6 +84,44 @@ static bool _is_safe_path(const std::string& path) {
 		}
 	}
 	return !path.empty();
+}
+
+static Res<std::vector<uint32_t>> _compile_glsl_source_to_spirv(
+		const std::string& source, ShaderStageFlags stage) {
+	std::size_t h = std::hash<std::string>{}(source);
+	std::string tmp_src =
+			(std::filesystem::temp_directory_path() / ("gpukit_jit_" + std::to_string(h) + ".comp"))
+					.string();
+	std::string tmp_spv = tmp_src + ".spv";
+
+	{
+		std::ofstream out(tmp_src);
+		if (!out.is_open()) {
+			GPUKIT_LOG_ERROR("[GPUKit] Failed to write JIT shader temp file: {}", tmp_src);
+			return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+		}
+		out << source;
+	}
+
+	std::string cmd = "glslc \"" + tmp_src + "\" -o \"" + tmp_spv + "\"";
+	int ret = std::system(cmd.c_str());
+	std::filesystem::remove(tmp_src);
+
+	if (ret != 0) {
+		GPUKIT_LOG_ERROR("[GPUKit] JIT shader compilation failed (glslc returned {})", ret);
+		return make_err<std::vector<uint32_t>>(Error::SHADER_COMPILATION_FAILED);
+	}
+
+	std::ifstream spv_file(tmp_spv, std::ios::binary | std::ios::ate);
+	std::filesystem::remove(tmp_spv);
+	if (!spv_file.is_open())
+		return make_err<std::vector<uint32_t>>(Error::INVALID_ARGUMENT);
+
+	size_t size = spv_file.tellg();
+	std::vector<uint32_t> buffer(size / sizeof(uint32_t));
+	spv_file.seekg(0);
+	spv_file.read(reinterpret_cast<char*>(buffer.data()), size);
+	return buffer;
 }
 
 static Res<std::vector<uint32_t>> _compile_glsl_to_spirv(
@@ -576,6 +632,27 @@ Res<Shader> VulkanDevice::shader_create(const char* compute_filepath) {
 
 	std::vector<SpirvEntry> entries = { comp_entry };
 	return shader_create(entries);
+}
+
+Res<Shader> VulkanDevice::shader_create_from_source(
+		const char* glsl_source, ShaderStageFlags stage) {
+	if (!glsl_source)
+		return make_err<Shader>(Error::INVALID_ARGUMENT);
+
+#if defined(GPUKIT_HAS_SHADERC) || defined(GPUKIT_HAS_GLSLC_BINARY)
+	auto bytecode = _compile_glsl_source_to_spirv(glsl_source, stage);
+	if (bytecode.is_error())
+		return make_err<Shader>(bytecode.error());
+
+	SpirvEntry entry{ .byte_code = bytecode.value(), .stage = stage };
+	std::vector<SpirvEntry> entries = { entry };
+	return shader_create(entries);
+#else
+	(void)stage;
+	GPUKIT_LOG_ERROR(
+			"[GPUKit] Runtime shader compilation is disabled. Cannot compile from source string.");
+	return make_err<Shader>(Error::SHADER_COMPILATION_FAILED);
+#endif
 }
 
 Res<std::vector<ShaderResourceInfo>> VulkanDevice::shader_get_resources(Shader shader) {

@@ -144,6 +144,8 @@ public:
 
 	Res<Shader> shader_create(const char* compute_filepath);
 
+	Res<Shader> shader_create_from_source(const char* glsl_source, ShaderStageFlags stage);
+
 	Res<> shader_free(Shader shader);
 
 	Res<std::vector<ShaderInterfaceVariable>> shader_get_vertex_inputs(Shader shader);

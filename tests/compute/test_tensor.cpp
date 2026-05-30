@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <vector>
 
 #include "gpukit/compute/tensor.h"
@@ -77,4 +78,60 @@ TEST_CASE("Tensor move semantics", "[compute][tensor]") {
 	REQUIRE(b.handle() == original_handle);
 	REQUIRE(a.handle() == GL_NULL_HANDLE);
 	REQUIRE(b.count() == 128);
+}
+
+TEST_CASE("Tensor<T, N> byte size and element type", "[compute][tensor]") {
+	gpukit::test::ensure_test_device();
+
+	// N=1 behaves identically to unparameterised Tensor<T>
+	Tensor<float> scalar(64);
+	REQUIRE(scalar.byte_size() == 64 * sizeof(float));
+
+	// N=4: vec4 — byte_size should be count * 4 * sizeof(float)
+	Tensor<float, 4> vec4(64);
+	REQUIRE(vec4.count() == 64);
+	REQUIRE(vec4.byte_size() == 64 * 4 * sizeof(float));
+
+	// N=3: ivec3
+	Tensor<int, 3> ivec3(32);
+	REQUIRE(ivec3.count() == 32);
+	REQUIRE(ivec3.byte_size() == 32 * 3 * sizeof(int));
+}
+
+TEST_CASE("Tensor<float, 4> upload/download roundtrip", "[compute][tensor]") {
+	gpukit::test::ensure_test_device();
+
+	using elem = std::array<float, 4>;
+	const uint64_t N = 64;
+
+	Tensor<float, 4> t(N, TensorMemory::HOST);
+
+	std::vector<elem> in(N), out(N);
+	for (uint64_t i = 0; i < N; ++i)
+		in[i] = { float(i), float(i + 1), float(i + 2), float(i + 3) };
+
+	REQUIRE(t.upload(in).is_ok());
+	REQUIRE(t.download(out.data(), N).is_ok());
+
+	for (uint64_t i = 0; i < N; ++i)
+		REQUIRE(out[i] == in[i]);
+}
+
+TEST_CASE("Tensor<int, 3> upload/download roundtrip", "[compute][tensor]") {
+	gpukit::test::ensure_test_device();
+
+	using elem = std::array<int, 3>;
+	const uint64_t N = 32;
+
+	Tensor<int, 3> t(N, TensorMemory::HOST);
+
+	std::vector<elem> in(N), out(N);
+	for (uint64_t i = 0; i < N; ++i)
+		in[i] = { int(i), int(i * 2), int(i * 3) };
+
+	REQUIRE(t.upload(in).is_ok());
+	REQUIRE(t.download(out.data(), N).is_ok());
+
+	for (uint64_t i = 0; i < N; ++i)
+		REQUIRE(out[i] == in[i]);
 }

@@ -36,16 +36,49 @@ bool compute_test() {
 	x.upload(x_data);
 	y.upload(y_data);
 
-	// Load kernels (GLSL compiled at runtime by shaderc)
-	gpukit::Kernel saxpy("examples/assets/saxpy.comp");
-	gpukit::Kernel relu("examples/assets/relu.comp");
+	// Compile kernels JIT from inline GLSL source
+	gpukit::Kernel saxpy = gpukit::Kernel::from_source(R"(
+		#version 450
+
+		// SAXPY: y[i] = 2.0 * x[i] + y[i]
+
+		layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+		layout(set = 0, binding = 0, std430) readonly buffer X {
+			float v[];
+		} x_buf;
+
+		layout(set = 0, binding = 1, std430) buffer Y {
+			float v[];
+		} y_buf;
+
+		void main() {
+			uint i = gl_GlobalInvocationID.x;
+			y_buf.v[i] = 2.0 * x_buf.v[i] + y_buf.v[i];
+		}
+	)");
+
+	gpukit::Kernel relu = gpukit::Kernel::from_source(R"(
+		#version 450
+
+		layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+		layout(set = 0, binding = 0, std430) buffer Data {
+			float v[];
+		};
+
+		void main() {
+			uint i = gl_GlobalInvocationID.x;
+			v[i] = max(0.0, v[i]);
+		}
+	)");
 
 	// Record and submit two chained dispatches.
 	// Stream inserts a pipeline barrier between them automatically so the
 	// ReLU dispatch sees the SAXPY result rather than the original y[].
 	gpukit::Stream stream;
-	stream.dispatch(saxpy, N, x, y); // y[i] = 2*x[i] + y[i]
-	stream.dispatch(relu, N, y); // y[i] = max(0, y[i])
+	stream.dispatch(saxpy, x, y); // y[i] = 2*x[i] + y[i]
+	stream.dispatch(relu, y); // y[i] = max(0, y[i])
 	stream.sync();
 
 	// Read back and verify
