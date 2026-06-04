@@ -107,38 +107,40 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
         find_library(GPUKIT_SHADERC_LIB NAMES shaderc_combined shaderc)
         find_path(GPUKIT_SHADERC_INCLUDE NAMES shaderc/shaderc.hpp shaderc/shaderc.h)
 
-        if(GPUKIT_SHADERC_LIB AND GPUKIT_SHADERC_INCLUDE)
-            add_library(_gpukit_shaderc_imported UNKNOWN IMPORTED)
-            set_target_properties(_gpukit_shaderc_imported PROPERTIES
-                IMPORTED_LOCATION "${GPUKIT_SHADERC_LIB}"
-                INTERFACE_INCLUDE_DIRECTORIES "${GPUKIT_SHADERC_INCLUDE}"
-            )
-
-            find_library(GPUKIT_GLSLANG_LIB NAMES glslang)
-            find_library(GPUKIT_SPIRV_LIB NAMES SPIRV)
-            find_library(GPUKIT_SPIRV_TOOLS_LIB NAMES SPIRV-Tools)
-            find_library(GPUKIT_SPIRV_TOOLS_OPT_LIB NAMES SPIRV-Tools-opt)
-
-            set(_shaderc_extra "")
-            foreach(_dep GPUKIT_GLSLANG_LIB GPUKIT_SPIRV_LIB GPUKIT_SPIRV_TOOLS_LIB GPUKIT_SPIRV_TOOLS_OPT_LIB)
-                if(${_dep})
-                    list(APPEND _shaderc_extra "${${_dep}}")
-                endif()
-            endforeach()
-
-            if(_shaderc_extra)
-                set_target_properties(_gpukit_shaderc_imported PROPERTIES
-                    INTERFACE_LINK_LIBRARIES "${_shaderc_extra}"
-                )
-            endif()
-
-            set(GPUKIT_SHADERC_TARGET _gpukit_shaderc_imported)
-            message(STATUS "GPUKit: Found shaderc library at ${GPUKIT_SHADERC_LIB}")
-        else()
-            set(GPUKIT_SHADERC_TARGET "")
-            set(GPUKIT_USE_GLSLC_BINARY ON)
-            message(STATUS "GPUKit: shaderc not found — falling back to glslc binary")
+        if(NOT GPUKIT_SHADERC_LIB OR NOT GPUKIT_SHADERC_INCLUDE)
+            message(FATAL_ERROR "GPUKit: GPUKIT_ENABLE_SHADER_COMPILATION is ON but shaderc was not found. "
+                "Install shaderc-devel and its dependencies (glslang-devel, spirv-tools-devel), "
+                "or disable shader compilation with -DGPUKIT_ENABLE_SHADER_COMPILATION=OFF.")
         endif()
+
+        find_library(GPUKIT_GLSLANG_LIB NAMES glslang)
+        if(NOT GPUKIT_GLSLANG_LIB)
+            message(FATAL_ERROR "GPUKit: glslang not found but required by shaderc. Install glslang-devel.")
+        endif()
+
+        add_library(_gpukit_shaderc_imported UNKNOWN IMPORTED)
+        set_target_properties(_gpukit_shaderc_imported PROPERTIES
+            IMPORTED_LOCATION "${GPUKIT_SHADERC_LIB}"
+            INTERFACE_INCLUDE_DIRECTORIES "${GPUKIT_SHADERC_INCLUDE}"
+        )
+
+        find_library(GPUKIT_SPIRV_LIB NAMES SPIRV)
+        find_library(GPUKIT_SPIRV_TOOLS_LIB NAMES SPIRV-Tools)
+        find_library(GPUKIT_SPIRV_TOOLS_OPT_LIB NAMES SPIRV-Tools-opt)
+
+        set(_shaderc_extra "${GPUKIT_GLSLANG_LIB}")
+        foreach(_dep GPUKIT_SPIRV_LIB GPUKIT_SPIRV_TOOLS_LIB GPUKIT_SPIRV_TOOLS_OPT_LIB)
+            if(${_dep})
+                list(APPEND _shaderc_extra "${${_dep}}")
+            endif()
+        endforeach()
+
+        set_target_properties(_gpukit_shaderc_imported PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${_shaderc_extra}"
+        )
+
+        set(GPUKIT_SHADERC_TARGET _gpukit_shaderc_imported)
+        message(STATUS "GPUKit: Found shaderc library at ${GPUKIT_SHADERC_LIB}")
     endif()
 endif()
 
@@ -217,17 +219,13 @@ else()
     target_include_directories(gpukit PRIVATE ${Vulkan_INCLUDE_DIRS})
 endif()
 
-# Link wayland-client on Linux (desktop only) for Wayland surface support
+# Wayland surface support is required on Linux desktop
 if(UNIX AND NOT APPLE AND NOT ANDROID)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(WAYLAND_CLIENT wayland-client)
-        if(WAYLAND_CLIENT_FOUND)
-            target_link_libraries(gpukit PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
-            target_include_directories(gpukit PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIRS})
-            target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_WAYLAND)
-        endif()
-    endif()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(WAYLAND_CLIENT REQUIRED wayland-client)
+    target_link_libraries(gpukit PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+    target_include_directories(gpukit PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIRS})
+    target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_WAYLAND)
 endif()
 
 if(GPUKIT_USE_FMT)
@@ -258,11 +256,11 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
     if(GPUKIT_SHADERC_TARGET)
         target_link_libraries(gpukit PRIVATE ${GPUKIT_SHADERC_TARGET})
         target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_SHADERC)
-        # shaderc_combined may not be self-contained (e.g. Arch Linux); probe and
-        # add glslang / SPIRV-Tools explicitly so the linker can resolve all symbols.
-        find_library(GPUKIT_GLSLANG_LIB        NAMES glslang)
-        find_library(GPUKIT_SPIRV_LIB           NAMES SPIRV)
-        find_library(GPUKIT_SPIRV_TOOLS_LIB     NAMES SPIRV-Tools)
+        # shaderc_combined may not be self-contained, probe and add
+        # glslang / SPIRV-Tools explicitly so the linker can resolve all symbols.
+        find_library(GPUKIT_GLSLANG_LIB NAMES glslang)
+        find_library(GPUKIT_SPIRV_LIB NAMES SPIRV)
+        find_library(GPUKIT_SPIRV_TOOLS_LIB NAMES SPIRV-Tools)
         find_library(GPUKIT_SPIRV_TOOLS_OPT_LIB NAMES SPIRV-Tools-opt)
         foreach(_dep GPUKIT_GLSLANG_LIB GPUKIT_SPIRV_LIB
                      GPUKIT_SPIRV_TOOLS_LIB GPUKIT_SPIRV_TOOLS_OPT_LIB)
@@ -270,8 +268,6 @@ if(GPUKIT_ENABLE_SHADER_COMPILATION)
                 target_link_libraries(gpukit PRIVATE "${${_dep}}")
             endif()
         endforeach()
-    elseif(GPUKIT_USE_GLSLC_BINARY)
-        target_compile_definitions(gpukit PRIVATE GPUKIT_HAS_GLSLC_BINARY)
     endif()
 endif()
 
