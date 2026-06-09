@@ -1,0 +1,3 @@
+{
+  "projectDescription": "GPUKit — thin Vulkan abstraction targeting GPU compute for scientific simulation workloads. C++17, CMake, Catch2 tests, headless-first."
+}
