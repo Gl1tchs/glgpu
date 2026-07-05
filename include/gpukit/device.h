@@ -21,9 +21,9 @@ typedef uint32_t DeviceFeatureFlags;
 struct DeviceCreateInfo {
 	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
 	void* native_connection_handle =
-			nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display* | Android: nullptr
+			nullptr; // Win32: HINSTANCE | X11: Display* | Wayland: wl_display* | macOS: nullptr | Android: nullptr
 	void* native_window_handle =
-			nullptr; // Win32: HWND | X11: Window | Wayland: wl_surface* | Android: ANativeWindow*
+			nullptr; // Win32: HWND | X11: Window | Wayland: wl_surface* | macOS: CAMetalLayer* | Android: ANativeWindow*
 	uint32_t max_bindless_descriptors = 1000;
 	const char* pipeline_cache_path = nullptr; // If null, cache is not persisted to disk
 };

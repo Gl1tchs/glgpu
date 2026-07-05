@@ -4,7 +4,7 @@
 
 #if _WIN32
 #define DEBUGBREAK() __debugbreak()
-#elif __linux__
+#elif __APPLE__ || __linux__
 #include <signal.h>
 #define DEBUGBREAK() raise(SIGTRAP)
 #else

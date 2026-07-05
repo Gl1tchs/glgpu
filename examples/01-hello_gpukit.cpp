@@ -1,3 +1,4 @@
+#include "gpukit/assert.h"
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -54,7 +55,7 @@ int main(void) {
 		GPUKIT_ASSERT(false, "Only X11 and windows is supported.");
 	}
 
-	gpukit::init(info);
+	GPUKIT_ASSERT(gpukit::init(info));
 
 	gpukit::CommandQueue graphics_queue = gpukit::queue_get(gpukit::QueueType::GRAPHICS).value();
 	gpukit::CommandQueue present_queue = gpukit::queue_get(gpukit::QueueType::PRESENT).value();

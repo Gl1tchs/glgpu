@@ -251,6 +251,10 @@ if(ANDROID)
     target_link_libraries(gpukit PRIVATE log)
 endif()
 
+if(APPLE)
+    target_link_libraries(gpukit PRIVATE "-framework QuartzCore" "-framework Metal" objc)
+endif()
+
 # Shader compilation backend
 if(GPUKIT_ENABLE_SHADER_COMPILATION)
     if(GPUKIT_SHADERC_TARGET)

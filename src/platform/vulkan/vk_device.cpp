@@ -17,6 +17,8 @@
 #elif defined(__ANDROID__)
 #include <android/native_window.h>
 #include <vulkan/vulkan_android.h>
+#elif defined(__APPLE__)
+#include <vulkan/vulkan_metal.h>
 #elif defined(__linux__)
 #include <X11/Xlib.h>
 #include <vulkan/vulkan_xlib.h>
@@ -78,6 +80,12 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	// Get Extensions
 	std::vector<const char*> instance_extensions;
 
+#if defined(__APPLE__)
+	// Required for MoltenVK to enumerate portability devices
+	instance_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+	instance_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+
 	// Add surface extension if requested
 	if (info.required_features & DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT ||
 			info.native_window_handle != nullptr) {
@@ -86,6 +94,8 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 		instance_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__ANDROID__)
 		instance_extensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#elif defined(__APPLE__)
+		instance_extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
 		switch (get_window_compositor()) {
 #ifdef GPUKIT_HAS_WAYLAND
@@ -186,6 +196,9 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	if (swapchain_support_required || surface_support_required) {
 		required_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	}
+#if defined(__APPLE__)
+	required_extensions.push_back("VK_KHR_portability_subset");
+#endif
 
 	std::multimap<int, std::pair<VkPhysicalDevice, QueueFamilyIndices>> candidates;
 	for (const auto& dev : devices) {
@@ -283,6 +296,10 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
 	if (swapchain_support_required || _swapchain_supported) {
 		enabled_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	}
+#if defined(__APPLE__)
+	// Required by MoltenVK on macOS
+	enabled_extensions.push_back("VK_KHR_portability_subset");
+#endif
 	device_create_info.enabledExtensionCount = static_cast<uint32_t>(enabled_extensions.size());
 	device_create_info.ppEnabledExtensionNames = enabled_extensions.data();
 
@@ -712,7 +729,7 @@ uint32_t VulkanDevice::_rate_device_suitability(VkPhysicalDevice physical_device
 
 	if (!features_13.shaderDemoteToHelperInvocation || !features_13.dynamicRendering ||
 			!features_13.synchronization2 || !features_12.bufferDeviceAddress ||
-			!features.features.geometryShader || !features_12.descriptorIndexing ||
+			!features_12.descriptorIndexing ||
 			!features_12.shaderSampledImageArrayNonUniformIndexing ||
 			!features_12.descriptorBindingSampledImageUpdateAfterBind ||
 			!features_12.descriptorBindingPartiallyBound || !features_12.runtimeDescriptorArray) {
@@ -844,6 +861,11 @@ bool VulkanDevice::_create_surface_platform_specific(void* connection, void* win
 	create_info.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
 	create_info.window = static_cast<ANativeWindow*>(window);
 	return vkCreateAndroidSurfaceKHR(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
+#elif defined(__APPLE__)
+	VkMetalSurfaceCreateInfoEXT create_info = {};
+	create_info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+	create_info.pLayer = (const CAMetalLayer*)window; // caller provides CAMetalLayer*
+	return vkCreateMetalSurfaceEXT(_instance, &create_info, nullptr, &_surface) == VK_SUCCESS;
 #elif defined(__linux__)
 	if (!connection) {
 		return false;
