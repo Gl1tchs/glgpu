@@ -44,6 +44,8 @@ public:
 
 	NativeContext get_native_context() const;
 
+	DeviceSupportedFeatures get_device_features() const;
+
 	// Command Queue
 	Res<CommandQueue> queue_get(QueueType type);
 

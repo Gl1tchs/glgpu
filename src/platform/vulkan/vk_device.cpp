@@ -280,6 +280,9 @@ Res<> VulkanDevice::init(const DeviceCreateInfo& info) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
         .pNext = &features_12,
         .features = {
+            .geometryShader = (info.required_features & DEVICE_FEATURE_GEOMETRY_SHADER_BIT)
+					? VK_TRUE
+					: VK_FALSE,
             .sampleRateShading = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
         },
@@ -736,6 +739,11 @@ uint32_t VulkanDevice::_rate_device_suitability(VkPhysicalDevice physical_device
 		return 0;
 	}
 
+	if ((required_features & DEVICE_FEATURE_GEOMETRY_SHADER_BIT) &&
+			!features.features.geometryShader) {
+		return 0;
+	}
+
 	int score = 0;
 
 	VkPhysicalDeviceProperties properties = {};
@@ -930,6 +938,19 @@ NativeContext VulkanDevice::get_native_context() const {
 		.device = (void*)_device,
 		.graphics_queue = (void*)_graphics_queue.queue,
 		.graphics_queue_family = _graphics_queue.queue_family,
+	};
+}
+
+DeviceSupportedFeatures VulkanDevice::get_device_features() const {
+	return {
+		.geometry_shader = (bool)_physical_device_features.geometryShader,
+		.tessellation_shader = (bool)_physical_device_features.tessellationShader,
+		.wide_lines = (bool)_physical_device_features.wideLines,
+		.large_points = (bool)_physical_device_features.largePoints,
+		.multi_draw_indirect = (bool)_physical_device_features.multiDrawIndirect,
+		.draw_indirect_first_instance = (bool)_physical_device_features.drawIndirectFirstInstance,
+		.fill_mode_non_solid = (bool)_physical_device_features.fillModeNonSolid,
+		.anisotropic_filtering = (bool)_physical_device_features.samplerAnisotropy,
 	};
 }
 

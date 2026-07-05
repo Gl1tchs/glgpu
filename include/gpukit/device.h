@@ -15,8 +15,20 @@ enum DeviceRequiredFeatureBits : uint32_t {
 	DEVICE_FEATURE_ENSURE_SURFACE_SUPPORT = 0x2,
 	DEVICE_FEATURE_DISTINCT_COMPUTE_QUEUE_BIT = 0x4,
 	DEVICE_FEATURE_VALIDATION_LAYERS = 0x8,
+	DEVICE_FEATURE_GEOMETRY_SHADER_BIT = 0x10,
 };
 typedef uint32_t DeviceFeatureFlags;
+
+struct DeviceSupportedFeatures {
+	bool geometry_shader = false;
+	bool tessellation_shader = false;
+	bool wide_lines = false;
+	bool large_points = false;
+	bool multi_draw_indirect = false;
+	bool draw_indirect_first_instance = false;
+	bool fill_mode_non_solid = false;
+	bool anisotropic_filtering = false;
+};
 
 struct DeviceCreateInfo {
 	DeviceFeatureFlags required_features = DEVICE_FEATURE_NONE;
@@ -61,6 +73,7 @@ GPUKIT_API uint32_t get_max_msaa_samples();
 GPUKIT_API uint32_t get_max_bindless_instances();
 GPUKIT_API bool is_swapchain_supported();
 GPUKIT_API NativeContext get_native_context();
+GPUKIT_API DeviceSupportedFeatures get_device_features();
 GPUKIT_API Res<CommandQueue> queue_get(QueueType type);
 
 // =========================================================================

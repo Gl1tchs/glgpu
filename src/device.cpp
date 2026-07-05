@@ -58,6 +58,7 @@ uint32_t get_max_msaa_samples() { return current().get_max_msaa_samples(); }
 uint32_t get_max_bindless_instances() { return current().get_max_bindless_instances(); }
 bool is_swapchain_supported() { return current().is_swapchain_supported(); }
 NativeContext get_native_context() { return current().get_native_context(); }
+DeviceSupportedFeatures get_device_features() { return current().get_device_features(); }
 Res<CommandQueue> queue_get(QueueType type) { return current().queue_get(type); }
 
 // =========================================================================
